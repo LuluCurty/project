@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script src="../security-check.js"></script>
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="form.css">
+
+    <title>Edit Supplies</title>
+</head>
+
+<body>
+    <!--HEADER-->
+    <header class="app-header-wrapper">
+        <div class="flexbox-vertical" id="header-left">
+            <div id="logo-wrapper">
+                <a href="http://eletricca.com.br"><img id="logo" src="http://10.242.241.230/public/imgs/icone.png"
+                        alt="Logo"></a>
+            </div>
+            <div id="company-name">
+                ELETRICCA
+            </div>
+        </div>
+
+        <div id="annun-wrapper">
+            <span id="announcement">Anuncios</span>
+        </div>
+
+        <div id="header-right" class="flexbox-vertical">
+            <div id="header-search">
+                <i data-lucide="search" id="header-search-icon"></i>
+            </div>
+            <div id="header-barrier"></div>
+            <div id="profile-menu">
+                <div id="profile-button" class="flexbox-vertical">
+                    <img src="" alt="">
+                    <div class="user-name-wrapper">
+                        <span id="user-name">usuario</span>
+                    </div>
+                    <span class="header-dropbox-arrow">
+                        <i id="header-arrow-down" data-lucide="chevron-down"></i>
+                    </span>
+                </div>
+                <ul id="profile-menu-dropdown" class="dropdown hidden header-dropbox">
+                    <li id="profile-button" class="profile-menu-dropdown-item" onclick="goToProfile()">
+                        <i class="dropbox-icons" data-lucide="circle-user-round"></i>
+                        <span>Perfil</span>
+                    </li>
+                    <li id="logout-button" class="profile-menu-dropdown-item" onclick="logOut()">
+                        <i class="dropbox-icons" data-lucide="log-out"></i>
+                        <span>logout</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </header>
+    <aside class="app-aside-wrapper">
+        <div class="menu-title-wrapper">
+            <div class="flexbox-vertical aside-bars">
+                <div id="side-bar-name">
+                    Menus
+                </div>
+                <button id="toggleSideBar" data-state="expanded">⮜</button> <!-- ⮜ ☰  ⮞-->
+            </div>
+
+        </div>
+        <nav>
+            <ul id="tab-list"></ul>
+        </nav>
+    </aside>
+
+    <main class="main-app-wrapper">            
+        <div class="main-page-title"> <!-- COMEÇO TITULO DA PAGINA-->
+            <div class="main-page-tittle-wrapper">
+                <h3 id="page-tittle-text">
+                    Editar Material: xyz
+                </h3>
+            </div>
+        </div> <!-- COMEÇO TITULO DA PAGINA-->
+
+        <form class="main-app-content-form" action="">
+            <div class="ant-tab">
+                <div class="main-form-tablist">
+                    <div class="tablist-container">
+                        <div class="tablist-navigation-container">
+                            <div class="tablist-nav">
+                                <div class="tab-bar-animation"></div>
+                                <div class="tablist-nav-button">Material</div>
+                                <div class="tablist-nav-button">Preços</div>
+                                <div class="tablist-nav-button">Fornecedores</div>
+                            </div>
+                        </div>
+                        <div class="tablist-buttons">
+                            <div class="cancel">Cancelar</div>
+                            <div class="save">Salvar</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="main-form-wrapper"></div>
+            </div>
+        </form>
+
+
+
+        <form id="edit-supply-button">
+            <input id="supply-id" name="supply-id" disabled type="text">
+            <input id="supply-name" type="text" name="supply-name">
+            <input id="supply-image-url" type="url" name="supply-image-url">
+            <input id="supply-quantity" type="number" name="supply-quantity">
+            <textarea id="supply-details" name="supply-details"></textarea>
+            <input type="submit" value="Atualizar" id="updateBtn">
+        </form>
+        <div>
+            <p id="creation-date"></p>
+        </div>
+        <button type="button" id="delete-button">Apagar</button>
+
+    </main>
+
+    <footer class="footer-wrapper">
+        &copy; 2025 Meu Sistema - Todos os direitos reservados.
+    </footer>
+</body>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const supplyId = params.get('id');
+
+    async function loadSupply() {
+        try {
+
+            const res = await fetch(`/api/supplies/${supplyId}`, {
+                headers: getAuthHeaders()
+            });
+
+            if (!res.ok) {
+                alert("Erro ao carregar material get")
+                console.log(res.json());
+                return;
+            }
+
+            const { supply } = await res.json();
+
+            document.getElementById('supply-id').value = supply.id;
+            document.getElementById('supply-name').value = supply.supply_name;
+            document.getElementById('supply-image-url').value = supply.image_url;
+            document.getElementById('supply-quantity').value = supply.quantity;
+            document.getElementById('supply-details').value = supply.details;
+            document.getElementById('creation-date').value = supply.creation_date;
+
+
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao carregar o material");
+        }
+    }
+
+    async function updateSupply() {
+        try {
+            document.getElementById('updateBtn').addEventListener('click', async (event) => {
+                event.preventDefault();
+
+                const supply_name = document.getElementById('supply-name').value;
+                const image_url = document.getElementById('supply-image-url').value;
+                const quantity = document.getElementById('supply-quantity').value;
+                const details = document.getElementById('supply-details').value;
+
+                const res = await fetch(`/api/supplies/${supplyId}`, {
+                    method: "PUT",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ details, supply_name, image_url, quantity })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    alert("Erro ao atualizar o material");
+                    console.error(err);
+                    return;
+                };
+
+                alert('Material atualizado');
+                window.location.reload();
+            })
+        } catch (error) {
+            console.error(error);
+            alert('Erro ao atualizar o material GERAL');
+        }
+    }
+
+    async function deleteSupply() {
+        try {
+            document.getElementById('delete-button').addEventListener('click', async (event) => {
+                event.preventDefault();
+
+                if (!confirm("Tem certeza que deseja excluir este material?")) {
+                    return;
+                }
+
+                const res = await fetch(`/api/supplies/${supplyId}`, {
+                    method: "DELETE",
+                    headers: getAuthHeaders()
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    alert("Erro ao deletar o usuario" + (res.status || error.error));
+                    return;
+                }
+
+                alert('Material excluido com sucesso');
+                sessionStorage.setItem('refreshSupplies', 'true');
+                window.history.back();
+            })
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao apagar o material");
+        }
+    }
+    loadSupply();
+    updateSupply();
+    deleteSupply();
+</script>
+
+
+<script src="../util.js"></script>
+<script>
+    loadAnnouncement();
+    initSideBar();     
+</script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script>
+    lucide.createIcons();
+</script>
+
+</html>

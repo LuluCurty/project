@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const userId = params.get('id');
+
+        if (!userId) {
+            alert('Usuario desconhecido')
+            window.history.back();
+        }
+    </script>
+    <script src="security-check.js"></script>
+
+    <title>Users</title>
+</head>
+
+<body>
+    <header class="app-header-wrapper">
+        <div class="flexbox-vertical" id="header-left">
+            <div id="logo-wrapper">
+                <a href="http://eletricca.com.br"><img id="logo" src="http://10.242.241.230/public/imgs/icone.png"
+                        alt="Logo"></a>
+            </div>
+            <div id="company-name">
+                ELETRICCA
+            </div>
+        </div>
+
+        <div id="annun-wrapper">
+            <span id="announcement">Anuncios</span>
+        </div>
+
+        <div id="header-right" class="flexbox-vertical">
+            <div id="header-search-icon">A</div>
+            <div id="header-barrier">|</div>
+            <div id="profile-menu">
+                <div id="profile-button" class="flexbox-vertical">
+                    <img src="" alt="Avatar">
+                    <span id="user-name">usuario</span>
+                </div>
+                <ul id="profile-menu-dropdown" class="dropdown hidden">
+                    <li id="profile-button" onclick="goToProfile()">Perfil</li>
+                    <li id="logout-button" onclick="logOut()">logout</li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <aside class="app-aside-wrapper">
+        <div class="menu-title-wrapper">
+            <div class="flexbox-vertical aside-bars">
+                <div id="side-bar-name">
+                    Menus
+                </div>
+                <button id="toggleSideBar" data-state="expanded">⮜</button> <!-- ⮜ ☰  ⮞-->
+            </div>
+
+        </div>
+        <nav>
+            <ul id="tab-list"></ul>
+        </nav>
+    </aside>
+
+
+    <main>
+        <form id="edit-user-form">
+            <input id="user-id" disabled type="text">
+            <input id="user-first-name" type="text">
+            <input id="user-last-name" type="text">
+            <input id="user-email" type="email">
+            <input id="user-role" type="text">
+            <input id="user-telephone" type="tel">
+            <input id="updateBtn" type="submit" value="Atualizar">
+        </form>
+
+        <button id="delete-button" type="button">
+            apagar usuario
+        </button>
+
+        <p id="creation-date"></p>
+    </main>
+
+    <footer>
+        &copy; 2025 Meu Sistema - Todos os direitos reservados.
+    </footer>
+
+    <script>
+        async function loadUser() {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`api/users/${userId}`, {
+                headers: getAuthHeaders()
+            });
+            if (!res.ok) {
+                alert('Erro ao carregar usuario');
+                return;
+            };
+            const { user } = await res.json();
+            document.getElementById('user-id').value = user.user_id;
+            document.getElementById('user-first-name').value = user.first_name;
+            document.getElementById('user-last-name').value = user.last_name;
+            document.getElementById('user-email').value = user.email;
+            document.getElementById('user-role').value = user.user_role;
+            document.getElementById('user-telephone').value = user.telphone;
+            document.getElementById('creation-date').innerHTML = user.creation_date;
+
+        }
+
+        document.getElementById('edit-user-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const first_name = document.getElementById('user-first-name').value;
+            const last_name = document.getElementById('user-last-name').value;
+            const email = document.getElementById('user-email').value;
+            const telphone = document.getElementById('user-telephone').value;
+            const user_role = document.getElementById('user-role').value;
+
+            const res = await fetch(`api/users/${userId}`, {
+                method: 'PUT',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ first_name, last_name, email, telphone, user_role })
+            });
+
+            if (!res.ok) {
+                const error = await res.json();
+                alert("Erro ao atualizar" + (res.status || error.error) + error.error);
+                return;
+            }
+
+            alert("Usuario atualizado com sucesso");
+            window.location.href = 'users.html';
+
+        });
+        document.getElementById('delete-button').addEventListener('click', async (event) => {
+            event.preventDefault();
+
+            try {
+                const res = await fetch(`api/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    alert("Erro ao delete o usuario" + (res.status || error.error));
+                    return;
+                }
+                alert('Usuario excluido com sucesso');
+                window.location.href = 'admin.html';
+
+            }
+            catch (error) {
+                alert('Falha ao tentar excluir o usuario');
+                return;
+            }
+        });
+
+        loadUser();
+    </script>
+
+
+
+    <script src="util.js"></script>
+    <script>
+        loadAnnouncement();
+        initSideBar();     
+    </script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

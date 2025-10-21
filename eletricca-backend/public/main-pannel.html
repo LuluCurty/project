@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script src="security-check.js"></script>
+
+    <!-- Development version -->
+
+    <!-- Production version 
+        <script src="https://unpkg.com/lucide@latest"></script>
+    -->
+
+    <link rel="stylesheet" href="styles.css">
+
+    <title>Main Pannel</title>
+</head>
+
+<body>
+
+    <!--HEADER-->
+    <header class="app-header-wrapper">
+        <div class="flexbox-vertical" id="header-left">
+            <div id="logo-wrapper">
+                <a href="http://eletricca.com.br"><img id="logo" src="http://10.242.241.230/public/imgs/icone.png"
+                        alt="Logo"></a>
+            </div>
+            <div id="company-name">
+                ELETRICCA
+            </div>
+        </div>
+
+        <div id="annun-wrapper">
+            <span id="announcement">Anuncios</span>
+        </div>
+
+        <div id="header-right" class="flexbox-vertical">
+            <div id="header-search-icon">A</div>
+            <div id="header-barrier">|</div>
+            <div id="profile-menu">
+                <div id="profile-button" class="flexbox-vertical">
+                    <img src="" alt="Avatar">
+                    <span id="user-name">usuario</span>
+                </div>
+                <ul id="profile-menu-dropdown" class="dropdown hidden">
+                    <li id="profile-button" onclick="goToProfile()">Perfil</li>
+                    <li id="logout-button" onclick="logOut()">logout</li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <aside class="app-aside-wrapper">
+        <div class="menu-title-wrapper">
+            <div class="flexbox-vertical aside-bars">
+                <div id="side-bar-name">
+                    Menus
+                </div>
+                <button id="toggleSideBar" data-state="expanded">⮜</button> <!-- ⮜ ☰  ⮞-->
+            </div>
+
+        </div>
+        <nav>
+            <ul id="tab-list"></ul>
+        </nav>
+    </aside>
+
+    <main>
+        <h2>MAIN</h2>
+        <div>
+        </div>
+    </main>
+    <footer>
+        &copy; 2025 Meu Sistema - Todos os direitos reservados.
+    </footer>
+
+    <script src="util.js"></script>
+    <script>
+        loadAnnouncement();
+        initSideBar();     
+    </script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+<!--/*
+        async function initDashboard() {
+            try {
+                const token = checkAuth();
+                const res = await fetch('/api/users/me', {
+                    headers: getAuthHeaders()
+                })
+                if (!res.ok) {
+                    throw new Error("Falha ao obter dados do usuario");                        
+                }
+
+                const data = await res.json();
+                const allowedTabs = data.allowed_tabs;
+                const userId = data.user.user_id;
+                    
+                const container = document.getElementById('button-container');
+                allowedTabs.forEach(element => {
+                    const btn = document.createElement('button');
+                    btn.textContent = element.charAt(0).toUpperCase()+element.slice(1);
+
+                    btn.onclick = () =>{
+                        if (element === 'profile') {
+                            window.location.href = `/profile.html`;
+                        }
+                        else{
+                            window.location.href = `${element}.html`;
+                        }
+                    };
+                    container.appendChild(btn)
+                });
+
+            } catch (error) {
+                console.error(error);
+                alert('Falha ao carregar dashboard');
+            }
+        }
+        
+
+        initDashboard();
+
+
+        */-->
+
+</html>

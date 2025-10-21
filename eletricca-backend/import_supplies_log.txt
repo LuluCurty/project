@@ -1,0 +1,3 @@
+Relatório gerado em 2025-10-15 15:06:05.941912
+Materiais válidos: 309
+Duplicatas ignoradas: 2

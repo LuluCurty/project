@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script src="security-check.js"></script>
+    <link rel="stylesheet" href="styles.css">
+
+    <script src="https://unpkg.com/lucide@latest"></script>  
+    
+
+    <title>Admin Pannel</title>
+</head>
+
+<body>
+    <header class="app-header-wrapper">
+        <div class="flexbox-vertical" id="header-left">
+            <div id="logo-wrapper">
+                <a href="http://eletricca.com.br"><img id="logo" src="http://10.242.241.230/public/imgs/icone.png"
+                        alt="Logo"></a>
+            </div>
+            <div id="company-name">
+                ELETRICCA
+            </div>
+        </div>
+
+        <div id="annun-wrapper">
+            <span id="announcement">Anuncios</span>
+        </div>
+
+        <div id="header-right" class="flexbox-vertical">
+            <div id="header-search-icon">A</div>
+            <div id="header-barrier">|</div>
+            <div id="profile-menu">
+                <div id="profile-button" class="flexbox-vertical">
+                    <img src="" alt="Avatar">
+                    <span id="user-name">usuario</span>
+                </div>
+                <ul id="profile-menu-dropdown" class="dropdown hidden">
+                    <li id="profile-button" onclick="goToProfile()">Perfil</li>
+                    <li id="logout-button" onclick="logOut()">logout</li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <aside class="app-aside-wrapper">
+        <div class="menu-title-wrapper">
+            <div class="flexbox-vertical aside-bars">
+                <div id="side-bar-name">
+                    Menus
+                </div>
+                <button id="toggleSideBar" data-state="expanded">⮜</button> <!-- ⮜ ☰  ⮞-->
+            </div>
+
+        </div>
+        <nav>
+            <ul id="tab-list"></ul>
+        </nav>
+    </aside>
+
+    <main class="main-app-wrapper">
+        <div class="main-page-title">
+            <div class="main-page-tittle-wrapper">
+                <h3 id="page-tittle-text">
+                    Usuarios
+                </h3>
+            </div>
+        </div>
+
+        <div class="main-app-content-wrapper">
+            <div class="top-buttons">
+                <div id="top-buttons-wrapper" class="flexbox-vertical">
+                    <button class="top-button general-buttons" onclick="createNewUser()" type="button">
+                        <i data-lucide="plus"></i>
+                        <span>Add</span>
+                    </button>
+                    <form>Barra de pesquisa</form>
+                </div>
+            </div>
+
+            <div class="clear-fix">
+                <div class="main-content">
+                    <div class="main-container">
+                        <div class="table-content">
+                            <div class="table-scroll">
+                                <div class="table-header">
+                                    <table class="table-header-table">
+                                        <colgroup>
+                                            <col>
+                                            <col class="colgroup-11">
+                                            <col class="colgroup-11">
+                                            <col class="colgroup-14">
+                                            <col class="colgroup-14">
+                                            <col class="colgroup-11">
+                                            <col class="colgroup-17">
+                                            <col class="colgroup-17">
+                                        </colgroup>
+                                        <thead class="table-header-table-thead">
+                                            <tr class="table-header-table-tr">
+                                                <th class="table-header-table-th selection-column">
+                                                    <span>
+                                                        <div class="table-header-checkbox">
+                                                            <label class="table-header-checkbox-wrapper" for="">
+                                                                <span class="checkbox">
+                                                                    <input class="checkbox-input" type="checkbox"
+                                                                        name="" id="">
+                                                                    <span class="checkbox-inner"></span>
+                                                                </span>
+                                                            </label>
+                                                        </div>
+                                                    </span>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>ID</div>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>NOME</div>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>EMAIL</div>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>FUNÇÃO</div>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>TELEFONE</div>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>DATA DE CRIAÇÃO</div>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>Opções</div>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                    </table>
+                                </div>
+                                <div class="table-body">
+                                    <table class="main-app-table" id="usersTable">
+                                        <colgroup>
+                                            <col>
+                                            <col class="colgroup-11">
+                                            <col class="colgroup-11">
+                                            <col class="colgroup-14">
+                                            <col class="colgroup-14">
+                                            <col class="colgroup-11">
+                                            <col class="colgroup-17">
+                                            <col class="colgroup-17">
+                                        </colgroup>
+                                        <tbody class="table-tbody" id="usersTbody">
+                                            <tr class="table-tbody-rows alone">
+                                                <td>NO DATA</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="main-pagination-list">
+                        <ul></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        &copy; 2025 Meu Sistema - Todos os direitos reservados.
+    </footer>
+
+
+    <!--- MAIN SCRIPTS -->
+    <script>
+        function createNewUser() {
+            window.location.href = 'create-user.html';
+        }
+        async function fetchUsers() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Você precisa estar logado para visualizar esta pagina');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            try {
+                const res = await fetch('api/users', {
+                    headers: getAuthHeaders()
+                });
+                if (res.status === 401 || res.status === 403) {
+                    alert('Você precisa estar logado para visualizar esta pagina');
+                    window.location.href = 'index.html';
+                    return;
+                }
+                const users = await res.json();
+                renderTable(users);
+
+            } catch (error) {
+                console.log('Erro ao buscar usuarios', error);
+                alert('Erro ao buscar usuarios');
+            }
+        }
+        function renderTable(users) {
+            const tbody = document.getElementById('usersTbody');
+            tbody.innerHTML = '';
+
+            users.users.forEach(user => {
+                const tr = document.createElement('tr');
+                tr.classList.add("table-tbody-rows", 'trow-entry-list');
+
+                // separando colunas:
+                // primeira coluna, selecionar usuario com checkbox
+                const tdSelect = document.createElement('td');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.classList.add('user-select-checkbox');
+                checkbox.dataset.userId = user.user_id;
+                tdSelect.appendChild(checkbox);
+
+                // segunda coluna, coluna ID
+                const tdId = document.createElement('td');
+                tdId.classList.add('user-id');
+
+                const divId = document.createElement('div');
+                divId.classList.add('ellipsis');
+
+                divId.textContent = user.user_id;
+
+                tdId.appendChild(divId);
+
+                // terceira coluna, nome completo
+                const tdName = document.createElement('td');
+                tdName.classList.add('user-name');
+
+                const divName = document.createElement('div');
+                divName.classList.add(('ellipsis'));
+                divName.textContent = `${user.first_name} ${user.last_name}`;
+
+                tdName.appendChild(divName);
+
+                // quarto coluna, email
+                const tdEmail = document.createElement('td');
+                tdEmail.classList.add('user-email');
+
+                const divEmail = document.createElement('div');
+                divEmail.classList.add(('ellipsis'));
+                divEmail.textContent = `${user.email}`;
+
+                tdEmail.appendChild(divEmail);
+
+                // quinta coluna, user_rola >:D
+                const tdRole = document.createElement('td');
+                tdRole.classList.add('user-role');
+
+                const divRole = document.createElement('div');
+                divRole.classList.add(('ellipsis'));
+                divRole.textContent = `${user.user_role}`;
+
+                tdRole.appendChild(divRole);
+
+                // sexta colune, telefone
+                const tdPhone = document.createElement('td');
+                tdPhone.classList.add('user-phone');
+
+                const divPhone = document.createElement('div');
+                divPhone.classList.add(('ellipsis'));
+                divPhone.textContent = `${user.telphone}`;
+
+                tdPhone.appendChild(divPhone);
+
+                // setima coluna, finalmente created_at
+                const tdCreation = document.createElement('td');
+                tdCreation.classList.add('user-creation-date');
+
+                const divCreation = document.createElement('div');
+                divCreation.classList.add(('ellipsis'));
+                divCreation.textContent = `${user.creation_date}`;
+
+                tdCreation.appendChild(divCreation);
+
+                // oitava coluna, é aqui que a brincadeira começa >:)
+
+                const tdActions = document.createElement('td');
+                tdActions.classList.add('td-actions');
+
+                // butao de editar:
+                const buttonEdit = document.createElement('button');
+                buttonEdit.classList.add('button-action', 'button-edit');
+
+                const iconEdit = document.createElement('i');
+                iconEdit.setAttribute('data-lucide', 'user-pen');
+                buttonEdit.appendChild(iconEdit);
+
+                buttonEdit.title = 'Editar usuario';
+                buttonEdit.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    window.location.href = `edit-user.html?id=${user.user_id}`
+                });
+
+                // butao de apagar FINALMENTE
+                const buttonDelete = document.createElement('button');
+                buttonDelete.classList.add('button-action', 'button-delete');
+
+                const iconDelete = document.createElement('i');
+                iconDelete.setAttribute('data-lucide', 'trash');
+                buttonDelete.appendChild(iconDelete);
+
+                buttonDelete.title = 'Apagar usuario';
+                buttonDelete.addEventListener('click', async (event) => {
+                    event.stopPropagation();
+
+                    if (!confirm(`Deseja excluir ${user.first_name} ?`)) {
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch(`/api/users/${user.user_id}`, {
+                            method: 'DELETE',
+                            headers: getAuthHeaders()
+                        });
+
+                        if (!res.ok) {
+                            throw new Error("Erro ao excluir usuario");
+                        }
+
+                        alert('Usuario excluido');
+                        tr.remove();
+                    } catch (error) {
+                        console.error(error);
+                        alert('Falha ao excluir o usuario');
+                    }
+                });
+                tdActions.appendChild(buttonEdit);
+                tdActions.appendChild(buttonDelete);
+
+                // ADICIONAR TODOS OS TDS A LINHA !!!!!!!!!!!!
+
+                tr.appendChild(tdSelect);
+                tr.appendChild(tdId);
+                tr.appendChild(tdName);
+                tr.appendChild(tdEmail);
+                tr.appendChild(tdRole);
+                tr.appendChild(tdPhone);
+                tr.appendChild(tdCreation);
+                tr.appendChild(tdActions);
+
+
+                // ADICIOANR A LINHA AO TBODY
+                tbody.appendChild(tr);
+
+            });
+            lucide.createIcons();
+        };
+        fetchUsers();
+    </script>
+
+
+
+    <script src="util.js"></script>
+    <script>
+        loadAnnouncement();
+        initSideBar();     
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

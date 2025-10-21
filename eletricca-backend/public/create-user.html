@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script src="security-check.js"></script>
+
+    <link rel="stylesheet" href="styles.css">
+
+    <title>Criar usuarios</title>
+</head>
+
+<body>
+
+    <header class="app-header-wrapper">
+        <div class="flexbox-vertical" id="header-left">
+            <div id="logo-wrapper">
+                <a href="http://eletricca.com.br"><img id="logo" src="http://10.242.241.230/public/imgs/icone.png"
+                        alt="Logo"></a>
+            </div>
+            <div id="company-name">
+                ELETRICCA
+            </div>
+        </div>
+
+        <div id="annun-wrapper">
+            <span id="announcement">Anuncios</span>
+        </div>
+        <div id="header-right" class="flexbox-vertical">
+            <div id="header-search-icon">A</div>
+            <div id="header-barrier">|</div>
+            <div id="profile-menu">
+                <div id="profile-button" class="flexbox-vertical">
+                    <img src="" alt="Avatar">
+                    <span id="user-name">usuario</span>
+                </div>
+                <ul id="profile-menu-dropdown" class="dropdown hidden">
+                    <li id="profile-button" onclick="goToProfile()">Perfil</li>
+                    <li id="logout-button" onclick="logOut()">logout</li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+
+    <aside class="app-aside-wrapper">
+        <div class="flexbox-vertical">
+            <div id="side-bar-name">
+                menu
+            </div>
+            <button id="toggleSideBar" data-state="expanded">⮜</button> <!-- ⮜ ☰  ⮞-->
+        </div>
+        <nav>
+            <ul id="tab-list"></ul>
+        </nav>
+    </aside>
+
+    <main>
+        <form id="createUserForm">
+            <input id="email" type="email" placeholder="usuario@exemplo.com.br" required><br>
+            <input id="password" type="password" placeholder="**********" required><br>
+            <input id="tel" type="tel" placeholder="21123456789" required><br>
+            <input id="user_role" type="text" placeholder="usuario" value="user"><br>
+            <input id="first_name" type="text" placeholder="nome" required><br>
+            <input id="last_name" type="text" placeholder="sobrenome"><br>
+            <button type="submit">Criar</button>
+        </form>
+        <button id="btnVoltar">Voltar</button>
+    </main>
+
+    <footer>
+        &copy; 2025 Meu Sistema - Todos os direitos reservados.
+    </footer>
+
+
+    <script>
+        document.getElementById('btnVoltar').addEventListener('click', (e) => {
+            window.location.href = 'users.html';
+        })
+
+        document.getElementById('createUserForm').addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('você precisa estar logado');
+                window.location.href = 'index.html';
+            }
+
+            const email = document.getElementById('email').value;
+            const password_hashed = document.getElementById('password').value;
+            const telphone = document.getElementById('tel').value;
+            const user_role = document.getElementById('user_role').value || 'client';
+            const first_name = document.getElementById('first_name').value;
+            const last_name = document.getElementById('last_name').value;
+
+            try {
+                const res = await fetch("api/users/create", {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ email, password_hashed, telphone, user_role, first_name, last_name })
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    alert(' ERRO: ' + (error.error || res.status));
+                    return;
+                }
+
+                const newUser = await res.json();
+                alert('USUARIO CRIADO:' + newUser.user.email);
+                window.location.href = 'users.html';
+            } catch (error) {
+                console.log('ERROR AO CRIAR USUARIO', error);
+                alert('ERROR AO CRIAR USUARIO');
+            }
+        });
+    </script>
+
+
+    <script src="util.js"></script>
+    <script>
+        loadAnnouncement();
+        initSideBar();     
+    </script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

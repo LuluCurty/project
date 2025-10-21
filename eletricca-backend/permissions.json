@@ -1,0 +1,35 @@
+{
+  "client": {
+    "inicio": ["read"],
+    "users": ["read"],
+    "profile": ["read", "update"],
+    "supplies": [],
+    "services": ["read", "update"],
+    "supplies_variation": []
+  },
+  "operator": {
+    "inicio": ["read"],
+    "users": ["read", "update"],
+    "profile": ["read", "update"],
+    "supplies": ["read", "update", "create"],
+    "services": ["read", "update"],
+    "supplies_variation": ["read", "create", "update", "delete"]
+  },
+  "manager": {
+    "inicio": ["read"],
+    "users": ["read", "update", "delete"],
+    "profile": ["read", "update"],
+    "supplies": ["read", "create", "update", "delete"],
+    "services": ["read", "create", "update", "delete"],
+    "supplies_variation": ["read", "create", "update", "delete"]
+  },
+  "admin": {
+    "inicio": ["read"],
+    "users": ["read", "create", "update", "delete"],
+    "profile": ["read", "update"],
+    "supplies": ["read", "create", "update", "delete"],
+    "services": ["read", "create", "update", "delete"],
+    "supplies_variation": ["read", "create", "update", "delete"]
+  }
+}
+

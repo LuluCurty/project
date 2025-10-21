@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+
+    <script src="security-check.js"></script>
+    <title>TESTE</title>
+</head>
+
+<body>
+
+
+
+
+
+    <!--HEADER-->
+    <header class="app-header-wrapper">
+        <div class="flexbox-vertical" id="header-left">
+            <div id="logo-wrapper">
+                <a href="http://eletricca.com.br"><img id="logo" src="http://10.242.241.230/public/imgs/icone.png" alt="Logo"></a>
+            </div>
+            <div id="company-name">
+                ELETRICCA
+            </div>
+        </div>
+
+        <div id="annun-wrapper">
+            <span id="announcement">Anuncios</span>
+        </div>
+
+        <div id="header-right" class="flexbox-vertical">
+            <div id="header-search-icon">A</div>
+            <div id="header-barrier">|</div>
+            <div id="profile-menu">
+                <div id="profile-button" class="flexbox-vertical">
+                    <img src="" alt="Avatar">
+                    <span id="user-name">usuario</span>
+                </div>
+                <ul id="profile-menu-dropdown" class="dropdown hidden">
+                    <li id="profile-button" onclick="goToProfile()">Perfil</li>
+                    <li id="logout-button" onclick="logOut()">logout</li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <aside class="app-aside-wrapper">
+        <div class="flexbox-vertical">
+            <div id="side-bar-name">
+                menu
+            </div>
+            <button id="toggleSideBar" data-state="expanded">⮜</button> <!-- ⮜ ☰  ⮞-->
+        </div>
+        <nav>
+            <ul id="tab-list"></ul>
+        </nav>
+    </aside>
+
+    <main>
+        <div class="announcement-edit">
+            <h3>Editar avisos</h3>
+            <input type="text" id="announcement-msg" placeholder="Digite o aviiso"  >
+            <input type="text" id="announcement-link" placeholder="URL opcional">
+            <button onclick="saveAnnouncement()">Salvar</button>
+        </div>
+    </main>
+    <footer>
+        &copy; 2025 Meu Sistema - Todos os direitos reservados.
+    </footer>
+
+    <script src="util.js"></script>
+    <script>
+        loadAnnouncement();
+        initSideBar();     
+    </script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+    <script>
+        async function loadProfile() {
+            try {
+                const res = await fetch(`/api/users/me`, {
+                    headers: getAuthHeaders()
+                });
+                if (!res.ok) {
+                    throw new Error("Erro aos buscar usuarios");
+                }
+
+                const data = await res.json();
+
+                const container = document.getElementById('profile-container');
+                const h3 = document.createElement('h3');
+                h3.innerHTML = `${data.user.first_name} ${data.user.last_name}`;
+                container.appendChild(h3);
+
+            } catch (error) {
+                console.error(error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        }
+    </script>
+</body>
+
+</html>

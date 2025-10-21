@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script src="../security-check.js"></script>
+    <link rel="stylesheet" href="../styles.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+
+    <title>Materiais</title>
+</head>
+
+<body>
+
+    <!--HEADER-->
+    <header class="app-header-wrapper">
+        <div class="flexbox-vertical" id="header-left">
+            <div id="logo-wrapper">
+                <a href="http://eletricca.com.br"><img id="logo" src="http://10.242.241.230/public/imgs/icone.png"
+                        alt="Logo"></a>
+            </div>
+            <div id="company-name">
+                ELETRICCA
+            </div>
+        </div>
+
+        <div id="annun-wrapper">
+            <span id="announcement">Anuncios</span>
+        </div>
+
+        <div id="header-right" class="flexbox-vertical">
+            <div id="header-search">
+                <i data-lucide="search" id="header-search-icon"></i>
+            </div>
+            <div id="header-barrier"></div>
+            <div id="profile-menu">
+                <div id="profile-button" class="flexbox-vertical">
+                    <img src="" alt="">
+                    <div class="user-name-wrapper">
+                        <span id="user-name">usuario</span>
+                    </div>
+                    <span class="header-dropbox-arrow">
+                        <i id="header-arrow-down" data-lucide="chevron-down"></i>
+                    </span>
+                </div>
+                <ul id="profile-menu-dropdown" class="dropdown hidden header-dropbox">
+                    <li id="profile-button" class="profile-menu-dropdown-item" onclick="goToProfile()">
+                        <i class="dropbox-icons" data-lucide="circle-user-round"></i>
+                        <span>Perfil</span>
+                    </li>
+                    <li id="logout-button" class="profile-menu-dropdown-item" onclick="logOut()">
+                        <i class="dropbox-icons" data-lucide="log-out"></i>
+                        <span>logout</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <aside class="app-aside-wrapper">
+        <div class="menu-title-wrapper">
+            <div class="flexbox-vertical aside-bars">
+                <div id="side-bar-name">
+                    Menus
+                </div>
+                <button id="toggleSideBar" data-state="expanded">⮜</button> <!-- ⮜ ☰  ⮞-->
+            </div>
+
+        </div>
+        <nav>
+            <ul id="tab-list"></ul>
+        </nav>
+    </aside>
+
+    <main class="main-app-wrapper">
+        <!-- COMEÇO MAIN CONTAINER ------------------------------------------------------------------------------------------------>
+        <div class="main-page-title"> <!-- COMEÇO TITULO DA PAGINA-->
+            <div class="main-page-tittle-wrapper">
+                <h3 id="page-tittle-text">
+                    Materiais
+                </h3>
+            </div>
+        </div> <!-- COMEÇO TITULO DA PAGINA-->
+
+        <div class="main-app-content-wrapper">
+            <div class="top-buttons"> <!-- COMEÇO DOS BUTOES-->
+                <div id="top-buttons-wrapper" class="flexbox-vertical">
+                    <div>
+                        <button class="top-button general-buttons" onclick="goToCreate()" type="button">
+                            <i data-lucide="plus"></i>
+                            <span>Add</span>
+                        </button>
+                        <button class="top-button general-buttons" type="button" onclick="fetchSupplies()">
+                            <i data-lucide="list-restart"></i>
+                            <span>Reload</span>
+                        </button>
+                        <button class="top-button general-buttons" type="button" id="import-supplies-button">
+                            <i data-lucide="file-up"></i>
+                            <span>Importar</span>
+                        </button>
+                        <input type="file" name="import-supplies" id="import-supplies" />
+                    </div>
+
+                    <form id="search-bar" class="search">
+                        <div class="searchBar-inside">
+                            <div class="item-control-wrapper">
+                                <div class="search-wrapper">
+                                    <span class="input-wrapper">
+                                        <span class="input-search">
+                                            <i data-lucide="search"></i>
+                                        </span>
+                                        <input type="text" id="search-input" class="search-bar-input"
+                                            placeholder="Material">
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div> <!-- FIM DOS BUTOES-->
+
+            <div class="clear-fix">
+                <div class="main-content">
+                    <div class="main-container">
+                        <div class="table-content">
+                            <div class="table-scroll">
+                                <div class="table-header"> <!-- COMEÇO HEADER-->
+                                    <table class="table-header-table">
+                                        <colgroup>
+                                            <col>
+                                            <col class="colgroup-11"> <!--FOTO-->
+                                            <col class="colgroup-14"> <!-- NOME-->
+                                            <col class="colgroup-14"> <!--QUANTIDADE-->
+                                            <col class="colgroup-11"> <!-- ID-->
+                                            <col class="colgroup-17"> <!-- DETALHES-->
+                                            <col class="colgroup-11"> <!-- FORNECEDOR -->
+                                            <col class="colgroup-17"> <!-- OPCOES-->
+                                        </colgroup>
+                                        <thead class="table-header-table-thead">
+                                            <tr class="table-header-table-tr">
+                                                <th class="table-header-table-th selection-column">
+                                                    <span>
+                                                        <div class="table-header-checkbox">
+                                                            <label class="table-header-checkbox-wrapper" for="">
+                                                                <span class="checkbox">
+                                                                    <input class="checkbox-input" type="checkbox"
+                                                                        name="" id="">
+                                                                    <span class="checkbox-inner"></span>
+                                                                </span>
+                                                            </label>
+                                                        </div>
+                                                    </span>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>FOTO</div>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>NOME</div>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>QUANTIDADE</div>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>preço</div>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>DETALHES</div>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>FORNECEDOR</div>
+                                                </th>
+                                                <th class="table-header-table-th">
+                                                    <div>Opções</div>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                    </table>
+                                </div> <!-- FIM HEADER-->
+                                <div class="table-body">
+                                    <table class="main-app-table" id="usersTable">
+                                        <colgroup>
+                                            <col>
+                                            <col class="colgroup-11"> <!--FOTO-->
+                                            <col class="colgroup-14"> <!-- NOME-->
+                                            <col class="colgroup-14"> <!--QUANTIDADE-->
+                                            <col class="colgroup-11"> <!-- ID-->
+                                            <col class="colgroup-17"> <!-- DETALHES-->
+                                            <col class="colgroup-11"> <!-- FORNECEDOR -->
+                                            <col class="colgroup-17"> <!-- OPCOES-->
+                                        </colgroup>
+                                        <tbody class="table-tbody" id="main-content-tbody">
+                                            <tr class="table-tbody-rows alone">
+                                                <td id="no-data">NO DATA</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pagination">
+                            <div class="pagination-wrapper">
+                                <ul id="main-pagination-list"></ul>
+                                <div id="pagination-selection">
+                                    <label for="items-per-page" id="items-per-page-label"></label>
+                                    <select name="items-per-page" id="items-per-page-selection">
+                                        <option value="10">10</option>
+                                        <option value="20" selected>20</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <!-- FIM MAIN CONTAINER ------------------------------------------------------------------------------------------------>
+    <footer class="footer-wrapper">
+                    &copy; 2025 Meu Sistema - Todos os direitos reservados.
+    </footer>
+    <script src="../util.js"></script>
+    <script> /*DECLARACAO DE TODAS AS FUNCOES AQUI (ORGANIZAR DEPOIS)*/
+
+        //////////////////////////q paginacao
+        let currentPage = 1;
+        let itemsPerPage = 20;
+        let totalPages = 1;
+        async function fetchSupplies(page = currentPage, limit = itemsPerPage) {
+            try {
+
+                const res = await fetch(`/api/supplies?page=${page}&limit=${limit}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (!res.ok) {
+                    throw new Error("erro ao buscar materiais");
+                    alert(`Erro ao buscar materiais`)
+                }
+
+                const supplies = await res.json();
+                renderTable(supplies);
+                renderPagination(supplies.page, supplies.totalPages);
+                updateItemCounter(supplies.totalItems);
+            } catch (error) {
+                console.error(`Erro ao buscar materiais:` + error);
+                alert('Erro ao buscar materiais');
+            }
+        };
+
+        async function searchSupplies(query, page = 1, limit = itemsPerPage) {
+            try {
+                const res = await fetch(`/api/supplies/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (!res.ok) {
+                    throw new Error("erro ao buscar materiais");
+                    alert(`Erro ao buscar materiais`)
+                };
+
+                const supplies = await res.json();
+                renderTable(supplies);
+                renderPagination(supplies.page, supplies.totalPages);
+                updateItemCounter(supplies.totalItems);
+            } catch (error) {
+                console.error('Erro ao buscar materiais', error);
+            }
+        }
+
+        //////////////////////////q paginacao
+        function renderPagination(page, totalPages) {
+            currentPage = page;
+            const paginationContainer = document.getElementById('main-pagination-list');
+            paginationContainer.innerHTML = '';
+
+            const maxPageVisible = 5; // regular quantos podem aparecer;
+            const halfMaxPageVisible = Math.floor(maxPageVisible / 2);
+
+            function createButton(text, disabled, onClick, isActive = false) {
+                const li = document.createElement('li');
+                const button = document.createElement('button');
+                li.classList.add('pagination-item');
+
+                button.textContent = text;
+                button.disabled = disabled;
+
+                if (isActive) {
+                    button.classList.add('active-page');
+                };
+
+                button.addEventListener('click', onClick);
+                li.appendChild(button);
+                return li;
+            };
+            // << PRIMEIRA
+            paginationContainer.appendChild(createButton('<<', page === 1, () => fetchSupplies(1)));
+            // < anterior
+            paginationContainer.appendChild(createButton('<', page === 1, () => fetchSupplies(page - 1)));
+            // lista
+            let start = Math.max(1, page - halfMaxPageVisible);
+            let end = Math.min(totalPages, start + maxPageVisible - 1);
+            if (end - start < maxPageVisible - 1) {
+                start = Math.max(1, end - maxPageVisible + 1);
+            };
+
+            for (let index = start; index <= end; index++) {
+                paginationContainer.appendChild(createButton(index, false, () => fetchSupplies(index), index === page));
+            };
+
+            // > proxima
+            paginationContainer.appendChild(createButton('>', page === totalPages, () => fetchSupplies(page + 1)));
+            // >> ultima
+            paginationContainer.appendChild(createButton('>>', page === totalPages, () => fetchSupplies(totalPages)));
+        };
+        function setItemsPerPage() {
+            const select = document.getElementById('items-per-page-selection');
+            select.addEventListener('change', () => {
+                itemsPerPage = parseInt(select.value, 10);
+                currentPage = 1;
+                fetchSupplies();
+            });
+        };
+        function updateItemCounter(totalItems) {
+            const label = document.getElementById('items-per-page-label');
+            label.textContent = `Total: ${totalItems}`;
+        }
+        //////////////////////////q paginacao
+
+
+        ///////////////////////////////////qqq SEACH BAR
+        const searchForm = document.getElementById('search-bar');
+        const searchInput = document.getElementById('search-input');
+
+        searchForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const query = searchInput.value.trim();
+            if (query.length > 0) {
+                searchSupplies(query);
+            };
+        });
+
+        let searchTimeOut = null;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeOut);
+            searchTimeOut = setTimeout(() => {
+                const query = searchInput.value.trim();
+                if (query.length === 0) {
+                    fetchSupplies();
+                } else {
+                    searchSupplies(query);
+                }
+            }, 400);
+        });
+
+        ///////////////////////////////////qqq SEACH BAR
+
+        function renderTable(supplies) {
+            const tbody = document.getElementById('main-content-tbody');
+            tbody.innerHTML = '';
+
+            supplies.supplies.forEach(supply => {
+                const tr = document.createElement('tr');
+                tr.classList.add('table-tbody-rows', 'trow-entry-list');
+
+                // separando as colunas
+                // primeira coluna, selecionar material com checkbox
+                const tdSelect = document.createElement('td');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.classList.add('user-select-checkbox');
+                checkbox.dataset.supplyId = supply.id;
+                tdSelect.appendChild(checkbox);
+
+                // segunda coluna, foto
+                const tdImgUrl = document.createElement('td');
+                const divImgUrl = document.createElement('div');
+
+                tdImgUrl.classList.add('td-image');
+                divImgUrl.classList.add('ellipsis');
+
+                sImg = document.createElement('img');
+                sImg.classList.add('row-photo');
+
+                sImg.src = `${supply.image_url}`;
+                divImgUrl.appendChild(sImg);
+
+                tdImgUrl.appendChild(divImgUrl);
+
+
+                //terceira coluna, agora é price
+                const tdPrice = document.createElement('td');
+                tdPrice.classList.add('td-id');
+
+                const divPrice = document.createElement('div');
+                divPrice.classList.add('ellipsis');
+                if (supply.price === null) {
+                    divPrice.textContent = '-';
+                } else {
+                    divPrice.textContent = supply.price;
+                }
+                tdPrice.appendChild(divPrice);
+
+                // quarta coluna, nome
+                const tdName = document.createElement('td');
+                tdName.classList.add('td-name');
+
+                const divName = document.createElement('div');
+                divName.classList.add(('ellipsis'));
+                divName.textContent = `${supply.supply_name}`;
+                divName.title = `${supply.supply_name}`;
+
+                tdName.appendChild(divName);
+
+                // quinta coluna, quantidade
+                const tdQ = document.createElement('td');
+                tdQ.classList.add('td-name');
+
+                const divQ = document.createElement('div');
+                divQ.classList.add(('ellipsis'));
+                divQ.textContent = `${supply.quantity}`;
+
+                tdQ.appendChild(divQ);
+
+                // sexta coluna, detalhes
+                const tdDetails = document.createElement('td');
+                tdDetails.classList.add('td-details');
+                tdDetails.title = supply.details;
+
+                const divDetails = document.createElement('div');
+                divDetails.classList.add(('ellipsis'));
+                divDetails.textContent = `${supply.details}`;
+
+                tdDetails.appendChild(divDetails);
+
+
+                // setima coluna, finalmente supplier
+                const tdSupplier = document.createElement('td');
+                tdSupplier.classList.add('td-creation-date');
+
+                const divSupplier = document.createElement('div');
+                divSupplier.classList.add(('ellipsis'));
+                if (supply.supplier === null) {
+                    divSupplier.textContent = `-`;                
+                } else {
+                    divSupplier.textContent = `${supply.supplier}`;
+                }
+                tdSupplier.appendChild(divSupplier);
+
+                // oitava coluna
+                const tdActions = document.createElement('td');
+                tdActions.classList.add('td-actions');
+
+                // butao de editar
+                const buttonEdit = document.createElement('button');
+                buttonEdit.classList.add('button-action', 'button-edit');
+
+                const iconEdit = document.createElement('i');
+                iconEdit.setAttribute('data-lucide', 'container');
+                buttonEdit.appendChild(iconEdit);
+
+                buttonEdit.title = 'Editar material';
+                buttonEdit.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    window.location.href = `edit-supply.html?id=${supply.id}`;
+                });
+
+                //butao de apagar
+                const buttonDelete = document.createElement('button');
+                buttonDelete.classList.add('button-action', 'button-delete');
+
+                const iconDelete = document.createElement('i');
+                iconDelete.setAttribute('data-lucide', 'trash');
+                buttonDelete.appendChild(iconDelete);
+
+                buttonDelete.title = 'Apagar usuario';
+                buttonDelete.addEventListener('click', async (event) => {
+                    event.stopPropagation();
+
+                    if (!confirm(`Deseja excluir ${supply.supply_name}`)) {
+                        return;
+                    };
+
+                    try {
+                        const res = await fetch(`/api/supplies/${supply.id}`, {
+                            method: 'DELETE',
+                            headers: getAuthHeaders()
+                        })
+
+                        if (!res.ok) {
+                            throw new Error("Erro ao excluir material");
+                        }
+
+                        alert('Material excluido')
+                        tr.remove();
+                    } catch (error) {
+                        console.error(error);
+                        alert('Falha ao excluir material');
+                    };
+                });
+                tdActions.appendChild(buttonEdit);
+                tdActions.appendChild(buttonDelete);
+
+                // adiciona toda as colunas da linha
+
+                tr.appendChild(tdSelect);
+                tr.appendChild(tdImgUrl);
+                tr.appendChild(tdName);
+                tr.appendChild(tdQ);
+                tr.appendChild(tdPrice);
+                tr.appendChild(tdDetails);
+                tr.appendChild(tdSupplier);
+                tr.appendChild(tdActions);
+
+                // adiciona a linha ao tbody
+
+                tbody.appendChild(tr);
+
+            });
+            lucide.createIcons();
+        };
+
+        document.getElementById('import-supplies-button').addEventListener('click', () => {
+            document.getElementById('import-supplies').click();
+        })
+        document.getElementById('import-supplies').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            };
+            importFile(file);
+        });
+        async function importFile(file) {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const res = await fetch(`/api/supplies/import`, {
+                method: "POST",
+                headers: getAuthHeaders(false),
+                body: formData
+            });
+
+            const data = await res.json();
+            alert(`Importação de ${data.insertedIndex}/${data.total} concluida`);
+            fetchSupplies();
+        };
+
+        /*FUNCOES STANDALONE*/
+        function goToCreate() {
+            window.location.href = 'create-supply.html'
+        }
+    </script>
+    <script> /* COLOCAR CHAMADA DE FUNCOES AQUI */
+        fetchSupplies();
+        loadAnnouncement();
+        initSideBar();
+        lucide.createIcons();
+        setItemsPerPage();
+    </script>
+</body>
+
+</html>

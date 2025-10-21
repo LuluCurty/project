@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="../security-check.js"></script>
+    <link rel="stylesheet" href="../styles.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <title>Criar</title>
+</head>
+
+<body>
+    <header class="app-header-wrapper">
+        <div class="flexbox-vertical" id="header-left">
+            <div id="logo-wrapper">
+                <a href="http://eletricca.com.br"><img id="logo" src="http://10.242.241.230/public/imgs/icone.png"
+                        alt="Logo"></a>
+            </div>
+            <div id="company-name">
+                ELETRICCA
+            </div>
+        </div>
+
+        <div id="annun-wrapper">
+            <span id="announcement">Anuncios</span>
+        </div>
+
+        <div id="header-right" class="flexbox-vertical">
+            <div id="header-search">
+                <i data-lucide="search" id="header-search-icon"></i>
+            </div>
+            <div id="header-barrier"></div>
+            <div id="profile-menu">
+                <div id="profile-button" class="flexbox-vertical">
+                    <img src="" alt="">
+                    <div class="user-name-wrapper">
+                        <span id="user-name">usuario</span>
+                    </div>
+                    <span class="header-dropbox-arrow">
+                        <i id="header-arrow-down" data-lucide="chevron-down"></i>
+                    </span>
+                </div>
+                <ul id="profile-menu-dropdown" class="dropdown hidden header-dropbox">
+                    <li id="profile-button" class="profile-menu-dropdown-item" onclick="goToProfile()">
+                        <i class="dropbox-icons" data-lucide="circle-user-round"></i>
+                        <span>Perfil</span>
+                    </li>
+                    <li id="logout-button" class="profile-menu-dropdown-item" onclick="logOut()">
+                        <i class="dropbox-icons" data-lucide="log-out"></i>
+                        <span>logout</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <aside class="app-aside-wrapper">
+        <div class="menu-title-wrapper">
+            <div class="flexbox-vertical aside-bars">
+                <div id="side-bar-name">
+                    Menus
+                </div>
+                <button id="toggleSideBar" data-state="expanded">⮜</button> <!-- ⮜ ☰  ⮞-->
+            </div>
+
+        </div>
+        <nav>
+            <ul id="tab-list"></ul>
+        </nav>
+    </aside>
+
+    <main class="main-app-wrapper">
+        <!-- COMEÇO MAIN CONTAINER ------------------------------------------------------------------------------------------------>
+        <div class="main-page-title"> <!-- COMEÇO TITULO DA PAGINA-->
+            <div class="main-page-tittle-wrapper">
+                <h3 id="page-tittle-text">
+                    Materiais
+                </h3>
+            </div>
+        </div> <!-- FIM TITULO DA PAGINA-->
+
+
+    </main>
+    <!-- FIM MAIN CONTAINER ------------------------------------------------------------------------------------------------>
+    <form action="" id="createSupply">
+        <input type="text" name="supply_name" id="supply_name" placeholder="Nome do material" required>
+        <input type="text" name="image_url" id="image_url" placeholder="Link de imagem para display">
+        <input type="number" name="quantity" id="quantity" placeholder="quantidade" required>
+        <input type="text" name="details" id="details" placeholder="Descrição">
+        <button type="submit">Criar</button>
+        <button type="button" onclick="cancel()">Cancelar</button>
+
+    </form>
+
+
+
+
+    <footer class="footer-wrapper">
+                    &copy; 2025 Meu Sistema - Todos os direitos reservados.
+    </footer>
+
+    <script src="../util.js"></script>
+    <script>
+        function getFormValues(fields) {
+            const values = {};
+            fields.forEach(field => {
+                values[field] = document.getElementById(field).value;
+            });
+            return values;
+        }
+
+        document.getElementById('createSupply').addEventListener("submit", async (event) => {
+            event.preventDefault();
+            try {
+                const { supply_name, image_url, quantity, details } = getFormValues(["supply_name", "quantity", "details", "image_url"]);
+
+                const res = await fetch("/api/supplies/create", {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ supply_name, details, image_url, quantity })
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    alert("Erro: " + (error.error || res.status));
+                    return;
+                }
+
+                const newSupply = await res.json();
+                alert("Material criado: " + newSupply.supply_name);
+                window.location.href = "supplies.html";
+
+            } catch (error) {
+                console.error(error);
+                alert("Erro ao criar o material");
+            }
+        });
+
+        loadAnnouncement();
+        initSideBar();
+        function cancel() {
+            window.history.back();
+        }
+    </script>
+</body>
+
+</html>
