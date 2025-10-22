@@ -34,7 +34,7 @@ document.addEventListener('click', (event) => {
  * initSideBar && 
 */
 async function initSideBar() {
-    const BASE_URL  = window.location.origin;
+    const BASE_URL = window.location.origin;
 
     try {
         const token = checkAuth();
@@ -65,10 +65,10 @@ async function initSideBar() {
             div.classList.add('menu-submenu-title');
 
             linkA.textContent = tab.charAt(0).toUpperCase() + tab.slice(1);
-                        
+
             if (tab === 'supplies') {
                 linkA.href = `${BASE_URL}/supplies/${tab}.html`;
-            } else if (tab ==='inicio') {
+            } else if (tab === 'inicio') {
                 linkA.href = `${BASE_URL}/index.html`;
             } else {
                 linkA.href = `${BASE_URL}/${tab}.html`
@@ -120,6 +120,9 @@ function goToSupplies() {
 }
 function goToProfile() {
     window.location.href = '/profile.html';
+}
+function goBack() {
+    window.history.back();
 }
 
 

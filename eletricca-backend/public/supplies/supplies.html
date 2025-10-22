@@ -9,6 +9,15 @@
     <link rel="stylesheet" href="../styles.css">
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            if (sessionStorage.getItem('refreshSupplies') === 'true') {
+                sessionStorage.removeItem('refreshSupplies');
+                window.location.reload();
+            }
+        });
+
+    </script>
 
     <title>Materiais</title>
 </head>
@@ -221,7 +230,7 @@
     </main>
     <!-- FIM MAIN CONTAINER ------------------------------------------------------------------------------------------------>
     <footer class="footer-wrapper">
-                    &copy; 2025 Meu Sistema - Todos os direitos reservados.
+        &copy; 2025 Meu Sistema - Todos os direitos reservados.
     </footer>
     <script src="../util.js"></script>
     <script> /*DECLARACAO DE TODAS AS FUNCOES AQUI (ORGANIZAR DEPOIS)*/
@@ -446,7 +455,7 @@
                 const divSupplier = document.createElement('div');
                 divSupplier.classList.add(('ellipsis'));
                 if (supply.supplier === null) {
-                    divSupplier.textContent = `-`;                
+                    divSupplier.textContent = `-`;
                 } else {
                     divSupplier.textContent = `${supply.supplier}`;
                 }

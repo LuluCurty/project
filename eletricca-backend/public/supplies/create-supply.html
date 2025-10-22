@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="../security-check.js"></script>
     <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="form.css">
     <script src="https://unpkg.com/lucide@latest"></script>
     <title>Criar</title>
 </head>
@@ -70,34 +71,113 @@
         </nav>
     </aside>
 
-    <main class="main-app-wrapper">
-        <!-- COMEÇO MAIN CONTAINER ------------------------------------------------------------------------------------------------>
+<main class="main-app-wrapper">
         <div class="main-page-title"> <!-- COMEÇO TITULO DA PAGINA-->
             <div class="main-page-tittle-wrapper">
                 <h3 id="page-tittle-text">
-                    Materiais
+                    <span id="page-title">Criar Material</span>
                 </h3>
             </div>
-        </div> <!-- FIM TITULO DA PAGINA-->
+        </div> <!-- COMEÇO TITULO DA PAGINA-->
 
-
+        <form class="main-app-content-form" id="createSupply" action="">
+            <div class="ant-tab">
+                <div class="main-form-tablist">
+                    <div class="tablist-container">
+                        <div class="tablist-navigation-container">
+                            <div class="tablist-nav">
+                                <div class="tab-bar-animation"></div>
+                                <div class="tablist-nav-button">Material</div>
+                                <div class="tablist-nav-button">Preços</div>
+                                <div class="tablist-nav-button">Fornecedores</div>
+                            </div>
+                        </div>
+                        <div class="tablist-buttons">
+                            <button id="cancel" class="tab-button" type="button"
+                                onclick="goBack()"><span>Cancelar</span></button>
+                            <button id="save" class="tab-button" type="button">Criar</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="main-form-wrapper">
+                    <div role="tabpanel" class="form-tab" aria-hidden="false">
+                        <div class="main-app-form">
+                            <div class="main-form">
+                                <div class="form-title-row">
+                                    <div class="row-title"><span>Geral</span></div>
+                                </div>
+                                <section class="row-inline-block">
+                                    <img src="" alt="" class="form-images" style="display:block !important ;" id="supply-image">
+                                    <div class="form-row-input">
+                                        <div class="row-items">
+                                            <div class="form-label width-33">
+                                                <label for="supply_name">
+                                                    <span>Nome:</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-input width-50">
+                                                <div class="input-control-wrapper">
+                                                    <input required id="supply_name" class="input-text" type="text" name="supply_name" placeholder="Nome do material">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div> 
+                                    <div class="form-row-input">
+                                        <div class="row-items">
+                                            <div class="form-label width-33">
+                                                <label for="quantity">
+                                                    <span>Quantidade:</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-input width-50">
+                                                <div class="input-control-wrapper">
+                                                    <input id="quantity" class="input-text" type="number" name="quantity" placeholder="quantidade" required>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-row-input">
+                                        <div class="row-items">
+                                            <div class="form-label width-33">
+                                                <label for="details">
+                                                    <span>Descrição:</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-input width-50">
+                                                <div class="input-control-wrapper">
+                                                    <textarea id="details" class="input-text line-3" name="details" placeholder="Descrição"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                                <div class="form-title-row">
+                                    <div class="row-title"><span>Outros</span></div>
+                                </div>
+                                <section class="row-inline-block">
+                                    <div class="form-row-input">
+                                        <div class="row-items">
+                                            <div class="form-label width-33"><span>URL da imagem:</span></div>
+                                            <div class="form-input width-50">
+                                                <div class="input-control-wrapper">
+                                                    <input placeholder="Link de imagem para display" id="image_url" class="input-text" type="url" name="image_url">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </div>
+                    <div role="tabpanel" class="form-tab" aria-hidden="true">a</div>
+                    <div role="tabpanel" class="form-tab" aria-hidden="true">b</div>
+                </div>
+            </div>
+        </form>
     </main>
     <!-- FIM MAIN CONTAINER ------------------------------------------------------------------------------------------------>
-    <form action="" id="createSupply">
-        <input type="text" name="supply_name" id="supply_name" placeholder="Nome do material" required>
-        <input type="text" name="image_url" id="image_url" placeholder="Link de imagem para display">
-        <input type="number" name="quantity" id="quantity" placeholder="quantidade" required>
-        <input type="text" name="details" id="details" placeholder="Descrição">
-        <button type="submit">Criar</button>
-        <button type="button" onclick="cancel()">Cancelar</button>
-
-    </form>
-
-
-
-
     <footer class="footer-wrapper">
-                    &copy; 2025 Meu Sistema - Todos os direitos reservados.
+        &copy; 2025 Meu Sistema - Todos os direitos reservados.
     </footer>
 
     <script src="../util.js"></script>
@@ -110,7 +190,7 @@
             return values;
         }
 
-        document.getElementById('createSupply').addEventListener("submit", async (event) => {
+        document.getElementById('save').addEventListener("click", async (event) => {
             event.preventDefault();
             try {
                 const { supply_name, image_url, quantity, details } = getFormValues(["supply_name", "quantity", "details", "image_url"]);
@@ -136,12 +216,8 @@
                 alert("Erro ao criar o material");
             }
         });
-
         loadAnnouncement();
         initSideBar();
-        function cancel() {
-            window.history.back();
-        }
     </script>
 </body>
 

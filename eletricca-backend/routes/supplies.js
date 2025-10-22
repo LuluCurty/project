@@ -23,7 +23,7 @@ router.post('/create', authorize('supplies', 'create'), async (req, res) => {
             INSERT INTO supplies
             (supply_name, quantity, image_url, details, price, supplier)
             VALUES
-            ($1, $2, $3, $4, $5, 6%) 
+            ($1, $2, $3, $4, $5, $6) 
             RETURNING id, supply_name, creation_date
             ;`,
             [supply_name, quantity, image_url, details, price, supplier]
@@ -41,7 +41,7 @@ router.get('/', authorize('supplies', 'read'), async (req, res) => {
         const { page = 1, limit = 25 } = req.query;
         const offset = (page - 1) * limit;
         // query
-        const { rows } = await pool.query(`SELECT id, supply_name, quantity, image_url, details, price, supplier
+        const { rows } = await pool.query(`SELECT id, supply_name, quantity, image_url, details, price, supplier, creation_date
             FROM supplies
             ORDER BY supply_name DESC
             LIMIT $1 OFFSET $2;

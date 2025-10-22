@@ -72,11 +72,11 @@
         </nav>
     </aside>
 
-    <main class="main-app-wrapper">            
+    <main class="main-app-wrapper">
         <div class="main-page-title"> <!-- COMEÇO TITULO DA PAGINA-->
             <div class="main-page-tittle-wrapper">
                 <h3 id="page-tittle-text">
-                    Editar Material: xyz
+                    <span id="page-title"></span>
                 </h3>
             </div>
         </div> <!-- COMEÇO TITULO DA PAGINA-->
@@ -94,30 +94,116 @@
                             </div>
                         </div>
                         <div class="tablist-buttons">
-                            <div class="cancel">Cancelar</div>
-                            <div class="save">Salvar</div>
+                            <button id="cancel" class="tab-button" type="button"
+                                onclick="goBack()"><span>Cancelar</span></button>
+                            <button id="save" class="tab-button" type="button">Salvar</button>
                         </div>
                     </div>
                 </div>
-                <div class="main-form-wrapper"></div>
+                <div class="main-form-wrapper">
+                    <div role="tabpanel" class="form-tab" aria-hidden="false">
+                        <div class="main-app-form">
+                            <div class="main-form">
+                                <div class="form-title-row">
+                                    <div class="row-title"><span>Geral</span></div>
+                                </div>
+                                <section class="row-inline-block">
+                                    <img src="" alt="" class="form-images" style="display:block !important ;" id="supply-image">
+                                    <div class="form-row-input">
+                                        <div class="row-items">
+                                            <div class="form-label width-33">
+                                                <label for="supply_name">
+                                                    <span>Nome:</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-input width-50">
+                                                <div class="input-control-wrapper">
+                                                    <input required id="supply-name" class="input-text" type="text" name="supply-name">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div> 
+                                    <div class="form-row-input">
+                                        <div class="row-items">
+                                            <div class="form-label width-33">
+                                                <label for="supply-quantity">
+                                                    <span>Quantidade:</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-input width-50">
+                                                <div class="input-control-wrapper">
+                                                    <input id="supply-quantity" class="input-text" type="number" name="supply-quantity">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-row-input">
+                                        <div class="row-items">
+                                            <div class="form-label width-33">
+                                                <label for="supply-details">
+                                                    <span>Descrição:</span>
+                                                </label>
+                                            </div>
+                                            <div class="form-input width-50">
+                                                <div class="input-control-wrapper">
+                                                    <textarea id="supply-details" class="input-text line-3" name="supply-details"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                                <div class="form-title-row">
+                                    <div class="row-title"><span>Outros</span></div>
+                                </div>
+                                <section class="row-inline-block">
+                                    <div class="form-row-input">
+                                        <div class="row-items">
+                                            <div class="form-label width-33"><span>ID:</span></div>
+                                            <div class="form-input width-50">
+                                                <div class="input-control-wrapper">
+                                                    <input id="supply-id" class="input-text" name="supply-id" disabled type="text">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div> 
+                                    <div class="form-row-input">
+                                        <div class="row-items">
+                                            <div class="form-label width-33"><span>URL da imagem:</span></div>
+                                            <div class="form-input width-50">
+                                                <div class="input-control-wrapper">
+                                                    <input id="supply-image-url" class="input-text" type="url" name="supply-image-url">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-row-input">
+                                        <div class="row-items">
+                                            <div class="form-label width-33"><span>Criado em:</span></div>
+                                            <div class="form-input width-50">
+                                                <p id="creation-date"></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-row-input" style="width: 100%;"></div>
+                                    <div class="form-row-input">
+                                        <div class="row-items">
+                                            <div class="form-label width-33">
+                                                Apagar material:
+                                            </div>
+                                            <div class="form-input width-50">
+                                                <button type="button" class="tab-button" id="delete-button">Apagar</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </div>
+                    <div role="tabpanel" class="form-tab" aria-hidden="true">a</div>
+                    <div role="tabpanel" class="form-tab" aria-hidden="true">b</div>
+                </div>
             </div>
         </form>
-
-
-
-        <form id="edit-supply-button">
-            <input id="supply-id" name="supply-id" disabled type="text">
-            <input id="supply-name" type="text" name="supply-name">
-            <input id="supply-image-url" type="url" name="supply-image-url">
-            <input id="supply-quantity" type="number" name="supply-quantity">
-            <textarea id="supply-details" name="supply-details"></textarea>
-            <input type="submit" value="Atualizar" id="updateBtn">
-        </form>
-        <div>
-            <p id="creation-date"></p>
-        </div>
-        <button type="button" id="delete-button">Apagar</button>
-
     </main>
 
     <footer class="footer-wrapper">
@@ -149,8 +235,13 @@
             document.getElementById('supply-image-url').value = supply.image_url;
             document.getElementById('supply-quantity').value = supply.quantity;
             document.getElementById('supply-details').value = supply.details;
-            document.getElementById('creation-date').value = supply.creation_date;
+            document.getElementById('creation-date').innerText = supply.creation_date;
+            document.getElementById('supply-image').src = supply.image_url;
 
+
+            document.getElementById('page-title').innerText = `Material: ${supply.supply_name}`;
+            updateSupply();
+            deleteSupply();
 
         } catch (error) {
             console.error(error);
@@ -158,9 +249,9 @@
         }
     }
 
-    async function updateSupply() {
+    function updateSupply() {
         try {
-            document.getElementById('updateBtn').addEventListener('click', async (event) => {
+            document.getElementById('save').addEventListener('click', async (event) => {
                 event.preventDefault();
 
                 const supply_name = document.getElementById('supply-name').value;
@@ -182,7 +273,8 @@
                 };
 
                 alert('Material atualizado');
-                window.location.reload();
+                sessionStorage.setItem('refreshSupplies', 'true');
+                window.history.back();
             })
         } catch (error) {
             console.error(error);
@@ -190,11 +282,10 @@
         }
     }
 
-    async function deleteSupply() {
+    function deleteSupply() {
         try {
             document.getElementById('delete-button').addEventListener('click', async (event) => {
                 event.preventDefault();
-
                 if (!confirm("Tem certeza que deseja excluir este material?")) {
                     return;
                 }
@@ -220,18 +311,12 @@
         }
     }
     loadSupply();
-    updateSupply();
-    deleteSupply();
 </script>
-
-
 <script src="../util.js"></script>
-<script>
-    loadAnnouncement();
-    initSideBar();     
-</script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 <script>
+    loadAnnouncement();
+    initSideBar();
     lucide.createIcons();
 </script>
 

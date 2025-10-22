@@ -58,5 +58,189 @@
 .tab-bar-animation{
     display: hidden;
     transform: translate3d(20px, 0px, 0px);
+}
+
+.tablist-buttons{
+    display: flex;
+    justify-content: space-between;
+}
+.tablist-buttons #cancel{
+    border-color: #a4adb7;
+    color: #596680;
+    border: 1px solid #a4adb7;
+    font-size: 14px;
+
+}
+.tablist-buttons #save{
+    border-color: #3d77ff;
+    border: 1px solid #3d77ff;
+    color: #fff;
+    background-color: #3d77ff;
+    font-size: 14px;
+}
+
+.tab-button{
+    vertical-align: middle;
+    min-width: 80px;
+    height: 30px;
+    padding: 2px 15px;
+    user-select: none;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    text-align: center;
+    touch-action: manipulation;
+    white-space: nowrap;
+    line-height: 1.5;
+    transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+    border-radius: 4px;
+    margin-right: 10px;
+}
+#delete-button{
+    border: 1px solid #d85252;
+    background-color: #d85252;
+    color: #fff;
+    font-size: 14px;
+    border-radius: 4px;
+}
+
+/*TUDO ISSO AQUI VEM DEPOIS DO TABLIST!!!*/
+
+.main-form-wrapper{
+    width: 100%;
+
+    display: flex;
+    flex-direction: row;
+    will-change:margin-left;
+    transition: margin-left 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+.main-form-wrapper > .form-tab{
+    flex-shrink: 0;
+    width: 100%;
+    transition: opacity 0.3s;
+    opacity: 1;
+}
+.main-form-wrapper > .form-tab-inactive{
+    opacity: 0;
+    height: 0;
+}
+.main-app-form{
+    height: 525px;
+    overflow: auto;
+    padding: 0 14px 14px 14px;
+}
+.main-form{
+    background-color: #fff;
+    border: 1px solid rgba(218, 223, 229, 0.5);
+    padding: 30px 30px 20px 30px;
+    line-height: 1.5;
+}
+
+/* DENTRO DO FORM, CONTEUDO QUE APARECERA*/
+
+.form-title-row{
+    display: block;
+    margin-left: 0;
+    margin-right: 0;
+    height: auto;
+    zoom: 1;
+}
+.row-title{
+    clear: both;
+    height: 14px;
+    margin: 25px 0;
+    font-size: 16px;
+    color: #596680;
+    line-height: 14px;
+    padding-left: 8px;
+    font-weight: 600;
+    border-left: 2px solid #3370ff;
+}
+.row-inline-block{
+    margin-left: 0;
+    margin-right: 0;
+    height: auto;
+    display: inline-block;
+    width: 100%;
+}
+.form-images{
+    max-height: 70px;
+    height: 70px;
+    display: block;
+}
+.form-row-input{
+    width: 50%;
+    float: left;
+    margin-bottom: 14px;
+}
+.row-items{
+    font-size: 14px;
+    margin-bottom: 14px;
+    height: 32px;
+    margin-left: 0;
+    margin-right: 0;
+    zoom: 1;
+    display: block;
+    color: rgba(0, 0, 0, 0.65);
+    line-height: 32px;
+}
+.form-label{
+    padding-left: 10px;
+    text-align: left;
+    overflow: inherit;
+    white-space: normal;
+    text-overflow: inherit;
+    display: block;
+}
+.form-label > label {
+    color: rgba(0, 0, 0, 0.65);
+    font-size: 14px;
+}
+.form-input{
+    display: block;
+    line-height: 32px;
+}
+.input-control-wrapper{
+    line-height: 32px;
+}
+.input-control-wrapper > input, textarea {
+    border-color: #a4adb7;
+    box-shadow: 0 0 0 0;
+    color: #10131a;
+    border-radius: 2px;
+    font-size: 14px;
+    width: 100%;
+    height: 32px;
+    padding: 6px 7px;
+    display: inline-block;
+    cursor: text;
+    background-color: #fff;
+    transition: all .3s;
+}
+.line-3{
+    height: 70px;
+}
+
+.input-text{
+    border:1px solid #d9d9d9;
+}
+.input-text:focus{
+    outline: 0;
+    border-color: #3d77ff;
+    box-shadow: 0 0 0 0;
+}
+
+.width-50{
+    width: 50%;
+}
+.width-25{
+    width: 25%;    
+}
+.width-33{
+    width: 33%;
+}
+.width-25, .width-33, .width-50{
+    float: left;
+    display: block;
 
 }

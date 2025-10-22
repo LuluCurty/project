@@ -28,7 +28,6 @@ html, body{
 
 a {
     color: inherit;
-    
     text-decoration: none;
 }
 
@@ -40,9 +39,7 @@ img{
 
 button{
     cursor: pointer;
-
     font: inherit;
-
     border: none;
     background: none;
 }
@@ -62,7 +59,6 @@ body{
     "aside main" 
     "footer footer";
     min-height: 100vh;
-
     background-color: #F3F7FA;
 }
 
@@ -80,18 +76,15 @@ header{
     top: 0;
     grid-area: header;
     width: 100%;
-
     display: flex;
     justify-content: space-between;
     align-items: center;
     align-content: center;
-    
 }
 aside{
     grid-area: aside;
     overflow: hidden;
     transition: width 0.3s ease;
-
 }
 main{
     grid-area: main;
@@ -144,7 +137,6 @@ footer{
     position:relative;
 }
 
-
 #logo{
     width: 100%;
     height: 100%;
@@ -166,7 +158,6 @@ footer{
     background-color: #2C313D;
     color: #8F9FB2;
     font-weight: 400;
-
 }
 #header-search-icon{
     position: relative;
@@ -175,7 +166,6 @@ footer{
     font-weight: 600;
     stroke-width: 2.65px;
     transition: all 0.3s ease;
-
 }
 #header-barrier{
     color: #AAA;
@@ -184,7 +174,6 @@ footer{
     height: 20px;
     margin-left: 10px;
     transition: all 0.3s ease;
-
     margin-right: 10px;
 }
 .user-name-wrapper{
@@ -193,7 +182,6 @@ footer{
     cursor: pointer;
     line-height: 50px;
     transition: all 0.3s ease;
-
 }
 #user-name{
     font-weight: 400;
@@ -204,7 +192,6 @@ footer{
     color: rgb(127, 138, 153);
     font-size: 12px;
     transition: all 0.3s ease;
-
     position:relative;
     top: 2px;
 }
@@ -216,7 +203,6 @@ footer{
     text-rendering: optimizeLegibility;
     transform: scale(0.83333333) rotate(0deg);
     transition: all 0.3s ease;
-
 }
 
 /*
@@ -255,7 +241,6 @@ ESTILOS DO DROPBOX
     cursor: pointer;
     transition: all .3s;
     line-height: 1.5;
-
 }
 .profile-menu-dropdown-item:hover{
     background-color: #3d77ff;
