@@ -4,7 +4,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="../security-check.js"></script>
     <link rel="stylesheet" href="../styles.css">
     <link rel="stylesheet" href="form.css">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -71,7 +70,7 @@
         </nav>
     </aside>
 
-<main class="main-app-wrapper">
+    <main class="main-app-wrapper">
         <div class="main-page-title"> <!-- COMEÇO TITULO DA PAGINA-->
             <div class="main-page-tittle-wrapper">
                 <h3 id="page-tittle-text">
@@ -107,7 +106,8 @@
                                     <div class="row-title"><span>Geral</span></div>
                                 </div>
                                 <section class="row-inline-block">
-                                    <img src="" alt="" class="form-images" style="display:block !important ;" id="supply-image">
+                                    <img src="" alt="" class="form-images" style="display:block !important ;"
+                                        id="supply-image">
                                     <div class="form-row-input">
                                         <div class="row-items">
                                             <div class="form-label width-33">
@@ -117,11 +117,12 @@
                                             </div>
                                             <div class="form-input width-50">
                                                 <div class="input-control-wrapper">
-                                                    <input required id="supply_name" class="input-text" type="text" name="supply_name" placeholder="Nome do material">
+                                                    <input required id="supply_name" class="input-text" type="text"
+                                                        name="supply_name" placeholder="Nome do material">
                                                 </div>
                                             </div>
                                         </div>
-                                    </div> 
+                                    </div>
                                     <div class="form-row-input">
                                         <div class="row-items">
                                             <div class="form-label width-33">
@@ -131,7 +132,8 @@
                                             </div>
                                             <div class="form-input width-50">
                                                 <div class="input-control-wrapper">
-                                                    <input id="quantity" class="input-text" type="number" name="quantity" placeholder="quantidade" required>
+                                                    <input id="quantity" class="input-text" type="number"
+                                                        name="quantity" placeholder="quantidade" required>
                                                 </div>
                                             </div>
                                         </div>
@@ -145,7 +147,8 @@
                                             </div>
                                             <div class="form-input width-50">
                                                 <div class="input-control-wrapper">
-                                                    <textarea id="details" class="input-text line-3" name="details" placeholder="Descrição"></textarea>
+                                                    <textarea id="details" class="input-text line-3" name="details"
+                                                        placeholder="Descrição"></textarea>
                                                 </div>
                                             </div>
                                         </div>
@@ -160,7 +163,8 @@
                                             <div class="form-label width-33"><span>URL da imagem:</span></div>
                                             <div class="form-input width-50">
                                                 <div class="input-control-wrapper">
-                                                    <input placeholder="Link de imagem para display" id="image_url" class="input-text" type="url" name="image_url">
+                                                    <input placeholder="Link de imagem para display" id="image_url"
+                                                        class="input-text" type="url" name="image_url">
                                                 </div>
                                             </div>
                                         </div>
@@ -197,8 +201,9 @@
 
                 const res = await fetch("/api/supplies/create", {
                     method: "POST",
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({ supply_name, details, image_url, quantity })
+                    body: JSON.stringify({ supply_name, details, image_url, quantity }),
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include"
                 });
 
                 if (!res.ok) {

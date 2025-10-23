@@ -5,11 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <script src="security-check.js"></script>
     <link rel="stylesheet" href="styles.css">
 
-    <script src="https://unpkg.com/lucide@latest"></script>  
-    
+    <script src="https://unpkg.com/lucide@latest"></script>
+
 
     <title>Admin Pannel</title>
 </head>
@@ -179,16 +178,10 @@
             window.location.href = 'create-user.html';
         }
         async function fetchUsers() {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                alert('Você precisa estar logado para visualizar esta pagina');
-                window.location.href = 'index.html';
-                return;
-            }
-
             try {
                 const res = await fetch('api/users', {
-                    headers: getAuthHeaders()
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include"
                 });
                 if (res.status === 401 || res.status === 403) {
                     alert('Você precisa estar logado para visualizar esta pagina');
@@ -319,7 +312,8 @@
                     try {
                         const res = await fetch(`/api/users/${user.user_id}`, {
                             method: 'DELETE',
-                            headers: getAuthHeaders()
+                            headers: { "Content-Type": "application/json" },
+                            credentials: "include"
                         });
 
                         if (!res.ok) {

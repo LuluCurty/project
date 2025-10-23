@@ -11,12 +11,7 @@
 </head>
 
 <body>
-
-
-
-
-
-    <!--HEADER-->
+   <!--HEADER-->
     <header class="app-header-wrapper">
         <div class="flexbox-vertical" id="header-left">
             <div id="logo-wrapper">
@@ -83,8 +78,9 @@
     <script>
         async function loadProfile() {
             try {
-                const res = await fetch(`/api/users/me`, {
-                    headers: getAuthHeaders()
+                const res = await fetch(`/api/users/me`, {                    
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include"
                 });
                 if (!res.ok) {
                     throw new Error("Erro aos buscar usuarios");

@@ -4,8 +4,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <script src="../security-check.js"></script>
     <link rel="stylesheet" href="../styles.css">
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -243,7 +241,7 @@
             try {
 
                 const res = await fetch(`/api/supplies?page=${page}&limit=${limit}`, {
-                    headers: getAuthHeaders()
+                    credentials: "include"
                 });
 
                 if (!res.ok) {
@@ -264,7 +262,7 @@
         async function searchSupplies(query, page = 1, limit = itemsPerPage) {
             try {
                 const res = await fetch(`/api/supplies/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`, {
-                    headers: getAuthHeaders()
+                    credentials: "include"
                 });
 
                 if (!res.ok) {
@@ -498,7 +496,7 @@
                     try {
                         const res = await fetch(`/api/supplies/${supply.id}`, {
                             method: 'DELETE',
-                            headers: getAuthHeaders()
+                            credentials: "include"
                         })
 
                         if (!res.ok) {
@@ -550,7 +548,7 @@
 
             const res = await fetch(`/api/supplies/import`, {
                 method: "POST",
-                headers: getAuthHeaders(false),
+                credentials: "include",
                 body: formData
             });
 

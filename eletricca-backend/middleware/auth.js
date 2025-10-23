@@ -3,18 +3,22 @@ const jwt = require('jsonwebtoken');
 
 const jwtSecret = process.env.JWT_SECRET || 'dev_secret';
 
-function generateToken(user) {
+function generateToken(user, rememberMe) {
     const payload = {
         user_id: user.user_id,
         user_role: user.user_role,
         email: user.email
     };
-    return jwt.sign(payload, jwtSecret, {expiresIn: process.env.JWT_EXPIRES_IN || '8h'});
+    const expiresIn = rememberMe ? '30d' : '2h';
+    return jwt.sign(payload, jwtSecret, {expiresIn:expiresIn || process.env.JWT_EXPIRES_IN || '8h'});
 };
 
 function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    const token = 
+        req.cookies?.token || 
+        (req.headers['authorization'] && req.headers['authorization'].split(' ')[1])
+    ;
+    
     if (!token) return res.status(401).json({ error: 'Missing token'});
 
     jwt.verify(token, jwtSecret, (err, payload) => {

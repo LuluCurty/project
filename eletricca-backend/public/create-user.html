@@ -99,7 +99,8 @@
             try {
                 const res = await fetch("api/users/create", {
                     method: "POST",
-                    headers: getAuthHeaders(),
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
                     body: JSON.stringify({ email, password_hashed, telphone, user_role, first_name, last_name })
                 });
 

@@ -98,11 +98,110 @@ li{
     display: inline-block;
     border-collapse: separate;
     margin-bottom: 15px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
+    font-size: 14px;
 }
-.input-form > input{
+.input-wrapper{
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.5;
+}
+.input-wrapper .icon{
+    position: absolute;
+    left: 14px;
+    pointer-events: auto;
+    transition: color 0.3s ease;
+    width: 18px;
+    line-height: 1.5;
+
+}   
+.input-wrapper input{
     width: 100%;
+    outline: none;
+    transition: border-color 0.3s ease;
+    padding: 5px 12px 6px 39px;
+    border: 2px solid;
+    border-color: #e0e1e1;
+    line-height: 1.5;
+    border-radius: 4px;
+}
+.input-wrapper input:focus {
+  border-color: #4a90e2;
+}
+.input-wrapper:focus-within .icon{
+    color: #4a90e2;
+}
+.icon{
+    /*border-right: 1px solid #aaa;*/
+    transition: color 0.3s ease;    
+}
+.input-wrapper svg:hover{
+    color: #4a90e2;
+}
+.input-wrapper svg{
+    width: 18px;
+    height: 18px;
+    transition: color 0.3s ease;
+}
+.input-wrapper button{
+    position: absolute;
+    background: none;
+    cursor: pointer;
+    left: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#passwordIcon{
+    left: 0;
 }
 
+.login-form div{
+    margin-bottom: 15px;
+}
+
+.log-in{
+    color: #fff;
+    line-height: 1.5;
+}
+.login-wrapper{
+    width: 100%;
+    font-size: 14px;
+    text-align: center;
+    padding: 5px 12px;
+    border-radius: 4px;
+    transition: color 0.3s ease-in-out, background-color 0.3s ease-in-out, border-color 0.3s ease-in-out;
+    border-color: #2a5c87;
+    background-color: #185195;
+    white-space: nowrap;
+    cursor: pointer;
+    border: 1px solid;
+    touch-action: manipulation;
+    font-weight: normal;
+    color: #fff;
+}
+.login-wrapper .icon{
+    height: 14px;
+    vertical-align: middle;
+}
+.login-wrapper:hover{
+    border-color: #144f8d;
+    background-color: #144887 ;
+}
+
+
+.warning{
+    
+}
+
+
+
+
+/*
+quando o input está focado, o ícone também muda de cor 
+.input-wrapper input:focus + .icon,
+.input-wrapper:focus-within .icon {
+  color: #4a90e2;
+}
+*/

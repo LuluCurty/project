@@ -4,8 +4,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <script src="../security-check.js"></script>
     <link rel="stylesheet" href="../styles.css">
     <link rel="stylesheet" href="form.css">
 
@@ -219,7 +217,7 @@
         try {
 
             const res = await fetch(`/api/supplies/${supplyId}`, {
-                headers: getAuthHeaders()
+                credentials: "include"
             });
 
             if (!res.ok) {
@@ -261,7 +259,8 @@
 
                 const res = await fetch(`/api/supplies/${supplyId}`, {
                     method: "PUT",
-                    headers: getAuthHeaders(),
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ details, supply_name, image_url, quantity })
                 });
 
@@ -292,7 +291,8 @@
 
                 const res = await fetch(`/api/supplies/${supplyId}`, {
                     method: "DELETE",
-                    headers: getAuthHeaders()
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include"
                 });
 
                 if (!res.ok) {

@@ -22,53 +22,83 @@
 <body>
     <div class="main-app-login">
         <div class="container">
-            <div class="warning"></div>
-            <form class="login-form clear-fix" id="loginForm">
+            <div class="hidden warning">
+
+            </div>
+
+            <form class="login-form clear-fix" id="loginForm" autocomplete="on">
                 <div class="title">
                     <img src="http://10.242.241.230/public/imgs/icone.png" alt="">
                     <h2>Intranet</h2>
                 </div>
                 <div class="welcome">
-                    <p>Bem vindo a nova intranet</p>
+                    <p id="paragraphy">Bem vindo a nova intranet</p>
                 </div>
-                <div class="input-form">
-                    <i data-lucide="user"></i>
-                    <input type="email" id="email" placeholder="Email" required>
+                <div class="input-wrapper">
+                    <i class="icon" data-lucide="user"></i>
+                    <input type="email" id="email" placeholder="Email" class="inputs" autocomplete="username" required>
                 </div>
-                <input type="password" id="password" placeholder="Senha" required><br>
+                <div class="input-wrapper">
+                    <button type="button" tabindex="-1" id="password-button">
+                        <i id="passwordIcon" class="icon" data-lucide="lock-keyhole"></i>
+                    </button>
+                    <input type="password" id="password" placeholder="Senha" class="app-input" autocomplete="current-password" required>
+                </div>
                 <div class="remember-me">
                     <input type="checkbox" name="remember-me" id="remember-me">
                     <label for="remember-me">Lembre-me</label>
                 </div>
                 <div class="log-in">
-                    <i data-lucide="log-in"></i>
-                    <button type="submit">Entrar</button>
+                    <button class="login-wrapper" type="submit">
+                        <i class="icon" data-lucide="log-in"></i>
+                        <span>Login</span>
+                    </button>
                 </div>
             </form>
         </div>
     </div>
-
     <script>
         document.getElementById("loginForm").addEventListener("submit", async (event) => {
             event.preventDefault();
             const email = document.getElementById("email").value;
             const password_hashed = document.getElementById("password").value;
+            const rememberMe = document.getElementById('remember-me');
+            rememberMe.checked;
             // colocar try catch depois
             const res = await fetch("/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password_hashed })
+                body: JSON.stringify({ email, password_hashed, rememberMe }),
+                credentials: "include"
             });
 
-            const data = await res.json();
-            if (data.token) {
-                localStorage.setItem("token", data.token);
+            const user = await res.json();
+            if (user.user.user_id) {
+                localStorage.setItem("user", user.user.email);
                 window.location.href = "main-pannel.html";
             } else {
-                alert("Login falhou: " + data.error);
+                alert("Login falhou: " + user.user.error);
             }
         });
         lucide.createIcons();
+    </script>
+    <script>
+        passwordButton = document.getElementById('password-button');
+        passwordInput = document.getElementById('password');
+
+        passwordButton.addEventListener('click', (event) => {
+            event.preventDefault();     
+            icon = document.getElementById('passwordIcon');
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.setAttribute('data-lucide', 'lock-open');
+            } else {
+                passwordInput.type = 'password';
+                icon.setAttribute('data-lucide', 'lock-keyhole');
+            }
+            lucide.createIcons();
+        });
     </script>
 </body>
 

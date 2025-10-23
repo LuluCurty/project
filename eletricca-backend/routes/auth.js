@@ -34,7 +34,7 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
     try {
-        const { email, password_hashed} = req.body;
+        const { email, password_hashed, rememberMe} = req.body;
         const ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
         const { rows } = await pool.query('SELECT user_id, email, password_hashed, user_role, first_name, last_name FROM users WHERE email=$1', [email]);
         if (!rows[0]) return res.status(401).json({ error: 'Invalid credentials'});
@@ -46,10 +46,41 @@ router.post('/login', async (req, res) => {
             return res.status(403).json({ error: 'Admin access only allowed from local network'});
         }
         const token = generateToken(user);
-        res.json({ token, user: { user_id: user.user_id, email: user.email, user_role: user.user_role, first_name: user.first_name, last_name: user.last_name}});
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: rememberMe ? 30 * 24 * 60 * 60 * 1000 : 8 * 60 * 60 * 1000
+        })
+
+        res.json({ 
+            user: { user_id: user.user_id, 
+                email: user.email, 
+                user_role: user.user_role, 
+                first_name: user.first_name, 
+                last_name: user.last_name
+            }
+        });
+        
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal server error'});
+        res.status(500).json({ error: 'Erro ao logar'});
+    }
+})
+
+router.post('/logout', async (req, res) => {
+    try {
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict'
+        });
+        res.json({ message: 'Deslogado',
+            ok: true
+        });        
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erro ao fazer logout'});
     }
 })
 

@@ -94,7 +94,8 @@
         async function loadUser() {
             const token = localStorage.getItem('token');
             const res = await fetch(`api/users/${userId}`, {
-                headers: getAuthHeaders()
+                headers: { "Content-Type": "application/json" },
+                credentials: "include"
             });
             if (!res.ok) {
                 alert('Erro ao carregar usuario');
@@ -121,7 +122,8 @@
 
             const res = await fetch(`api/users/${userId}`, {
                 method: 'PUT',
-                headers: getAuthHeaders(),
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({ first_name, last_name, email, telphone, user_role })
             });
 
@@ -140,8 +142,9 @@
 
             try {
                 const res = await fetch(`api/users/${userId}`, {
-                    method: 'DELETE',
-                    headers: getAuthHeaders()
+                    method: 'DELETE',                    
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include"
                 });
 
                 if (!res.ok) {

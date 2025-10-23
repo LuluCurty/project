@@ -41,36 +41,11 @@ const granularPermissions = {
     }
 };
 
-
-function getRolePermissionDEADFORNOW(currentRole) {
-    try {
-        const aggregated = {};
-        for (const [role, level] of Object.entries(roleHierarchy)) {
-            if (roleHierarchy[currentRole] >= level) {
-                const rolePerms = granularPermissions[role] || {};
-                //console.log(role + ' '+ level);
-                for (const [systemResources, actions] of Object.entries(rolePerms)) {
-                    if (!aggregated[systemResources]) {
-                        aggregated[systemResources] = new Set();
-                    };
-                    actions.forEach(action => {
-                        aggregated[systemResources].add(action);
-                    });
-                };
-            };
-        };
-        const result = {};
-        for(const [systemResources, actionsSet] of Object.entries(aggregated)){
-            result[systemResources] = Array.from(actionsSet);
-        };
-        return result
-    } catch (error) {
-        console.error(error);        
-    }
-}
-
 function authorize(systemResource, action) {
     return (req, res, next) => {
+        console.log('Usuário autenticado:', req.user);
+
+        
         try {
             if (!req.user.user_role || !req.user) {
                 return res.status(401).json({ error: 'Not authenticated'});

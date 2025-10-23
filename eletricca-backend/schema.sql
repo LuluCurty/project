@@ -43,17 +43,12 @@ CREATE TABLE IF NOT EXISTS supplies (
     id              SERIAL PRIMARY KEY,
     supply_name     VARCHAR(40),          
     quantity        INTEGER NOT NULL DEFAULT 0,
-    image_url       TEXT
+    image_url       TEXT,
+    details         TEXT,
+    creation_date   TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    price           numeric(10,2),
+    supplier        VARCHAR(50)
 )
-
-CREATE TABLE IF NOT EXISTS supplies_variation (
-    id                          SERIAL PRIMARY KEY,
-    supply_id                   INT NOT NULL REFERENCES supplies(id) ON DELETE CASCADE, 
-    variation_description       TEXT NOT NULL,
-    quantity                    INTEGER NOT NULL DEFAULT 0
-)
-
-
 CREATE TYPE IF NOT EXISTS user_role_type AS ENUM (
     'admin',
     'managers',
@@ -61,6 +56,39 @@ CREATE TYPE IF NOT EXISTS user_role_type AS ENUM (
     'clients'
 )
 
+
+CREATE TABLE IF NOT EXISTS clients (
+    client_id           SERIAL PRIMARY KEY,
+    client_first_name   VARCHAR(100) NOT NULL,
+    client_last_name    VARCHAR(100) NOT NULL,
+    client_telephone    VARCHAR(30) NOT NULL, 
+    client_email        VARCHAR(255) NOT NULL UNIQUE,
+    creation_date       TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+)
+
+CREATE TABLE IF NOT EXISTS supplies_lists(
+    sup_list_id         SERIAL PRIMARY KEY,
+    sup_list_name       VARCHAR(255) NOT NULL,
+    client_id           INT REFERENCES clients(client_id),
+    created_by          INT REFERENCES users(user_id),
+    creation_date       TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    updated_at          TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    sup_list_status     VARCHAR(50) DEFAULT 'pending' --pending approved denied
+)
+
+
+
+
+
+/*CAIU EM DESUSO*/
+CREATE TABLE IF NOT EXISTS supplies_variation (
+    id                          SERIAL PRIMARY KEY,
+    supply_id                   INT NOT NULL REFERENCES supplies(id) ON DELETE CASCADE, 
+    variation_description       TEXT NOT NULL,
+    quantity                    INTEGER NOT NULL DEFAULT 0
+)
+
+/* DAQUI PRA BAIXO NAO E RELEVANTE NO MOMENTO */
 CREATE TABLE IF NOT EXISTS roles(
     id SERIAL PRIMARY KEY,
     role_name VARCHAR(50) NOT NULL

@@ -117,12 +117,12 @@ router.delete('/:id', authorize('supplies', 'delete'), async (req, res) => {
     }
 });
 
-
 // ARQUIVOS
 
 const upload = multer({ dest: "uploads/" });
 
 router.post('/import', authorize("supplies", "create"), upload.single("file"), async (req, res) => {
+    console.log('Rota /import chamada');
     try {
         if (!req.file) {
             return res.status(400).json({ error: "Nenhum arquivo encontrado" });
@@ -191,7 +191,6 @@ router.post('/import', authorize("supplies", "create"), upload.single("file"), a
         res.status(500).json({ error: 'Internal server error' })
     }
 })
-
 
 /**
  * BARRA DE PESQUISA

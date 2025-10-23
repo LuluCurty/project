@@ -37,10 +37,8 @@ async function initSideBar() {
     const BASE_URL = window.location.origin;
 
     try {
-        const token = checkAuth();
-
         const res = await fetch('/api/users/me', {
-            headers: getAuthHeaders()
+            credentials: "include"
         });
         if (!res.ok) {
             throw new Error("Falha ao obter dados do usuario");
@@ -89,7 +87,7 @@ async function initSideBar() {
 async function loadAnnouncement() {
     try {
         const res = await fetch('/api/ann', {
-            headers: getAuthHeaders()
+            credentials: "include"
         });
         if (!res.ok) return;
         const data = await res.json();
@@ -111,9 +109,23 @@ async function loadAnnouncement() {
 /**
  * STANDALONE FUNCTIONS
 */
-function logOut() {
-    localStorage.removeItem('token');
-    window.location.href = 'index.html';
+async function logOut() {
+    try{
+        const res = await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: { "Content-Type": "application/json" },
+            credentials: "include"
+        });
+        const data = await res.json();
+        if (data.ok) {
+            console.log('a');            
+            alert(data.message);
+        }
+        window.location.href = window.location.origin;
+    } catch(error){
+        console.error(error);
+        alert('Nao foi possivel deslogar');
+    }
 }
 function goToSupplies() {
     window.location.href = '/supplies/supplies.html';
@@ -134,7 +146,7 @@ async function saveAnnouncement() {
 
         const res = await fetch('/api/ann', {
             method: 'POST',
-            headers: getAuthHeaders(),
+            credentials: "include",
             body: JSON.stringify({ message, link })
         });
 
