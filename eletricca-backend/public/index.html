@@ -5,16 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="login.css">
-    <script src="https://unpkg.com/lucide@latest"></script>
 
-
-
-    <script>
-        const token = localStorage.getItem('token');
-        if (token !== null) {
-            window.location.href = 'main-pannel.html'
-        }
-    </script>
+    <script src="https://unpkg.com/lucide@0.451.0/dist/umd/lucide.js"></script> <!-- SEM BUG-->
 
     <title>Futura Intranet!</title>
 </head>
@@ -42,7 +34,8 @@
                     <button type="button" tabindex="-1" id="password-button">
                         <i id="passwordIcon" class="icon" data-lucide="lock-keyhole"></i>
                     </button>
-                    <input type="password" id="password" placeholder="Senha" class="app-input" autocomplete="current-password" required>
+                    <input type="password" id="password" placeholder="Senha" class="app-input"
+                        autocomplete="current-password" required>
                 </div>
                 <div class="remember-me">
                     <input type="checkbox" name="remember-me" id="remember-me">
@@ -80,14 +73,13 @@
                 alert("Login falhou: " + user.user.error);
             }
         });
-        lucide.createIcons();
     </script>
     <script>
         passwordButton = document.getElementById('password-button');
         passwordInput = document.getElementById('password');
 
         passwordButton.addEventListener('click', (event) => {
-            event.preventDefault();     
+            event.preventDefault();
             icon = document.getElementById('passwordIcon');
 
             if (passwordInput.type === 'password') {
@@ -99,6 +91,15 @@
             }
             lucide.createIcons();
         });
+
+        function initLucideSafely() {
+            if (window.lucide && typeof lucide.createIcons === 'function' && lucide.icons) {
+                lucide.createIcons();
+            } else {
+                setTimeout(initLucideSafely, 50);
+            }
+        }
+        initLucideSafely();
     </script>
 </body>
 
