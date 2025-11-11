@@ -10,6 +10,8 @@
     "lucide": "^0.544.0",
     "multer": "^2.0.2",
     "pg": "^8.16.3",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "yarn": "^1.22.22"
   },
   "devDependencies": {
