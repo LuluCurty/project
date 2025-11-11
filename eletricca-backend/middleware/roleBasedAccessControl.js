@@ -2,7 +2,8 @@ const { roleHierarchy } = require('../middleware/roleHierarchy');
 const permissions = require('../permissions.json');
 
 const systemResources = [
-    "profile", "users", "supplies", "services", "supplies_variation"
+    "profile", "users", "supplies", "services", "supplies_variation", "supplies_lists", "supplies_test",
+    "clients", "supplies_suppliers", "price"
 ];
 
 // "create"
@@ -14,38 +15,41 @@ const granularPermissions = {
     client: {
         users: ["read"],
         profile: ["read", "update"],
-        supplies: [],
         services: ["read", "update"],
-        supplies_variation: []
     },
     operator: {
         users: ["read", "update"],
         profile: ["read", "update"],
-        supplies: ["read"],
         services: ["read", "update"],
-        supplies_variation: ["read", "create", "update", "delete"]
+
+        supplies: ["read"],
+        supplies_lists: ["read", "create", "update", "delete"],
+        supplies_suppliers: ["read"],
     },
     manager: {
         users: ["read", "update", "delete"],
         profile: ["read", "update"],
-        supplies: ["read", "create", "update", "delete"],
+
         services: ["read", "create", "update", "delete"],
-        supplies_variation: ["read", "create", "update","delete"]
+
+        suppliers: ["read", "create", "update", "delete"],
+        supplies_lists: ["read", "create", "update","delete"],
+        supplies_suppliers: ["read", "create", "update", "delete"]
     },
     admin: {
         users: ["read", "create", "update", "delete"],
         profile: ["read", "update"],
-        supplies: ["read", "create", "update", "delete"],
         services: ["read", "create", "update", "delete"],
-        supplies_variation: ["read", "create", "update", "delete"]
+        
+        supplies: ["read", "create", "update", "delete"],
+        supplies_lists: ["read", "create", "update", "delete"],
+        supplies_suppliers: ["read", "create", "update", "delete"],
     }
 };
 
 function authorize(systemResource, action) {
     return (req, res, next) => {
-        console.log('Usuário autenticado:', req.user);
-
-        
+       
         try {
             if (!req.user.user_role || !req.user) {
                 return res.status(401).json({ error: 'Not authenticated'});

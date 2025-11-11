@@ -136,27 +136,3 @@ function goToProfile() {
 function goBack() {
     window.history.back();
 }
-
-
-
-async function saveAnnouncement() {
-    try {
-        const message = document.getElementById('announcement-msg').value;
-        const link = document.getElementById('announcement-link').value;
-
-        const res = await fetch('/api/ann', {
-            method: 'POST',
-            credentials: "include",
-            body: JSON.stringify({ message, link })
-        });
-
-        if (res.ok) {
-            alert('Aviso atualizado');
-        } else {
-            alert('Erro ao atualizar aviso')
-        }
-        loadAnnouncement();
-    } catch (error) {
-        console.error(error);
-    }
-}

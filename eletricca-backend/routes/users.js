@@ -94,7 +94,7 @@ router.get('/me', async (req, res) => {
         const { rows } = await pool.query(`SELECT first_name, last_name FROM users WHERE user_id=$1;`, [user.user_id]);
         
         user['first_name'] = rows[0]['first_name'];
-        user['last_name'] = rows[0]['last_name'];        
+        user['last_name'] = rows[0]['last_name'];            
         res.json({
             user,
             allowed_tabs: allowedTabs

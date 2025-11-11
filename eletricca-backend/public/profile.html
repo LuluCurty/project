@@ -6,16 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
 
-    <script src="security-check.js"></script>
     <title>TESTE</title>
 </head>
 
 <body>
-   <!--HEADER-->
+    <!--HEADER-->
     <header class="app-header-wrapper">
         <div class="flexbox-vertical" id="header-left">
             <div id="logo-wrapper">
-                <a href="http://eletricca.com.br"><img id="logo" src="http://10.242.241.230/public/imgs/icone.png" alt="Logo"></a>
+                <a href="http://eletricca.com.br"><img id="logo" src="http://10.242.241.230/public/imgs/icone.png"
+                        alt="Logo"></a>
             </div>
             <div id="company-name">
                 ELETRICCA
@@ -57,7 +57,7 @@
     <main>
         <div class="announcement-edit">
             <h3>Editar avisos</h3>
-            <input type="text" id="announcement-msg" placeholder="Digite o aviiso"  >
+            <input type="text" id="announcement-msg" placeholder="Digite o aviiso">
             <input type="text" id="announcement-link" placeholder="URL opcional">
             <button onclick="saveAnnouncement()">Salvar</button>
         </div>
@@ -78,7 +78,7 @@
     <script>
         async function loadProfile() {
             try {
-                const res = await fetch(`/api/users/me`, {                    
+                const res = await fetch(`/api/users/me`, {
                     headers: { "Content-Type": "application/json" },
                     credentials: "include"
                 });
@@ -96,6 +96,30 @@
             } catch (error) {
                 console.error(error);
                 res.status(500).json({ error: 'Internal server error' });
+            }
+        }
+
+
+        async function saveAnnouncement() {
+            try {
+                const message = document.getElementById('announcement-msg').value;
+                const link = document.getElementById('announcement-link').value;
+
+                const res = await fetch('/api/ann', {
+                    method: 'POST',
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ message, link })
+                });
+
+                if (res.ok) {
+                    alert('Aviso atualizado');
+                } else {
+                    alert('Erro ao atualizar aviso')
+                }
+                loadAnnouncement();
+            } catch (error) {
+                console.error(error);
             }
         }
     </script>

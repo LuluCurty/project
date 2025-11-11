@@ -1,0 +1,11 @@
+.collapsed #nav-tablist-nav li{
+    display: flex;
+    justify-content: center;
+}
+
+.collapsed #nav-tablist-nav li button, .collapsed #nav-tablist-nav li a{
+    padding-left: 0;
+}
+.collapsed .flexbox-vertical {
+    justify-content: flex-end;
+}
