@@ -14,7 +14,7 @@ router.use(authenticateToken);
 router.get('/', async (req, res) => {
     try{
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 25;
+        const limit = parseInt(req.query.limit) || 20;
         const search = req.query.search? `%${req.query.search}%` : `%`;
         
         const offset = (page - 1) * limit;
@@ -36,7 +36,7 @@ router.get('/', async (req, res) => {
         };
         // calcular a quantidade de paginas
         const countQueryResult = await pool.query(`SELECT COUNT(*) FROM client`);
-        const totalItems = parseInt(countQueryResult.rows[0].count, 10);
+        const totalItems = parseInt(countQueryResult.rows[0].count, 10);       
         res.status(200).json({
             clients: rows,
             page,

@@ -1,7 +1,7 @@
 <script>
 	// @ts-nocheck
 	import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from '@lucide/svelte';
-	import { House, Container, Users, CardSim } from '@lucide/svelte';
+	import { House, Container, Users, CardSim, FileUser } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { sideBarCollapsed, userName } from '../stores/stores';
 	import { writable } from 'svelte/store';
@@ -78,7 +78,6 @@
 	<nav>
 		<ul id="nav-tablist-nav" class="pl-0! ml-0!">
 			{#each Object.entries(groupedTabs) as [group, subTabs]}
-				{console.log(group, subTabs)}
 				<li
 					class=" hover:bg-[#252933]! [*]:font-bold
 				[*]:text-sm [*]:text-[#8F9FB2] [*]:leading-11 [*]:h-11 w-full"
@@ -154,6 +153,18 @@
 							>
 								<CardSim class="pr-2" />
 								<span class:hidden={$sideBarCollapsed}>{capitalizeStr('serviços')}</span>
+							</a>
+						{/if}
+						{#if group === 'clientes'}
+							<a 
+								href="/client"
+								aria-label="menu"
+								class="flex items-center pl-6 hover:bg-[#252933]"
+							>
+								<FileUser class="pr-2"/>
+								<span class:hidden={$sideBarCollapsed}>
+									{capitalizeStr(group)}
+								</span>
 							</a>
 						{/if}
 					{/if}

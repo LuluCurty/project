@@ -24,6 +24,13 @@
       "read",
       "update"
     ],
+    "clientes": [
+      "read",
+      "create",
+      "update",
+      "delete"
+    ],
+
     "profile": [
       "read",
       "update"
@@ -53,6 +60,12 @@
     ],
     "users": [
       "read",
+      "update",
+      "delete"
+    ],
+    "clientes": [
+      "read",
+      "create",
       "update",
       "delete"
     ],
@@ -95,6 +108,13 @@
       "update",
       "delete"
     ],
+    "clientes": [
+      "read",
+      "create",
+      "update",
+      "delete"
+    ],
+
     "profile": [
       "read",
       "update"
