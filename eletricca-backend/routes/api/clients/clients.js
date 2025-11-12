@@ -10,17 +10,17 @@ const { authenticateToken } = require('../../../middleware/auth');
 router.use(authenticateToken);
 
 
-// GET api/client?page=1&limit=25&search=algumacoisa
+// GET api/client?page=1&limit=25&search=algumacoisa //estado completo
 router.get('/', async (req, res) => {
-    try{
+    try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        const search = req.query.search? `%${req.query.search}%` : `%`;
-        
+        const search = req.query.search ? `%${req.query.search}%` : `%`;
+
         const offset = (page - 1) * limit;
 
         // sql query
-        const {rows} = await pool.query(`
+        const { rows } = await pool.query(`
             SELECT id, client_first_name, client_last_name, client_telephone,
                 client_email, creation_date
             FROM client
@@ -29,14 +29,14 @@ router.get('/', async (req, res) => {
                     OR client_email ILIKE $1
             ORDER BY client_first_name DESC
             LIMIT $2 OFFSET $3
-        `, [ search, limit, offset]);
+        `, [search, limit, offset]);
 
         if (rows === 0) {
-            return res.status(404).json({ error: 'Nenhum usuario encontrado'});
+            return res.status(404).json({ error: 'Nenhum usuario encontrado' });
         };
         // calcular a quantidade de paginas
         const countQueryResult = await pool.query(`SELECT COUNT(*) FROM client`);
-        const totalItems = parseInt(countQueryResult.rows[0].count, 10);       
+        const totalItems = parseInt(countQueryResult.rows[0].count, 10);
         res.status(200).json({
             clients: rows,
             page,
@@ -44,24 +44,24 @@ router.get('/', async (req, res) => {
             totalItems,
             totalPages: Math.ceil(totalItems / limit),
             ok: true,
-        });        
+        });
 
-    } catch(error){
+    } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Internal server error'});
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
-
+// GET /api/client/:id
 router.get('/:id', async (req, res) => {
-            return res.send('nao implementado')
+    return res.send('nao implementado')
 
 });
 
-
+// POST /api/client/ //estado completo
 router.post('/', async (req, res) => {
-    try{
-        const { clientFirstName, clientLastName, clientTel, clientEmail} = req.body;
+    try {
+        const { clientFirstName, clientLastName, clientTel, clientEmail } = req.body;
 
         if (![clientFirstName, clientLastName, clientTel, clientEmail].every(v => v && v.trim() !== '')) {
             return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
@@ -76,27 +76,49 @@ router.post('/', async (req, res) => {
             ;`, [clientFirstName, clientLastName, clientTel, clientEmail]
         );
 
-        return res.status(201).json({ 
-            client: rows[0], 
-            ok: true 
+        return res.status(201).json({
+            client: rows[0],
+            ok: true
         });
 
-    } catch (error){
+    } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Internal server error'});
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
-
-router.put('/:id', async (req, res) => {
-            return res.send('nao implementado')
+// PUT /api/client/edit/:id
+router.put('/edit/:id', async (req, res) => {
+    console.log('T');
+    return res.send('nao implementado')
 
 });
 
+// DELETE /api/client/delete/:id //estado completo
+router.delete('/delete/:id', async (req, res) => {
+    try{
+        const id = parseInt(req.params.id, 10);
 
-router.delete('/:id', async (req, res) => {
-            return res.send('nao implementado')
+        const { rowCount } = await pool.query(`
+            DELETE FROM client
+            WHERE id=$1;
+            `, [id]
+        );
+        if (rowCount === 0) {
+            return res.status(404).json({ message: "Cliente não encontrado", ok: true, success: false});
+        }
 
+        return res.status(200).json({
+            message: "Operação concluida",
+            ok: true,
+            success: true,
+            deletedIt: id
+        })
+
+    } catch (error){
+        console.error(error);
+        res.status(500).json({ message: "Internal server error"});
+    };
 });
 
 module.exports = router;

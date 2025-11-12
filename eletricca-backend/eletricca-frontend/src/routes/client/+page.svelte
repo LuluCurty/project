@@ -1,24 +1,22 @@
 <script>
-	import {
-		Plus,
-		FileUp,
-		Search,
-		Ellipsis,
-		CircleX,
-	} from '@lucide/svelte';
-	import { onMount } from 'svelte';
-	import DataTable from '$lib/components/ui/uniqueTables/clients/data-table.svelte';
-	import { columns } from '$lib/components/ui/uniqueTables/clients/columns';
+	import { Plus, FileUp, Search, Trash, FileDown } from '@lucide/svelte';
 	// quando eu aprender a usar as tabelas do shadcn eu volto aqui
-
+	// import de componentes
 	import TablePagFoot from '$lib/components/ui/uniqueTables/table-template/TablePagFoot.svelte';
+	import TablePopup from '$lib/components/ui/popups/TablePopup.svelte';
+	import TableTitle from '$lib/components/ui/titles/TableTitle.svelte';
 	
 	let loading = $state(false);
 	let clients = $state([]);
-	let page = $state(1);
 	let limit = $state(20);
 	let search = $state('');
-	let totalPages = 1;
+	// usado na TableFoot
+	let page = $state(1);
+	let totalPages = $state(1); 
+	let totalItems = $state(1);
+	// usado nas checkbox para fazer multipla seleção
+	let allSelectedClients = $state(false);
+	let selectedClients = $state([])
 
 	$effect(() => {
 		page = 1;
@@ -39,50 +37,58 @@
 			const data = await res.json();
 			clients = data.clients;
 			totalPages = data.totalPages;
+			totalItems = data.totalItems;
 			loading = true;
 		} catch (error) {
 			console.error(error);
 			loading = false;
 		}
 	}
-	function prevPage() {
-		if (page > 1) {
-			page--;
-		}
-		getClients();
+	async function importClientFile() {
+		console.log("nao implementado ainda");
 	}
-	function nextPage() {
-		if (page < totalPages) {
-			page++;
-		}
-		getClients();
+	async function exportClientFile() {
+		console.log("nao implementado ainda");		
 	}
-	function handleSearch() {
-		page = 1;
-		getClients();
+	// funções usadas no popup
+	function updateClient(client) {
+		console.log("Editado");
+		// mandar o id como parametro para a pagina client/edit/${id}
+	}
+	async function deleteClient(client) {
+		if(confirm(`Deseja Excluir cliente ${client.client_first_name}`)){
+			const res = await fetch(`/api/client/delete/${client.id}`,{
+				method: "DELETE",
+				credentials: "include",
+			});
+			if(!res.ok){
+				throw new Error("ERRO AO EXCLUIR");
+			}
+			console.log('Client excluido:', client.id);
+			await getClients();
+		}
 	}
 </script>
 
-<div
-	class="h-[50px] items-center border-b border-[#e7ecf0] bg-white
-    font-normal leading-[50px] shadow-[0px_1px_10px_rgba(223,225,229,0.5)]"
->
-	<div class="pl-[6]! items-center">
-		<h3 class="pl-6! items-center text-[1.17rem]">Clientes</h3>
-	</div>
-</div>
+<TableTitle title='Cliente'/>
 
 <div class="main-app-table-wrapper h-[575px] p-3.5">
 	<div class="main-app-buttons mb-2.5">
 		<div class="app-buttons-wrapper flex items-center justify-between">
 			<div>
-				<button class="top-button general-buttons" onclick={addNewClient}>
+				<button 
+					class="top-button general-buttons" type="button" onclick={addNewClient}>
 					<Plus />
 					<span>Add</span>
 				</button>
-				<button class="top-button general-buttons">
+				<button 
+					class="top-button general-buttons" type="button" onclick={importClientFile}>
 					<FileUp />
 					<span>Import</span>
+				</button>
+				<button type="button" class="top-button general-buttons" onclick={exportClientFile}>
+					<FileDown/>
+					<span>Export</span>
 				</button>
 				<input class="hidden" />
 			</div>
@@ -92,7 +98,9 @@
                         border-solid border-[#e2e8ef] bg-white align-middle transition-colors"
 				>
 					<div class="ml-1 pl-1 pr-1">
-						<span class="inline-block! relative bottom-[-7px] text-[#10131a]"><Search /></span>
+						<span class="inline-block! relative bottom-[-7px] text-[#10131a]">
+							<Search />
+						</span>
 						<input
 							class="inline-block cursor-text border-none pb-1.5 pt-1.5 focus:ring-0"
 							type="text"
@@ -147,10 +155,10 @@
 									<td colspan="1"><span>{client.client_telephone}</span></td>
 									<td colspan="1"><span>{client.client_email}</span></td>
 									<td colspan="1">
-										<div>
-											<button type="button"><Ellipsis /></button>
-											<button type="button"><CircleX /></button>
-										</div>
+										<TablePopup
+											onDelete={()=> deleteClient(client)}
+											onEdit={()=> updateClient(client)}
+										/>
 									</td>
 								</tr>
 							{/each}
@@ -161,7 +169,11 @@
 						{/if}
 					</tbody>
 				</table>
-				<TablePagFoot bind:pagination={limit}/>
+				<TablePagFoot bind:pagination={limit}
+					bind:totalPages={totalPages}
+					bind:totalItems={totalItems}
+					bind:page={page}
+				/>
 			</div>
 		</div>
 	</div>

@@ -1,5 +1,4 @@
 <script>
-	import Popup from '$lib/components/popup.svelte';
 
 	let clientFirstName = '';
 	let clientLastName = '';

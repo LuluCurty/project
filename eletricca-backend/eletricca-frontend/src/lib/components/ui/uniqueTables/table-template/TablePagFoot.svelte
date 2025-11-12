@@ -1,11 +1,16 @@
 <script>
 	import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "@lucide/svelte";
 	export let pagination = 20;
+	export let count = 0;
+	export let totalPages = 1;
+	export let totalItems = 0;
+	export let page = 1;
+	export let itemsSelected = 1;
 </script>
 
 <div class="table-foot flex justify-between">
 	<div class="selected-rows">
-		<span>0 de 0 selecionado</span>
+		<span>{itemsSelected} de {totalItems} selecionado</span>
 	</div>
 	<div class="flex justify-between">
 		<div class="pagination clear-both">
@@ -18,7 +23,7 @@
 			</select>
 		</div>
 		<div class="pagination-quantity">
-			<span>Pagina 1 de 1</span>
+			<span>Pagina {page} de {totalPages}</span>
 		</div>
 		<div class="pagination-nav">
 			<div class="pagination-nav-wrapper">

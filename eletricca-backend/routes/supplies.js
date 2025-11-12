@@ -97,9 +97,6 @@ router.put('/:id', authorize('supplies', 'update'), async (req, res) => {
 router.delete('/:id', authorize('supplies', 'delete'), async (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
-
-        console.log(id);
-
         const { rowCount } = await pool.query(`
             DELETE FROM supplies WHERE id=$1
             ;`, [id]
