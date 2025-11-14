@@ -11,13 +11,7 @@ const path = require('path');
 router.use(authenticateToken);
 
 
-/**
- * 
- * CRUD RELACIONADO A TABELA supplies_lists
- * FAVOR USAR APENAS ESTA ROTA PARA MEXER NAQUELA
- */
-
-// listar tudo na pagina URLORIGIN/listas/
+// GET '/api/supplieslist?page=1&limit=25&search=algumacoisa //estado completo
 router.get('/', authorize('supplies_lists', 'read'), async (req, res) => {
     try {
         const { rows } = await pool.query(`

@@ -42,7 +42,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/supplies', suppliesRoutes);
 app.use('/api/ann', announcementRoutes);
-app.use('/api/supplieslists', suppliesListsRoutes);
+app.use('/api/supplieslist', suppliesListsRoutes);
 app.use('/api/client', clientsRoutes)
 
 app.use((req, res) => {

@@ -1,16 +1,65 @@
-<script>
-	import { Plus, FileUp, Search, Trash, List } from '@lucide/svelte';
+<script lang="ts">
+	import { Plus, FileUp, Search, Trash, FileDown } from '@lucide/svelte';
+
+	// import components
+	import TablePagFoot from '$lib/components/ui/uniqueTables/table-template/TablePagFoot.svelte';
+	import TableTitle from '$lib/components/ui/titles/TableTitle.svelte';
+	import TablePopup from '$lib/components/ui/popups/TablePopup.svelte';
+
+	// import do svelte
+	import { goto } from '$app/navigation';
+	import { setItemToEdit } from "$lib/state/client-to-edit.svelte";
+	// variaveis dos items!
+
+	// variaveis de ambiente
+	let loading = $state(false);
+	let items = $state<Array<any>>([]); //placeholder
+
+	// funções GET, DELETE do db
+	async function deleteItem(item) {
+		
+	}
+	async function getItems() {
+
+	}
+	// funções de redirecionamento
+	function addItem() {
+		
+	}
+	function updateItem(item) {
+
+	}
+	// funções do selectbox
+	let selectAll = $state(false);
+	let selectedItems = $state<Array<any>>([]);
+
+	function clearSelection() {
+		
+	}
+	function selectedItemsNAOSEIOQUEEISSOPORENQUANTO() {
+
+	}
+	function isSelected() {
+		
+	}
+	function toggleSelect(){
+
+	}
+	function toggleSelectAll() {
+		
+	}
+	// paginação
+	let limit = $state(20);
+	let page = $state(1);
+	let totalItems = $state(1);
+	let totalPages = $state(1);
+	let selectedCount = $state(0);
+
+
 	import './s.css';
 </script>
 
-<div
-	class="h-[50px] items-center border-b border-[#e7ecf0] bg-white
-    font-normal leading-[50px] shadow-[0px_1px_10px_rgba(223,225,229,0.5)]"
->
-	<div class="pl-[6]! items-center">
-		<h3 class="pl-6! items-center text-[1.17rem]">Listas de Materiais</h3>
-	</div>
-</div>
+<TableTitle title="Lista de Materiais"/>
 
 <div class="main-app-table-wrapper h-[575px] p-3.5">
 	<div class="main-app-buttons mb-2.5">
@@ -69,23 +118,45 @@
                     <tbody id="supplies-list-content" class="bg-white
                     [*]:text-left" 
                     >
-                        <tr>
-                            <td class="text-center" colspan="7">
-                                NO DATA
-                            </td> 
-                        </tr>
+                        {#if loading}
+							{#each items as item}
+								<tr class:bg-gray-200={}> <!---NAO ESQUECER DISSO-->
+									<td colspan="1">
+										<input 
+										type="checkbox" 
+										name="select-this" 
+										id="select-this" 
+										checked={.includes()} 
+										onclick={() => toggleSelect()} /> <!---NAO ESQUECER DISSO-->
+									</td>
+									<td colspan="1"><span>{}</span></td>
+									<td colspan="1"><span>{}</span></td>
+									<td colspan="1"><span>{}</span></td>
+									<td colspan="1"><span>{}</span></td>
+									<td colspan="1">
+										<TablePopup
+											onDelete={() => deleteItem()}
+											onEdit={() => updateItem()}
+										/>
+									</td>
+								</tr>
+							{/each}
+						{:else}
+							<tr>
+								<td class="text-center" colspan="7">
+									NO DATA
+								</td> 
+                        	</tr>
+						{/if}
                     </tbody>
                 </table>
             </div>
-
-			<div class="pagination clear-both">
-				<select name="items-per-page" id="items-per-page-selection">
-					<option value="10">10</option>
-					<option value="20" selected>20</option>
-					<option value="50">50</option>
-					<option value="100">100</option>
-				</select>
-			</div>
+			<TablePagFoot
+				bind:pagination={limit}
+				bind:totalPages
+				bind:totalItems
+				bind:page
+				bind:itemsSelected={selectedCount}/>
 		</div>
 	</div>
 </div>
