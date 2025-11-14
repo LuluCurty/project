@@ -45,7 +45,8 @@ CREATE TABLE IF NOT EXISTS client ( --show
     client_last_name    VARCHAR(100) NOT NULL,
     client_telephone    VARCHAR(30) NOT NULL, 
     client_email        VARCHAR(255) NOT NULL UNIQUE,
-    creation_date       TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+    creation_date       TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    updated_at          TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS supplies_lists( --show

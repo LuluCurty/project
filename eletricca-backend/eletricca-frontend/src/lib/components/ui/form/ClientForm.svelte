@@ -2,7 +2,11 @@
     // this is a 4 by 4 form
     // which I plan to make it a general one :)
 
-    let { clientFirstName, clientEmail, clientLastName, clientTel } = $props();
+    let { clientFirstName =$bindable(), 
+		clientEmail =$bindable(), 
+		clientLastName =$bindable(), 
+		clientTel=$bindable() 
+	} = $props();
 
 </script>
 

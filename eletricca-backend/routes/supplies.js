@@ -84,7 +84,7 @@ router.put('/:id', authorize('supplies', 'update'), async (req, res) => {
         );
 
         if (rowCount === 0) {
-            return res.status(500).json({ error: 'Material não atualizado' });
+            return res.status(404).json({ error: 'Material não atualizado' });
         }
         res.json({ ok: true });
 

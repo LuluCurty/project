@@ -115,7 +115,32 @@ router.post('/', async (req, res) => {
 // PUT /api/client/edit/:id
 router.put('/edit/:id', async (req, res) => {
     try{
+        const id =  parseInt(req.params.id, 10);
 
+        if (!Number.isInteger(id)) {
+            return res.status(400).json({ error: "ID inválido (deve ser número inteiro)", ok: false});
+        };
+
+        const {firstName, lastName, email, tel} = req.body;
+
+        console.log(req.body);
+
+        const { rowCount } = await pool.query(`
+            UPDATE client
+            SET
+                client_first_name = COALESCE($1, client_first_name),
+                client_last_name = COALESCE($2, client_last_name),
+                client_email = COALESCE($3, client_email),
+                client_telephone =COALESCE($4, client_telephone),
+                updated_at = NOW()
+            WHERE id=$5
+            ;`,[firstName, lastName, email, tel, id]
+        );
+
+        if ( rowCount === 0) {
+            return res.status(404).json({ message: 'Material não atualizado'});
+        }
+        return res.status(200).json({ ok: true, rowCount, b:req.body});
     } catch (error) {
         console.error(error);
         res.status(500).json({ mesage: "Internal server error"});
