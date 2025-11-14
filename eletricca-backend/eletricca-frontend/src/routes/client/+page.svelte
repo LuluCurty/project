@@ -5,19 +5,61 @@
 	import TablePagFoot from '$lib/components/ui/uniqueTables/table-template/TablePagFoot.svelte';
 	import TablePopup from '$lib/components/ui/popups/TablePopup.svelte';
 	import TableTitle from '$lib/components/ui/titles/TableTitle.svelte';
-	
-	let loading = $state(false);
-	let clients = $state([]);
-	let limit = $state(20);
-	let search = $state('');
+
+	// using state from runes 
+	import { setClientToEdit } from '$lib/state/client-to-edit.svelte';
+	import { goto } from '$app/navigation';
+
+	let loading = $state(false); //Isso aqui é coisa de animação pra mexer depois
+	let clients = $state([]); //ARRAY PRINCIPAL, DEUS DA PAGINA
+	let limit = $state(20); // limit da paginação
+	let search = $state(''); //search stuff
 	// usado na TableFoot
 	let page = $state(1);
-	let totalPages = $state(1); 
+	let totalPages = $state(1);
 	let totalItems = $state(1);
+	
 	// usado nas checkbox para fazer multipla seleção
-	let allSelectedClients = $state(false);
-	let selectedClients = $state([])
+	let selectedClients = $state([]);
+	let selectAll = $state(false);
+	let selectedCount = $state(0);
 
+	function toggleSelectAll() { // seleciona todos os clientes
+		selectAll = !selectAll;
+
+		if (selectAll) {
+			selectedClients = clients.map((c) => c.id);
+		} else {
+			selectedClients =[];
+		}
+
+		selectedCount = selectedClients.length;
+	}
+
+	function toggleSelect(id) {
+		if (selectedClients.includes(id)) {
+			selectedClients = selectedClients.filter((x) => x !== id);
+		} else {
+			selectedClients.push(id);
+		}
+
+		selectedCount = selectedClients.length;
+		selectAll = selectedClients.length === clients.length;
+	}
+	async function batchDelete() {
+		if (!confirm(`Deseja excluir ${selectedCount} cliente(s)?`)) return;
+
+		for (const id of selectedClients) {
+			await fetch(`/api/client/delete/${id}`, {
+				method: 'DELETE',
+				credentials: 'include'
+			});
+		}
+
+		await getClients();
+	}
+
+	// funções gerais
 	$effect(() => {
 		page = 1;
 		getClients();
@@ -38,6 +80,12 @@
 			clients = data.clients;
 			totalPages = data.totalPages;
 			totalItems = data.totalItems;
+
+			// limpar checkbox
+			selectedClients = [];
+			selectedCount=0;
+			selectAll=false;
+
 			loading = true;
 		} catch (error) {
 			console.error(error);
@@ -45,24 +93,27 @@
 		}
 	}
 	async function importClientFile() {
-		console.log("nao implementado ainda");
+		console.log('nao implementado ainda');
 	}
 	async function exportClientFile() {
-		console.log("nao implementado ainda");		
+		console.log('nao implementado ainda');
 	}
 	// funções usadas no popup
+
+	
 	function updateClient(client) {
-		console.log("Editado");
-		// mandar o id como parametro para a pagina client/edit/${id}
+		setClientToEdit(client);
+		goto(`/client/edit/${client.id}`);
+		
 	}
 	async function deleteClient(client) {
-		if(confirm(`Deseja Excluir cliente ${client.client_first_name}`)){
-			const res = await fetch(`/api/client/delete/${client.id}`,{
-				method: "DELETE",
-				credentials: "include",
+		if (confirm(`Deseja Excluir cliente ${client.client_first_name}`)) {
+			const res = await fetch(`/api/client/delete/${client.id}`, {
+				method: 'DELETE',
+				credentials: 'include'
 			});
-			if(!res.ok){
-				throw new Error("ERRO AO EXCLUIR");
+			if (!res.ok) {
+				throw new Error('ERRO AO EXCLUIR');
 			}
 			console.log('Client excluido:', client.id);
 			await getClients();
@@ -70,27 +121,35 @@
 	}
 </script>
 
-<TableTitle title='Cliente'/>
+<TableTitle title="Cliente" />
 
 <div class="main-app-table-wrapper h-[575px] p-3.5">
 	<div class="main-app-buttons mb-2.5">
 		<div class="app-buttons-wrapper flex items-center justify-between">
 			<div>
-				<button 
-					class="top-button general-buttons" type="button" onclick={addNewClient}>
+				<button class="top-button general-buttons" type="button" onclick={addNewClient}>
 					<Plus />
 					<span>Add</span>
 				</button>
-				<button 
-					class="top-button general-buttons" type="button" onclick={importClientFile}>
+				<button class="top-button general-buttons" type="button" onclick={importClientFile}>
 					<FileUp />
 					<span>Import</span>
 				</button>
 				<button type="button" class="top-button general-buttons" onclick={exportClientFile}>
-					<FileDown/>
+					<FileDown />
 					<span>Export</span>
 				</button>
-				<input class="hidden" />
+				<button
+					type="button"
+					class="top-button general-buttons "
+					class:!bg-red-400={selectedCount > 0 }
+					class:!bg-red-300={selectedCount === 0 }
+					onclick={batchDelete}
+					disabled={selectedCount ===0}
+				>
+					<Trash />
+					<span>Apagar</span>
+				</button>
 			</div>
 			<form id="search-form">
 				<div
@@ -129,7 +188,12 @@
 						>
 							<th class="font-normal" colspan="1">
 								<button aria-label="select-all">
-									<input type="checkbox" name="select-all" id="select-all" />
+									<input 
+										type="checkbox" 
+										name="select-all" 
+										id="select-all"
+										checked={selectAll} 
+										onclick={toggleSelectAll} />
 								</button>
 							</th>
 							<th class="font-normal" colspan="1"><div>Nome</div></th>
@@ -146,9 +210,14 @@
 					>
 						{#if loading}
 							{#each clients as client}
-								<tr>
+								<tr class:bg-gray-200={selectedClients.includes(client.id)}>
 									<td colspan="1">
-										<input type="checkbox" name="selecionar-este" id="select-this" />
+										<input 
+										type="checkbox" 
+										name="select-this" 
+										id="select-this"
+										checked={selectedClients.includes(client.id)}
+										onclick={() => toggleSelect(client.id)} />
 									</td>
 									<td colspan="1"><span>{client.client_first_name}</span></td>
 									<td colspan="1"><span>{client.client_last_name}</span></td>
@@ -156,8 +225,8 @@
 									<td colspan="1"><span>{client.client_email}</span></td>
 									<td colspan="1">
 										<TablePopup
-											onDelete={()=> deleteClient(client)}
-											onEdit={()=> updateClient(client)}
+											onDelete={() => deleteClient(client)}
+											onEdit={() => updateClient(client)}
 										/>
 									</td>
 								</tr>
@@ -169,10 +238,12 @@
 						{/if}
 					</tbody>
 				</table>
-				<TablePagFoot bind:pagination={limit}
-					bind:totalPages={totalPages}
-					bind:totalItems={totalItems}
-					bind:page={page}
+				<TablePagFoot
+					bind:pagination={limit}
+					bind:totalPages
+					bind:totalItems
+					bind:page
+					bind:itemsSelected={selectedCount}
 				/>
 			</div>
 		</div>

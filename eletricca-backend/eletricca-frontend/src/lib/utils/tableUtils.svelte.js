@@ -1,0 +1,1 @@
+// nota mental, jamais usar SET para problemas simples

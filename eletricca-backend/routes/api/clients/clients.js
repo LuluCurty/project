@@ -54,8 +54,33 @@ router.get('/', async (req, res) => {
 
 // GET /api/client/:id
 router.get('/:id', async (req, res) => {
-    return res.send('nao implementado')
+    try{
+        const id =  parseInt(req.params.id); //id que vem do rest
 
+        if (!Number.isInteger(id)) {
+            return res.status(400).json({ error: 'ID inválido (deve ser número inteiro)', ok: false });
+        }
+
+        const { rows } = await pool.query(`
+            SELECT id, client_first_name, client_last_name, 
+                client_telephone, client_email, creation_date
+            FROM client 
+            WHERE id=$1 
+            ;`, [id]
+        );
+
+        if (rows === 0) {
+            return res.status(404).json({ error: 'Material não encontrado', ok: false });
+        }
+
+        res.status(200).json({
+            client: rows[0]
+        })
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Internal server error"});
+    }
 });
 
 // POST /api/client/ //estado completo
@@ -89,8 +114,12 @@ router.post('/', async (req, res) => {
 
 // PUT /api/client/edit/:id
 router.put('/edit/:id', async (req, res) => {
-    console.log('T');
-    return res.send('nao implementado')
+    try{
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ mesage: "Internal server error"});
+    }
 
 });
 
