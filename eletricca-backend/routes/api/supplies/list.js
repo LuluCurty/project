@@ -11,18 +11,43 @@ const path = require('path');
 router.use(authenticateToken);
 
 
-// GET '/api/supplieslist?page=1&limit=25&search=algumacoisa //estado completo
+// GET '/api/supplieslist?page=1&limit=25&search=algumacoisa //estado completo 
+// `/api/supplieslist?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`, em estado funcional
+
 router.get('/', authorize('supplies_lists', 'read'), async (req, res) => {
     try {
+
+        const page = parseInt(req.query.page, 10) || 1; 
+        const limit = parseInt(req.query.limit) || 20; 
+        const search = req.query.search ? `%${req.query.search}%` : `%`;
+
+        const offset = (page - 1) * limit;
+
+
         const { rows } = await pool.query(`
-            SELECT id, list_name, list_status
+            SELECT id, list_name, list_status, priority, client_id, created_by
             FROM supplies_lists
+            WHERE list_name ILIKE $1
             ORDER BY list_name DESC
-            ;`);
+            LIMIT $2 OFFSET $3
+            ;`, [search, limit, offset]
+        );
+
+        if (rows === 0) {
+            return res.status(404).json({error: "Nenhuma lista encontrada"});
+        }
+
+        // calcular quantidade de paginas e de items
+        const countQueryResult = await pool.query(`SELECT COUNT(*) FROM supplies_lists`);
+        const totalItems = parseInt(countQueryResult.rows[0].count, 10);
 
         res.json({
             lists: rows,
-            ok: true
+            ok: true,
+            page,
+            limit,
+            totalItems,
+            totalPages: Math.ceil(totalItems / limit)
         });
     } catch (error) {
         console.error(error);

@@ -36,7 +36,7 @@ CREATE TYPE IF NOT EXISTS user_role_type AS ENUM (
 
 
 --daqui pra baixo é lista + fornecedor + cliente + 
---relçaõ preço, material, lista, fornecedor
+--relaçaõ preço, material, lista, fornecedor
 -- convencao: usar id para tabela interna
 --xxx_id para tabela externa (chave estrangeira)
 CREATE TABLE IF NOT EXISTS client ( --show

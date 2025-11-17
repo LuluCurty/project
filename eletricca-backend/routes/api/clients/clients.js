@@ -37,6 +37,7 @@ router.get('/', async (req, res) => {
         // calcular a quantidade de paginas
         const countQueryResult = await pool.query(`SELECT COUNT(*) FROM client`);
         const totalItems = parseInt(countQueryResult.rows[0].count, 10);
+        
         res.status(200).json({
             clients: rows,
             page,
@@ -83,6 +84,40 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// GET /api/client/search?=algumacoisa
+router.get('/search', async (req, res) => {
+    try{
+        const search = req.query.search ? `%${req.query.search}%` : `%`;
+        console.log('Testando!');
+        if (!search || search.length < 2) {
+            return res.json([]);
+        }
+
+        const { rows } =  await pool.query(`
+            SELECT
+                id,
+                client_first_name,
+                client_last_name,
+                client_email
+            FROM client
+            WHERE
+                client_first_name ILIKE $1 or
+                client_last_name ILIKE $1 or
+                client_email ILIKE $1
+            ORDER BY client_first_name
+            LIMIT 10
+            `, [`%${search}%`]
+        );
+
+        res.status(200).json({
+            rows
+        })
+    } catch (error) {
+        console.error('Erro no search: \n', error);
+    }
+});
+
+
 // POST /api/client/ //estado completo
 router.post('/', async (req, res) => {
     try {
@@ -122,8 +157,6 @@ router.put('/edit/:id', async (req, res) => {
         };
 
         const {firstName, lastName, email, tel} = req.body;
-
-        console.log(req.body);
 
         const { rowCount } = await pool.query(`
             UPDATE client

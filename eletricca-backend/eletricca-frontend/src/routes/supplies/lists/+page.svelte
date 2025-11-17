@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { Plus, FileUp, Search, Trash, FileDown } from '@lucide/svelte';
+	import './s.css';
+
+	// /supplies/lists/ <- pagina referida, colocar em todo começo de +page
 
 	// import components
 	import TablePagFoot from '$lib/components/ui/uniqueTables/table-template/TablePagFoot.svelte';
@@ -8,30 +11,67 @@
 
 	// import do svelte
 	import { goto } from '$app/navigation';
-	import { setItemToEdit } from "$lib/state/client-to-edit.svelte";
+	import { setItemToEdit } from '$lib/state/item-to-edit.svelte';
 	// variaveis dos items!
 
 	// variaveis de ambiente
 	let loading = $state(false);
 	let items = $state<Array<any>>([]); //placeholder
+	let search = $state('');
+	// paginação
+	let limit = $state(20);
+	let page = $state(1);
+	let totalItems = $state(1);
+	let totalPages = $state(1);
+	let selectedCount = $state(0);
+
+	// variaveis do select
+	let selectAll = $state(false);
+	let selectedItems = $state<Array<any>>([]);
 
 	// funções GET, DELETE do db
-	async function deleteItem(item) {
-		
+	async function deleteItem(item: any) {
+		 
 	}
 	async function getItems() {
+		try {
+			const res = await fetch(`/api/suplist?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`, {
+				credentials: "include"
+			});
+			// pegar item
+			const data = await res.json();
+			console.log(data);
+			// paginação
+			items = data.lists;
+			totalPages = data.totalPages;
+			totalItems = data.totalItems;
+			// reset de checkbox
+			selectedItems = [];
+			selectedCount=0;
+			selectAll=false;
+			
+			if (items.length === 0) {
+				loading = false; // loading false = ligado 
+			} else {
+				loading = true; // loading = desligado 
+			}
 
+
+		} catch (error) {
+			console.error(error);
+			alert("Erro ao buscar usuarios")
+		}
 	}
 	// funções de redirecionamento
 	function addItem() {
-		
+		goto(`/supplies/lists/add`);
 	}
-	function updateItem(item) {
-
+	function updateItem(item: any) {
+		setItemToEdit(item);
+		goto(`/supplies/lists/edit/${item.id}`);
 	}
 	// funções do selectbox
-	let selectAll = $state(false);
-	let selectedItems = $state<Array<any>>([]);
+	
 
 	function clearSelection() {
 		
@@ -48,15 +88,33 @@
 	function toggleSelectAll() {
 		
 	}
-	// paginação
-	let limit = $state(20);
-	let page = $state(1);
-	let totalItems = $state(1);
-	let totalPages = $state(1);
-	let selectedCount = $state(0);
+	async function batchDelete() {
+		try {
+			console.log('FUNCIONA!');
+			
 
 
-	import './s.css';
+
+		} catch (error) {
+			console.error(error);
+			alert("Erro ao excluir usuario");
+		}
+
+		await getItems();
+	}
+	
+	// futuro import e export de arquivos excel ou csv
+	async function exportClientFile() {
+		console.log('funciona?');
+	}
+	async function importClientFile () {
+		console.log('FUNCIONA!');
+	}
+
+	$effect(() => {
+		page = 1;
+		getItems();
+	})
 </script>
 
 <TableTitle title="Lista de Materiais"/>
@@ -65,7 +123,7 @@
 	<div class="main-app-buttons mb-2.5">
 		<div class="app-buttons-wrapper flex items-center justify-between">
 			<div>
-				<button class="top-button general-buttons">
+				<button class="top-button general-buttons" onclick={addItem}>
 					<Plus />
 					<span>Add</span>
 				</button>
@@ -73,7 +131,21 @@
 					<FileUp />
 					<span>Import</span>
 				</button>
-				<input class="hidden" />
+				<button type="button" class="top-button general-buttons" onclick={exportClientFile}>
+					<FileDown />
+					<span>Export</span>
+				</button>
+				<button
+					type="button"
+					class="top-button general-buttons "
+					class:!bg-red-400={selectedCount > 0 }
+					class:!bg-red-300={selectedCount === 0 }
+					onclick={batchDelete}
+					disabled={selectedCount === 0}
+				>
+					<Trash />
+					<span>Apagar</span>
+				</button>
 			</div>
 			<form id="search-form">
 				<div
@@ -87,6 +159,7 @@
 							type="text"
 							id="search-input"
 							placeholder="Pesquisar"
+							bind:value={search}
 						/>
 					</div>
 				</div>
@@ -120,23 +193,25 @@
                     >
                         {#if loading}
 							{#each items as item}
-								<tr class:bg-gray-200={}> <!---NAO ESQUECER DISSO-->
+								<tr class:bg-gray-200={isSelected}> <!---NAO ESQUECER DISSO-->
 									<td colspan="1">
 										<input 
 										type="checkbox" 
 										name="select-this" 
 										id="select-this" 
-										checked={.includes()} 
+										checked={false} 
 										onclick={() => toggleSelect()} /> <!---NAO ESQUECER DISSO-->
 									</td>
-									<td colspan="1"><span>{}</span></td>
-									<td colspan="1"><span>{}</span></td>
-									<td colspan="1"><span>{}</span></td>
-									<td colspan="1"><span>{}</span></td>
+									<td colspan="1"><span>{2+1}</span></td>
+									<td colspan="1"><span>{2+1}</span></td>
+									<td colspan="1"><span>{2+1}</span></td>
+									<td colspan="1"><span>{2+1}</span></td>
+									<td colspan="1"><span>{2+1}</span></td>
+									<td colspan="1"><span>{2+1}</span></td>
 									<td colspan="1">
 										<TablePopup
-											onDelete={() => deleteItem()}
-											onEdit={() => updateItem()}
+											onDelete={() => deleteItem(item)}
+											onEdit={() => updateItem(item)}
 										/>
 									</td>
 								</tr>

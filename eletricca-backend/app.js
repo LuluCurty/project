@@ -13,7 +13,7 @@ const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
 const suppliesRoutes = require('./routes/supplies');
 const announcementRoutes = require('./routes/announce');
-const suppliesListsRoutes = require('./routes/api/suppliesList/supList');
+const suppliesListsRoutes = require('./routes/api/supplies/list');
 const clientsRoutes = require('./routes/api/clients/clients');
 
 // svelte 
@@ -42,8 +42,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/supplies', suppliesRoutes);
 app.use('/api/ann', announcementRoutes);
-app.use('/api/supplieslist', suppliesListsRoutes);
-app.use('/api/client', clientsRoutes)
+app.use('/api/suplist', suppliesListsRoutes);
+app.use('/api/client', clientsRoutes);
 
 app.use((req, res) => {
     const reqPath = path.join(publicFrontendPath, req.path);
