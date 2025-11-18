@@ -197,7 +197,7 @@ router.get('/search', authorize('supplies', 'read'), async (req, res) => {
     try {
         const q = req.query.q || '';
         const page = parseInt(req.query.page, 10) || 1;
-        const limit = parseInt(req.query.limit, 10) || 25;
+        const limit = parseInt(req.query.limit, 10) || 10;
         // Verificação simples — impede erro se "q" vier vazio
         if (typeof q !== 'string') {           
             return res.status(400).json({ error: 'Parâmetro de busca inválido' });

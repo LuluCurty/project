@@ -309,14 +309,16 @@
 							<div class="mb-3.5 w-1/2">
 								<div class="mb-3 leading-8">
 									<div class="inline-block w-1/3">
-										<label class="text-normal text-[#000000a6]" for="client-name">Cliente:</label>
+										<label class="text-normal text-[#000000a6]" for="client-name">
+											Cliente:
+										</label>
 									</div>
 									<div class="inline-block w-1/2 relative">
 										{#if selectedClient}
 											<div class="flex items-center gap-2 rounded border border-[#3D77FF] bg-[#e6f2ff] px-2 py-1">
-												<span class="text-sm"
-													>{selectedClient.client_first_name} {selectedClient.client_last_name}</span
-												>
+												<span class="text-sm">
+													{selectedClient.client_first_name} {selectedClient.client_last_name}
+												</span>
 												<button
 													type="button"
 													onclick={removeClient}
