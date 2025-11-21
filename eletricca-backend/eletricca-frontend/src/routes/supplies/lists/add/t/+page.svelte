@@ -341,7 +341,8 @@
 												/>
 												{#if showClientSuggestions && clientSuggestions.length > 0}
 													<div
-														class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded border border-[#d9d9d9] bg-white shadow-lg"
+														class="absolute z-50 mt-1 max-h-60 w-full overflow-auto 
+														rounded border border-[#d9d9d9] bg-white shadow-lg"
 													>
 														{#each clientSuggestions as client}
 															<button
@@ -419,7 +420,7 @@
 							<!-- Formulário de adição -->
 							<div class="space-y-4 rounded border border-[#d9d9d9] bg-[#fafafa] p-4">
 								<div>
-									<label class="mb-2 block text-sm font-medium text-[#596680]">Material</label>
+									<label for="supply-s" class="mb-2 block text-sm font-medium text-[#596680]">Material</label>
 									{#if selectedSupply}
 										<div
 											class="flex items-center gap-2 rounded border border-[#3D77FF] bg-[#e6f2ff] px-2 py-1"
@@ -436,6 +437,7 @@
 									{:else}
 										<div class="relative">
 											<input
+												name="supply-s"
 												type="text"
 												class="h-8 w-full border border-[#a4adb7] px-2"
 												placeholder="Digite para buscar..."

@@ -15,6 +15,7 @@ const suppliesRoutes = require('./routes/supplies');
 const announcementRoutes = require('./routes/announce');
 const suppliesListsRoutes = require('./routes/api/supplies/list');
 const clientsRoutes = require('./routes/api/clients/clients');
+const supplier_route = require('./routes/api/suppliers/supppliers');
 
 // svelte 
 const svelteRoutes = require('./routes/svelteRoutes');
@@ -44,6 +45,7 @@ app.use('/api/supplies', suppliesRoutes);
 app.use('/api/ann', announcementRoutes);
 app.use('/api/suplist', suppliesListsRoutes);
 app.use('/api/client', clientsRoutes);
+app.use('/api/supplier', supplier_route);
 
 app.use((req, res) => {
     const reqPath = path.join(publicFrontendPath, req.path);

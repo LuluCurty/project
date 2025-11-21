@@ -1,6 +1,36 @@
-<script></script>
+<script>
+    let supplierName = $state('');
+    let supplierEmail = $state('');
+    let supplierTelephone = $state('');
+    let supplierAddress = $state('');
 
-<form action="" id="createCliente">
+    async function cList() {
+        try{
+            const res = await fetch(`/api/supplier`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    supplierName, 
+                    supplierEmail, 
+                    supplierTelephone, 
+                    supplierAddress
+                }),
+                credentials: 'include'
+            })   
+            const data = await res.json();
+            console.log(data);
+        } catch (error) {
+            console.error(error);
+        }
+
+    }
+    function cCancel() {
+        history.back();
+    }
+
+</script>
+
+<form id="createCliente" onsubmit={(event) => {event.preventDefault(); cList(); }}>
     <div class="mb-3.5 items-center border-b border-[#e7ecf0]
         bg-white font-normal leading-[50px]
         shadow-[0px_1px_10px_rgba(223,225,229,0.5)]"
@@ -9,7 +39,7 @@
         <div class="flex justify-end">
             <div>
                 <button type="button" onclick="{cCancel}">Cancelar</button>
-                <button type="button" onclick="{cList}">Salvar</button>
+                <button type="submit" >Salvar</button>
             </div>
         </div>
     </div>
@@ -28,16 +58,18 @@
                     <div class="w-1/2">
                         <div class="flex items-center mb-6">                                            
                             <div class="inline-block w-[30%]">
-                                <label for="client_name" class="text-normal text-[#000000a6]">
+                                <label for="supplier_name" class="text-normal text-[#000000a6]">
                                     Nome:
                                 </label>
                             </div>
                             <div class="inline-block w-[50%]">
                                 <input 
-                                class="h-8 leading-8 border-[#a4adb7] rounded-sm"
+                                    class="h-8 leading-8 border-[#a4adb7] rounded-sm"
                                     type="text" 
-                                    id="client_name" 
-                                    placeholder="Nome do Cliente">
+                                    id="supplier_name" 
+                                    placeholder="Nome do Fornecedor"
+                                    bind:value={supplierName}
+                                >
                             </div>
                         </div>
                         <div class="flex items-center mb-6">
@@ -51,7 +83,9 @@
                                     class="h-8 leading-8 border-[#a4adb7] rounded-sm"
                                     type="text" 
                                     id="client_email" 
-                                    placeholder="Email">
+                                    placeholder="Email"
+                                    bind:value={supplierEmail}
+                                    >
                             </div>
                         </div>
                     </div>
@@ -67,7 +101,9 @@
                                     class="h-8 leading-8 border-[#a4adb7] rounded-sm" 
                                     type="text" 
                                     id="client_tel" 
-                                    placeholder="Telefone">
+                                    placeholder="Telefone"
+                                    bind:value={supplierTelephone}
+                                    >
                             </div>
                         </div>
                         <div class="flex items-center mb-6">                                            
@@ -81,7 +117,11 @@
 										class="ml-[3px] w-full border border-solid border-[#d9d9d9] pb-0 rounded-sm"
 										name="supplier_address"
 										id="supplier_address"
-										placeholder="Endereço"></textarea>
+										placeholder="Endereço"
+                                        bind:value={supplierAddress}
+                                    >
+                                    
+                                    </textarea>
                             </div>
                         </div>
                     </div>

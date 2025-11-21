@@ -16,6 +16,13 @@
 		supply_description?: string;
 	}
 
+	interface Supplier {
+		id: number;
+		supplier_name: string;
+		supplier_email: string;
+		price: number;
+	}
+
 	// variavel de mudança de pagina
 	let currentTab = $state('lista');
 
@@ -27,6 +34,7 @@
 
 	// Estados da aba de materiais
 	let selectedSupply = $state<Supply | null>();
+	let selectedSupplier = $state<Supplier | null>();	
 
 	// autocompletes
 	let clientSearch = $state('');
@@ -36,6 +44,10 @@
 	let supplySearch = $state('');
 	let supplySuggestions = $state<Supply[]>([]);
 	let showSupplySuggestions = $state(false);
+
+	let supplierSearch = $state('');
+	let supplierSuggestions = $state<Supplier[]>([]);
+	let showSupplierSuggestions = $state(false);
 
 	// =========== QUERY FUNCIONS =============
 	// são funções de busca de dados
@@ -72,16 +84,34 @@
 			const res = await fetch(`/api/supplies/search?q=${encodeURIComponent(supplySearch)}`, {
 				credentials: "include"
 			});
-			console.log(res)
 			if(res.ok) {
 				const data = await res.json();
-				console.log(data)
 				supplySuggestions = data.supplies;
-				console.log($state.snapshot(supplySuggestions));
 				showSupplySuggestions = supplySuggestions.length > 0;
 			}
 		} catch (error) {
 			console.error(error);
+		}
+	}
+	async function searchSupplier() {
+		if (supplierSearch.length < 2) {
+			supplierSuggestions = [];
+			showSupplierSuggestions = false;
+			return;
+		}
+		try {
+			const res = await fetch(`/api/supplier/search?search=${encodeURIComponent(supplierSearch)}`, { 
+				credentials: 'include' 
+			});
+			
+			if (res.ok) {
+				const data = await res.json();
+				supplierSuggestions = data.rows;
+				showSupplierSuggestions = supplierSuggestions.length > 0;
+			}
+			
+		} catch (error) {
+			console.error('Erro ao buscar fornecedores', error);
 		}
 	}
 	// ================ HANDLERS ===========
@@ -105,25 +135,32 @@
 	function removeSupply(){
 		selectedSupply = null;
 	}
+	// autocomplete de fornecedor
+	function selectSupplier(supplier: Supplier) {
+		selectedSupplier = supplier;
+		supplierSearch = '';
+		supplierSuggestions = [];
+		showSupplierSuggestions = false;
+	}
+	function removeSupplier() {
+		selectedSupplier = null;
+	}
 
-	// auto
 	// +++++ butoes ++++
 	async function cList() {
 		console.log(selectedClient);
 		console.log(selectedSupply);
+		console.log(selectedSupplier);
 	}
 	function cCancel() {
 		// go back
 		history.back();
 	}
-	// terminar a aba de lista e depois ir mexer na aba de materiais
-
 	// +++++ page changer ++++++
 	function changeTab(tabToChange = 'lista') {
 		currentTab = tabToChange;
 	}
 
-	
 </script>
 
 <form id="createList" onsubmit={(event) => { event.preventDefault(); cList(); }}>
@@ -168,7 +205,7 @@
 
 	<div class="main-form w-full">
 		<div class="w-full">
-			<div class="tabpanel-content h-full overflow-auto pb-3.5 pl-3.5 pr-3.5 pt-0">
+			<div class="tabpanel-content h-full  pb-3.5 pl-3.5 pr-3.5 pt-0">
 				<div
 					class="form-content border border-solid border-[#dadfe580]
 					 bg-white pb-5 pl-[30px] pr-[30px] pt-[30px]"
@@ -369,9 +406,54 @@
 									<div id="f2">
 										<label for="supplier" class="mb-2 block text-sm font-medium text-[#596680]">Fornecedor</label>
 										
+										{#if selectedSupplier}
+											<div>
+												<span class="text-sm">
+													{selectedSupplier.supplier_name} - R$ 
+												</span>
+												<button 
+													type="button"
+													onclick={removeSupplier}
+													class="hover:text-red-500 text-gray-500"
+												>
+													<X class="h-4 w-4"/>
+												</button>
+											</div>
+
+										{:else} 
+											<div class="relative">
+												<input 
+													type="text" 
+													name="supplier" 
+													id="supplier"
+													placeholder="Buscar Fornecedor"
+													bind:value={supplierSearch}
+													oninput={searchSupplier}
+													onfocus={searchSupplier}
+												>
+
+												{#if showSupplierSuggestions && supplierSuggestions.length > 0}
+													<div>
+														{#each supplierSuggestions as supplier}
+															<button 
+																class="w-full cursor-pointer px-3 py-2 text-left hover:bg-[#f5f5f5]"
+																type="button"
+																onclick={() => selectSupplier(supplier)}
+															>
+																<div class="font-medium text-sm">
+																	{supplier.supplier_name}
+																</div>
+																<div class="text-xs text-gray-500">
+																	Preço: R$ 
+																</div>
+															</button>
+														{/each}
+													</div>
+												{/if}
+											</div>	
+										{/if}
 									</div>
 								{/if}
-
 							</section>
 
 							<!--lista-->
