@@ -99,12 +99,9 @@
 		console.log('nao implementado ainda');
 	}
 	// funções usadas no popup
-
-	
 	function updateClient(client) {
 		setClientToEdit(client);
 		goto(`/client/edit/${client.id}`);
-		
 	}
 	async function deleteClient(client) {
 		if (confirm(`Deseja Excluir cliente ${client.client_first_name}`)) {

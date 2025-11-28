@@ -1,9 +1,9 @@
 CREATE TABLE IF NOT EXISTS users (
-    id             SERIAL PRIMARY KEY,
+    id                  SERIAL PRIMARY KEY,
     email               VARCHAR(150) NOT NULL UNIQUE,
     password_hashed     VARCHAR(255) NOT NULL,
     telphone            VARCHAR(20),
-    user_role           user_role_type NOT NULL DEFAULT 'clients'
+    user_role           user_role_type NOT NULL DEFAULT 'clients',
     first_name          VARCHAR(30) NOT NULL,
     last_name           VARCHAR(30) NOT NULL,
     creation_date       TIMESTAMP DEFAULT NOW()

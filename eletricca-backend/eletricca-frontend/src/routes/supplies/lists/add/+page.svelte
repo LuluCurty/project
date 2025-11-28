@@ -9,17 +9,21 @@
 		client_last_name: String;
 		client_email: string;
 	}
-
 	interface Supply {
 		id: number;
 		supply_name: string;
 		supply_description?: string;
 	}
-
 	interface Supplier {
 		id: number;
 		supplier_name: string;
 		supplier_email: string;
+		price: number;
+	}
+	interface ListItem {
+		supply: Supply;
+		supplier: Supplier;
+		quantity: number;
 		price: number;
 	}
 
@@ -35,6 +39,12 @@
 	// Estados da aba de materiais
 	let selectedSupply = $state<Supply | null>();
 	let selectedSupplier = $state<Supplier | null>();	
+	let currentQuantity = $state(1);
+	let currentPrice = $state(0);
+	let listItems = $state<ListItem[]>([]);
+	let totalValue = $derived(
+		listItems.reduce((sum, item) => sum + item.quantity * item.price, 0)
+	);
 
 	// autocompletes
 	let clientSearch = $state('');
@@ -146,11 +156,81 @@
 		selectedSupplier = null;
 	}
 
-	// +++++ butoes ++++
+	// ===== list state
+	function addItemToList() {
+		if (!selectedSupply || !selectedSupplier || currentQuantity <= 0) {
+			alert('Preencha todos os campos');
+			return;
+		}
+
+		listItems = [
+			...listItems,
+			{
+				supply: selectedSupply,
+				supplier: selectedSupplier,
+				quantity: currentQuantity,
+				price: currentPrice
+			}
+		];
+		selectedSupplier = null;
+		selectedSupply = null;
+		currentPrice = 0;
+		currentQuantity = 0;
+		supplySearch = '';
+		supplierSearch = '';
+	}
+	function removeItem(index: number){
+		listItems = listItems.filter((_, i) => i !== index);
+	}
+
 	async function cList() {
-		console.log(selectedClient);
-		console.log(selectedSupply);
-		console.log(selectedSupplier);
+		if (!listName || !selectedClient) {
+			alert('Preencha o nome da lista e cliente');
+			return;
+		}
+
+		if (listItems.length === 0) {
+			alert('Adicione pelo menus um material a lista');
+			return;
+		}
+
+		try {
+			const payload = {
+				listName,
+				clientId: selectedClient.id,
+				priority,
+				description,
+				listItems: listItems.map(item => ({
+					supply_id: item.supply.id,
+					supplier_id: item.supplier.id,
+					quantity: item.quantity,
+					price: item.price
+				}))
+			};
+
+
+			const res = await fetch(`/api/suplist`, {
+				method: 'POST',
+				credentials: 'include',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+
+			if (res.ok) {
+				alert('Lista criada com sucesso');
+				history.back();
+			} else {
+				const data = await res.json();
+				console.log(data);
+				alert('Erro ao criar lista');
+			}
+		} catch (error) {
+			console.error('Error:\n'+ error);
+		}
+
+
 	}
 	function cCancel() {
 		// go back
@@ -453,6 +533,39 @@
 											</div>	
 										{/if}
 									</div>
+
+									<div id='price-and-quantity' class="grid grid-cols-2 gap-4">
+										<div id="quanttt">
+											<label for="supply-quantity">Quantidade:</label>
+											<input type="number" 
+												name="supply-quantity" 
+												id="supply-quantity"
+												bind:value={currentQuantity}
+												class="h-8 w-full border border-[#a4adb7] px-2"
+											/>
+										</div>
+										<div id="price">
+											<label for="supply-price">Preço Unit.</label>
+											<input 
+												type="number" 
+												name="supply-price" 
+												id="supply-price"
+												step="0.01"
+												min="0"
+												class="h-8 w-full border px-2 border-[#a4adb7]"
+												bind:value={currentPrice}
+											>
+										</div>
+									</div>
+
+									<button 
+										type="button"
+										class="flex w-full items-center justify-center gap-2 rounded bg-[#3D77FF]! px-4 py-2 text-sm text-white hover:bg-[#2a5fd9]!"
+										onclick={addItemToList}
+									>
+										<Plus class="h-4 w-4"/>
+										Adicionar à Lista
+									</button>
 								{/if}
 							</section>
 
@@ -460,11 +573,47 @@
 							<section class="rounded space-y-4 p-4 bg-white
 								border border-[#d9d9d9]"
 							>
-								<div id="list-wrapper">
-									<span>
-										Materiais Adicionados (a)
-									</span>
-								</div>
+								<h5 class="mb-4 font-semibold text-[#596680]">
+									Materiais Adicionados ({listItems.length})
+								</h5>
+
+								{#if listItems.length === 0}
+									<p class="text-center text-sm text-gray-400 py-8">
+										Nenhum material
+									</p>
+								{:else}
+									<div class="space-y-2 max-h-[400px] overflow-auto">
+										{#each listItems as item, index}
+											<div class="flex items-start justify-between rounded border border-[#e7ecf0] bg-[#f9fafb] p-3">
+												<div class="flex-1">
+													<div class="font-medium text-sm">
+														{item.supply.supply_name}
+													</div>
+													<div class="text-xs text-gray-500 mt-1">
+														{item.supplier.supplier_name}
+													</div>
+													<div class="text-xs text-gray-600 mt-1">
+														Qtd: {item.quantity} x R$ =
+													</div>
+												</div>
+												<button
+													type="button"
+													onclick={() => removeItem(index)}
+													class="text-gray-400 hover:text-red-500 ml-2"
+												>
+													<Trash2 class="h-4 w-4"/>
+												</button>
+											</div>
+										{/each}
+									</div>
+
+									<div class="mt-4 border-t pt-4">
+										<div class="flex justify-between font-semibold text-lg">
+											<span>Total:</span>
+											<span class="text-[#3D77FF]">VALOR TOTAL</span>
+										</div>
+									</div>
+								{/if}
 							</section>
 						</div>
 					{/if}

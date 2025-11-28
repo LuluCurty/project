@@ -23,22 +23,46 @@ router.get('/', authorize('supplies_lists', 'read'), async (req, res) => {
 
         const offset = (page - 1) * limit;
 
-
         const { rows } = await pool.query(`
-            SELECT id, list_name, list_status, priority, client_id, created_by
-            FROM supplies_lists
-            WHERE list_name ILIKE $1
-            ORDER BY list_name DESC
+            SELECT
+                sl.id,
+                sl.list_name,
+                sl.list_status,
+                sl.priority,
+                sl.client_id,
+                sl.created_by,
+                c.client_first_name,
+                c.client_last_name,
+                u.first_name AS creator_first_name,
+                u.last_name AS creator_last_name
+            FROM supplies_lists sl
+            LEFT JOIN client c ON sl.client_id = c.id
+            LEFT JOIN users u ON sl.created_by = u.user_id
+            WHERE sl.list_name ILIKE $1
+            ORDER BY sl.creation_date DESC 
             LIMIT $2 OFFSET $3
             ;`, [search, limit, offset]
         );
 
-        if (rows === 0) {
-            return res.status(404).json({error: "Nenhuma lista encontrada"});
+        if (rows.length === 0) {
+            return res.status(404).json({
+                lists: [],
+                ok: false,
+                page,
+                limit,
+                totalItems: 0,
+                totalPages: 0
+            });
         }
 
         // calcular quantidade de paginas e de items
-        const countQueryResult = await pool.query(`SELECT COUNT(*) FROM supplies_lists`);
+        const countQueryResult = await pool.query(`
+            SELECT COUNT(*) 
+            FROM supplies_lists 
+            WHERE 
+                list_name ILIKE $1
+            `, [search]
+        );
         const totalItems = parseInt(countQueryResult.rows[0].count, 10);
 
         res.json({
@@ -74,30 +98,71 @@ router.get('/:id', authorize('supplies_lists', 'read'), async (req, res) => {
     }
 });
 // criar uma nova lista
-router.post('/', authorize('supplies_lists', 'create'), async (req, res) => {
-    try {
-        const { list_name, list_status } = req.body
+router.post('/', async (req, res) => {
+    const client = await pool.connect();
+    try{
+        const { listName, clientId, priority, description, listItems } = req.body;
+        const user_id = req.user.user_id;
 
-        const { rows } = await pool.query(`
-            INSERT INTO supplies_lists 
-            (list_name, list_status)
-            VALUES
-            ($1, $2)
-            RETURNING id, creation_date, list_name
-            ;`,
-            [list_name, list_status]
+
+        if (!listName || !clientId || !listItems || listItems.length === 0) {
+            return res.status(400).json({ error: 'Erro, preencha todos os campos para prosseguir'});
+        }
+
+        console.log('t')
+
+        await client.query('BEGIN');
+
+        // criar a lista, propriamente dita
+
+        const { rows: [newList] }  = await client.query(`
+            INSERT INTO supplies_lists (
+                list_name,
+                client_id,
+                created_by,
+                priority,
+                description
+            ) VALUES ($1, $2, $3, $4, $5)
+            RETURNING id
+            ;`, [listName, clientId, user_id, priority || 'medium', description]
         );
 
-        res.status(200).json({
-            lists: rows,
-            ok: true
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        // inserrir os items a lista
+        const listId = newList.id;
+
+        for (const item of listItems) {
+            await client.query(`
+                INSERT INTO supplies_list_items (
+                list_id,
+                supply_id,
+                supplier_id,
+                quantity,
+                price
+                ) VALUES ($1, $2, $3, $4, $5)
+                `,[listId, item.supply_id, item.supplier_id, item.quantity, item.price]
+            );
+        }
+        console.log('t')
+
+        await client.query('COMMIT');
+
+        res.status(201).json({
+            ok: true,
+            listId,
+            message: 'Lista criada com sucesso'
+        })
+        console.log('t')
+
+    } catch (e) {
+        await client.query('ROLLBACK');
+        console.error(e);
+        res.status(500).json({message: 'Internal server error'});
+    } finally {
+        client.release();
     }
+
 });
-// atualizar a lista especifica, normalmente usado em conjunto com o get/:id para edição ou exclusão pagina URLORIGIN/listas/:id.
+// PUT /api/suplist/:id
 router.put('/:id', authorize('supplies_lists', 'update'), async (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
@@ -124,9 +189,41 @@ router.put('/:id', authorize('supplies_lists', 'update'), async (req, res) => {
         console.error(error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
-
 });
-// exlcuir lista especifica, normalmente usado em conjunto com o get/:id ou put/:id pagina URLORIGIN/listas/:id
+
+
+router.put('/:id/status', async (req, res) => {
+    try{
+        const id = parseInt(req.params.id, 10);
+        const { status } = req.body;
+
+        if(!Number.isInteger(id)) { return res.status(40).json({ error: 'ID invalido'})};
+
+        if(!['pending', 'approved', 'denied'].includes(status)) { return res.status(400).json({ error: 'Status invalido'})};
+
+        const { rowCount } = await pool.query(`
+            UPDATE supplies_lists
+            SET 
+                list_status = $1,
+                updated_at = NOW()
+            WHERE id = $2
+            ;`, [status, id]
+        );
+
+        if (rowCount === 0 ) { return res.status(404).json({ error: 'Lista nao encontrada'})};
+
+        res.status(200).json({
+            ok: true,
+            message: 'Status atualizado'
+        })
+
+    } catch (error) {
+        console.error('Erro no endpoint /:id/status \n' + error);
+        res.status(500).json({message: 'Internal server error'});
+    }
+});
+
+// DELETE /api/suplist/:id
 router.delete('/:id', authorize('supplies_lists', 'delete'), async (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
@@ -145,21 +242,43 @@ router.delete('/:id', authorize('supplies_lists', 'delete'), async (req, res) =>
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+// DELETE /api/suplist/batch-delete
+router.delete('/batch-delete', async (req, res) => {
+    try{
+        const { ids } = req.body;
+        console.log('ELE CHEGA COM OS IDS!');
+        console.log(ids);
 
-// futuramente usado para importar lista de materiais para o servidor
-// Vai suportar CSV, XLSX, TXT ou PDF (sim, vai suportar PDF TBM)
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ error: 'Ids invalidos '});
+        }
+
+        const { rowCount } = await pool.query(`
+            DELETE FROM supplies_lists 
+            WHERE id = ANY($1)
+            ;`, [ids]
+        );
+
+
+        res.status(200).json({
+            ok: true,
+            message: `${rowCount} removidos com sucesso`,
+            deletedCount: rowCount
+        })
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Internal server error'});
+    }
+});
+
 router.post('/import', authorize('supplies_lists', 'create'), async (req, res) => {
     res.send('hello world');
 });
 
-// futuramente usado para exportar lista de materiais para o usuario baixar no computador
-// vai suportar CSV, XLSX, TXT ou PDF
-// podera ser usado tanto na pagina principal como uma forma
-// de baixar varias listas de uma vez só
-// ou dentro de um unico arquivo, pedindo apenas uma lista
 router.get('/export', authorize('supplies_lists', 'read'), async (req, res) => {
     res.send('hello world');
 });
 
 
-module.exports = router;
+module.exports = router; 
