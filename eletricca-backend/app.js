@@ -11,7 +11,7 @@ const fs = require('fs');
 // rotas
 const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
-const suppliesRoutes = require('./routes/supplies');
+const suppliesRoutes = require('./routes/api/supplies/supplies');
 const announcementRoutes = require('./routes/announce');
 const suppliesListsRoutes = require('./routes/api/supplies/list');
 const clientsRoutes = require('./routes/api/clients/clients');
