@@ -38,19 +38,23 @@ router.post('/create', authorize('supplies', 'create'), async (req, res) => {
 
 router.get('/', authorize('supplies', 'read'), async (req, res) => {
     try {
-        const { page = 1, limit = 25 } = req.query;
+        const { page = 1, limit = 20 } = req.query;
+        const search = req.query.search ? `%${req.query.search}%` : `%`;
+
         const offset = (page - 1) * limit;
         // query
         const { rows } = await pool.query(`SELECT id, supply_name, quantity, image_url, details, price, supplier, creation_date
             FROM supplies
+            WHERE 
+                supply_name ILIKE $1
             ORDER BY supply_name DESC
-            LIMIT $1 OFFSET $2;
-        `, [limit, offset]);
+            LIMIT $2 OFFSET $3;
+        `, [search, limit, offset]);
         if (rows === 0) {
             return res.status(404).json({ error: 'Materiais nao encontrados' });
         }
         // total de registros para calcular a quanditade de paginas
-        const countQueryResult = await pool.query(`SELECT COUNT(*) FROM supplies;`);
+        const countQueryResult = await pool.query(`SELECT COUNT(*) FROM supplies WHERE supply_name ILIKE $1;`, [search]);
         const totalItems = parseInt(countQueryResult.rows[0].count, 10);
         res.json({
             supplies: rows,

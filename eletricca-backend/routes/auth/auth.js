@@ -3,7 +3,6 @@ const bcrypt = require('bcrypt');
 const pool = require('../db');
 const { generateToken }  = require('../middleware/auth');
 const { isLocalIP, normalizeIP} = require('../middleware/ipGuard');
-const { authenticateToken } = require('../middleware/auth')
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
@@ -67,7 +66,7 @@ router.post('/login', async (req, res) => {
         console.error(error);
         res.status(500).json({ error: 'Erro ao logar'});
     }
-})
+});
 
 router.post('/logout', async (req, res) => {
     try {
@@ -83,17 +82,15 @@ router.post('/logout', async (req, res) => {
         console.error(error);
         res.status(500).json({ error: 'Erro ao fazer logout'});
     }
-})
-router.get('/check', authenticateToken ,async (req, res) => {
+});
+
+router.get('/check', async (req, res) => {
     try{
-        let authenticated = true;
-        res.status(200).json({
-            ok: true, 
-            authenticated
-        });
+        res.status(200).json({ok: true, i:'a'});
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: 'Internal server error'});
     }
 })
+
 module.exports= router;

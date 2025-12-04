@@ -129,7 +129,7 @@
 							<a
 								class=" flex items-center pl-6 hover:bg-[#252933]"
 								aria-label="menu"
-								href="{getHref(group)}"
+								href="/"
 							>
 								<House class="pr-2" />
 								<span class:hidden={$sideBarCollapsed}>{capitalizeStr(group)}</span>

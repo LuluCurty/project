@@ -16,9 +16,10 @@ const announcementRoutes = require('./routes/announce');
 const suppliesListsRoutes = require('./routes/api/supplies/list');
 const clientsRoutes = require('./routes/api/clients/clients');
 const supplier_route = require('./routes/api/suppliers/supppliers');
-
+const { memoryUsage, version, pid, cpuUsage } = require('process');
+let requestCount = 0;
+let lastRequestCount = 0;
 // svelte 
-const svelteRoutes = require('./routes/svelteRoutes');
 
 const app = express();
 
@@ -32,11 +33,14 @@ app.use(cors({
     origin: "http://localhost:5173",
     credentials: true
 }))
+app.use((req, res, next) => {
+    requestCount++;
+    next();
+})
 
 const publicFrontendPath = path.join(__dirname, 'public');
 
 //app.get('/', (req, res) => res.json({ status: 'backend is working'}));
-app.use(svelteRoutes);
 app.use(express.static(publicFrontendPath));
 
 app.use('/api/auth', authRoutes);
@@ -57,4 +61,43 @@ app.use((req, res) => {
 
 
 const port = process.env.PORT || 3000;
-app.listen(port, ()=> console.log(`Server is listening on ${port}`));
+
+function displayStats() {
+
+    const memory = memoryUsage();
+    const uptime = process.uptime();
+    const requestRate = requestCount - lastRequestCount;
+    lastRequestCount = requestCount;
+
+    const hours = Math.floor(uptime / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    const seconds = Math.floor(uptime % 60);
+
+
+    console.log(`        Port:               ${port}
+        PID:                ${pid}
+        Uptime:             ${hours}h ${minutes}m ${seconds}s
+        Node:               ${version}
+        Requests:
+            Total:          ${requestCount}
+            Rate:           ${requestRate}/sec
+        Memory:
+            RSS:            ${(memory.rss / 1024 / 1024).toFixed(2)} MB
+            Heap Used:      ${(memory.heapUsed / 1024 / 1024).toFixed(2)} MB
+            Heap Total:     ${(memory.heapTotal / 1024 / 1024).toFixed(2)} MB
+            External:       ${(memory.external / 1024 / 1024).toFixed(2)} MB
+            ArrayBuffers:   ${(memory.arrayBuffers / 1024 / 1024).toFixed(2)} MB
+        CPU:
+            User:           ${(cpuUsage().user / 1000).toFixed(2)} ms
+            System:         ${(cpuUsage().system / 1000).toFixed(2)} ms
+        Last update: ${new Date().toLocaleDateString()}\n`);
+}
+
+
+
+
+app.listen(port, ()=> {
+    console.log(` Server is listening `);
+    displayStats();
+});
+
