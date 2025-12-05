@@ -9,6 +9,7 @@
 	import TablePopup from '$lib/components/ui/popups/TablePopup.svelte';
 	import { goto } from '$app/navigation';
 	import { setItemToEdit } from '$lib/state/item-to-edit.svelte';
+	import { onMount } from 'svelte';
 
 	type ListStatus = "denied" | "pending" | "approved";
 	type Priority = "low" | "medium" | "high";
@@ -63,8 +64,14 @@
 	
 	$effect(() => {
 		getItems();
-		page = 1;
 	});
+	$effect(() => {
+		search;
+		page=1;
+	});
+	onMount(() => {
+		page=1;
+	})
 
 	// GET items from API DELETE item from API
 	async function getItems() {

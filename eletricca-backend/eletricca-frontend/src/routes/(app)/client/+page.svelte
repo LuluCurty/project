@@ -61,7 +61,6 @@
 
 	// funções gerais
 	$effect(() => {
-		page = 1;
 		getClients();
 	});
 

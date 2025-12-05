@@ -67,8 +67,9 @@
     function addItem() {
         goto('supplies/add');
     };
-    function updateItem(itemId: number) {
-        console.log('funciona?');
+    function updateItem(id: number) {
+        
+        goto(`supplies/edit/${id}`);
     }
     async function deleteItem(item: number) {
         try {
