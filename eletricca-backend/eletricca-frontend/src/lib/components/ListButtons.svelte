@@ -7,8 +7,7 @@
     export let batchDelete;
 
     export let selectedCount: number;
-    export let search: string 
-
+    export let search: string;
 
 </script>
 

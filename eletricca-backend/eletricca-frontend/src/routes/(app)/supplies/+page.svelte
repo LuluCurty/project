@@ -4,6 +4,7 @@
 	import TablePopup from '$lib/components/ui/popups/TablePopup.svelte';
 	import TableTitle from '$lib/components/ui/titles/TableTitle.svelte';
     import ListButtons from "$lib/components/ListButtons.svelte";
+	import { onMount } from "svelte";
 
     interface Item {
         id: number;
@@ -35,37 +36,59 @@
     let selectedItems = $state<Set<number>>(new Set());    
         
     function toggleSelect(id: number){
-
-    }
+        if (selectedItems.has(id)) {
+            selectedItems.delete(id);
+        } else {
+            selectedItems.add(id);
+        }
+        selectedItems = new Set(selectedItems);
+        selectedCount = selectedItems.size;
+        selectAll = selectedItems.size === itemArray.length;
+    };
     function toggleSelectAll() {
-        
-    }
-    function isSelected(){
-
-    }
+        selectAll = !selectAll;
+        if (selectAll) {
+            selectedItems = new Set(itemArray.map(item => item.id));
+        } else {
+            selectedItems = new Set();
+        }
+        selectedCount = selectedItems.size;
+    };
+    function isSelected(itemId: number): boolean{
+        return selectedItems.has(itemId);
+    };
     
     async function exportItem(){
         console.log('export');
     }
     async function importItem(){
         console.log('import');
-        
     }
     function addItem() {
         goto('supplies/add');
-    }
+    };
     function updateItem(itemId: number) {
         console.log('funciona?');
     }
     async function deleteItem(item: number) {
-        
+        try {
+            
+        } catch (e) {
+            console.error(e);
+            alert('Erro ao apagar usuario');
+        }
     }
-    
     async function batchDelete(){
         try {
             const res = await fetch('',{
                 credentials: 'include',
-                method: "DELETE"
+                method: "DELETE",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    ids: Array.from(selectedItems)
+                })
             });
         } catch (error) {
             console.error(error);
@@ -90,13 +113,17 @@
             console.error(error);
             alert('Erro ao carregar informações');
         }
-    }
-
+    };
     $effect(() => {
         getItems();
+    });
+    $effect(() => {
+        search;
         page = 1;
     });
-
+    onMount(() => {
+        page = 1;
+    });
 </script>
 
 <TableTitle title="Materiais" />
@@ -148,13 +175,13 @@
 					>
 						{#if loading}
 							{#each itemArray as item}
-								<tr class:bg-gray-200={selectedItems.has(item.id)}>
+								<tr class:bg-gray-200={isSelected(item.id)}>
 									<td colspan="1">
 										<input 
 										type="checkbox" 
 										name="select-this" 
 										id="select-this"
-										checked={selectedItems.has(item.id)}
+										checked={isSelected(item.id)}
 										onclick={() => toggleSelect(item.id)} />
 									</td>
 									<td colspan="1"><span>{item.supply_name}</span></td>

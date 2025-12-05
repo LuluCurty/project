@@ -1,94 +1,84 @@
-<script>
-	import { Plus, FileUp, Search, Trash, Ellipsis } from '@lucide/svelte';
-    
-  
+<script lang="ts">
+	import TableTitle from '$lib/components/ui/titles/TableTitle.svelte';
+	import { goto } from '$app/navigation';
+	import TablePopup from '$lib/components/ui/popups/TablePopup.svelte';
+	import ListButtons from '$lib/components/ListButtons.svelte';
+	import TablePagFoot from '$lib/components/ui/uniqueTables/table-template/TablePagFoot.svelte';
+
+	let page = $state<number>(1);
+	let search = $state<string>('');
+	let selectedCount = $state<number>(0);
+	let selectAll = $state<boolean>(false);
+
+	let limit = $state<number>(20);
+	let totalItems = $state<number>(1);
+	let totalPages = $state<number>(1);
+	let loading = $state<boolean>(false);
+
+	let itemArray = $state<Array<any>>([]);
+	let selectedItems = $state<Set<number>>(new Set());
+
+	function addItem() {
+		goto('supplies/suppliers/add');
+	}
+
+	async function importItem() {}
+	async function exportItem() {}
+	async function batchDelete() {}
 </script>
 
-<div
-	class="h-[50px] items-center border-b border-[#e7ecf0] bg-white
-    font-normal leading-[50px] shadow-[0px_1px_10px_rgba(223,225,229,0.5)]"
->
-	<div class="pl-[6]! items-center">
-		<h3 class="pl-6! items-center text-[1.17rem]">Clientes</h3>
-	</div>
-</div>
-
-
-
+<TableTitle title="Fornecedores" />
 
 <div class="main-app-table-wrapper h-[575px] p-3.5">
-	<div class="main-app-buttons mb-2.5">
-		<div class="app-buttons-wrapper flex items-center justify-between">
-			<div>
-				<button class="top-button general-buttons">
-					<Plus />
-					<span>Add</span>
-				</button>
-				<button class="top-button general-buttons">
-					<FileUp />
-					<span>Import</span>
-				</button>
-				<input class="hidden" />
-			</div>
-			<form id="search-form">
-				<div
-					class="search-wrapper focus-within:border-[#155dfc]! inline-block rounded-sm border-2
-                        border-solid border-[#e2e8ef] bg-white align-middle transition-colors"
-				>
-					<div class="ml-1 pl-1 pr-1">
-						<span class="inline-block! relative bottom-[-7px] text-[#10131a]"><Search /></span>
-						<input
-							class="inline-block cursor-text border-none focus:ring-0 pt-1.5 pb-1.5 "
-							type="text"
-							id="search-input"
-							placeholder="Pesquisar"
-						/>
-					</div>
-				</div>
-			</form>
-		</div>
-	</div>
+	<ListButtons
+		bind:search
+		bind:selectedCount
+		addNewItem={addItem}
+		importItemFile={importItem}
+		exportItemFile={exportItem}
+		{batchDelete}
+	/>
 
 	<div class="wrapper clear-both">
 		<div class="main-container text-[#10131a]">
-            <div class="main-table overflow-auto overflow-x-hidden">
-                <table class="w-full">
-                    <thead>
-                        <tr class="[*]:uppercase [*]:text-left 
+			<div class="main-table overflow-auto overflow-x-hidden">
+				<table class="w-full">
+					<thead>
+						<tr
+							class="[*]:uppercase [*]:text-left
                             [*]:align-middle [*]:font-normal
                             [*]:h-10 [*]:whitespace-nowrap
-                            [*]:px-2 [*]:text-xs text-[#596680]
-                            [*]:break-all
+                            [*]:px-2 [*]:text-xs [*]:break-all
+                            text-[#596680]
                             "
-                        >
-                            <th class="font-normal" colspan="1"><button>-</button></th>
-                            <th class="font-normal" colspan="1"><div>Nome</div></th>
-                            <th class="font-normal" colspan="1"><div>email</div></th>
-                            <th class="font-normal" colspan="1"><div>telefone</div></th>
-                            <th class="font-normal" colspan="1"><div>endereço</div></th>
-                            <th class="font-normal" colspan="1">Opções</th>
-                        </tr>
-                    </thead>
-                    <tbody id="supplies-list-content" class="bg-white
-                    [*]:text-left" 
-                    >
-                        <tr>
-                            <td class="text-center" colspan="6">
-                                NO DATA
-                            </td> 
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-			<div class="pagination clear-both">
-				<select name="items-per-page" id="items-per-page-selection">
-					<option value="10">10</option>
-					<option value="20" selected>20</option>
-					<option value="50">50</option>
-					<option value="100">100</option>
-				</select>
+						>
+							<th class="font-normal" colspan="1"><button>-</button></th>
+							<th class="font-normal" colspan="1"><div>Nome</div></th>
+							<th class="font-normal" colspan="1"><div>email</div></th>
+							<th class="font-normal" colspan="1"><div>telefone</div></th>
+							<th class="font-normal" colspan="1"><div>endereço</div></th>
+							<th class="font-normal" colspan="1">Opções</th>
+						</tr>
+					</thead>
+					<tbody
+						id="supplies-list-content"
+						class="[*]:text-left
+                    bg-white"
+					>
+						<tr>
+							<td class="text-center" colspan="6"> NO DATA </td>
+						</tr>
+					</tbody>
+				</table>
 			</div>
+
+			<TablePagFoot
+				bind:pagination={limit}
+				bind:totalPages
+				bind:totalItems
+				bind:page
+				bind:itemsSelected={selectedCount}
+			/>
 		</div>
 	</div>
 </div>

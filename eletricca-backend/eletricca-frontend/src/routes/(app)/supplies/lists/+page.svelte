@@ -133,13 +133,13 @@
 		} else {
 			selectedItems.add(itemId);
 		}
-
+		selectedItems = new Set(selectedItems);
 		selectedCount = selectedItems.size;
 		selectAll = selectedItems.size === items.length;
 	};
 	function toggleSelectAll () {
 		if (selectAll) {
-			selectedItems.clear();
+			selectedItems = new Set();
 			selectedCount = 0;
 			selectAll = false;
 		} else {

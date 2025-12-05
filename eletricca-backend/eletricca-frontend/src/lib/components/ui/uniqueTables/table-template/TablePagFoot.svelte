@@ -1,11 +1,24 @@
-<script>
+<script lang="ts">
 	import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "@lucide/svelte";
-	export let pagination = 20;
-	export let count = 0;
-	export let totalPages = 1;
-	export let totalItems = 0;
-	export let page = 1;
-	export let itemsSelected = 1;
+	let { page = $bindable(), 
+		pagination = $bindable(), 
+		totalPages = $bindable(), 
+		totalItems = $bindable(), 
+		itemsSelected = $bindable() 
+	} = $props();
+
+	function nextPage() {
+		page = page + 1;
+	}
+	function previousPage() {
+		page = page - 1;
+	}
+	function lastPage() {
+		page = totalPages;
+	}
+	function firstPage() {
+		page = 1;
+	}
 </script>
 
 <div class="table-foot flex justify-between">
@@ -27,10 +40,10 @@
 		</div>
 		<div class="pagination-nav">
 			<div class="pagination-nav-wrapper">
-				<button aria-label="first-page" type="button"><ChevronsLeft /></button>
-				<button aria-label="previous-page" type="button"><ChevronLeft /></button>
-				<button aria-label="next-page" type="button"><ChevronRight /></button>
-				<button aria-label="last-page" type="button"><ChevronsRight /></button>
+				<button aria-label="first-page" type="button" onclick={firstPage} ><ChevronsLeft /></button>
+				<button aria-label="previous-page" type="button" onclick={previousPage}><ChevronLeft /></button>
+				<button aria-label="next-page" type="button" onclick={nextPage}><ChevronRight /></button>
+				<button aria-label="last-page" type="button" onclick={lastPage}><ChevronsRight /></button>
 			</div>
 		</div>
 	</div>

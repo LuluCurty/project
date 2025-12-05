@@ -117,7 +117,14 @@ router.delete('/:id', authorize('supplies', 'delete'), async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
-
+router.delete('batch-delete', async (req, res) => {
+    try{
+        
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Internal server error', ok: false});
+    }
+})
 // ARQUIVOS
 
 const upload = multer({ dest: "uploads/" });
