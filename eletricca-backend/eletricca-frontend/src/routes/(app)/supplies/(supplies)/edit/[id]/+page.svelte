@@ -5,8 +5,8 @@
     import { capitalizeFirstChar } from "$lib/utils/utils";
     
     let title = $state<string>('');
-    let strId = page.params.id;
-    parseInt(strId, 10);
+    const id = $derived(page.params.id);
+    
 
     interface Item {
         id: number;
@@ -21,13 +21,13 @@
     async function saveChanges() {
         
     }
-    async function getItems(id:number) {
+    async function getItem() {
         try {
             const res = await fetch(`/api/supplies/${id}`,{
                 credentials: 'include'
             });
 
-            const data = 
+            const data = await res.json();
             console.log(data);
         } catch (e) {
             console.error(e);
@@ -38,18 +38,10 @@
         goto('/supplies');
     }
 
-    async function getItem() {
-        try {
-            
-        } catch (e) {
-            console.error(e);
-            alert('Erro ao buscar informações');
-        }
-    }
 </script>
 <form action="" method="post">
     <FormTitle {title} {cancelChanges} {saveChanges} />
-    <button type="button" onclick={getItem(id)}>
+    <button type="button" onclick={getItem}>
         aperta ai
     </button>
 </form>

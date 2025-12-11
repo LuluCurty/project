@@ -16,6 +16,7 @@ const announcementRoutes = require('./routes/announce');
 const suppliesListsRoutes = require('./routes/api/supplies/list');
 const clientsRoutes = require('./routes/api/clients/clients');
 const supplier_route = require('./routes/api/suppliers/supppliers');
+const ucmRoutes = require('./routes/api/ucm/route');
 const { memoryUsage, version, pid, cpuUsage } = require('process');
 let requestCount = 0;
 let lastRequestCount = 0;
@@ -50,6 +51,7 @@ app.use('/api/ann', announcementRoutes);
 app.use('/api/suplist', suppliesListsRoutes);
 app.use('/api/client', clientsRoutes);
 app.use('/api/supplier', supplier_route);
+app.use('/api/ucm', ucmRoutes);
 
 app.use((req, res) => {
     const reqPath = path.join(publicFrontendPath, req.path);

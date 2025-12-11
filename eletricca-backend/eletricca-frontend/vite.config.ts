@@ -9,5 +9,8 @@ export default defineConfig({
 		proxy: {
 			'/api': 'http://localhost:54445'
 		}
+	},
+	ssr: {
+		noExternal: ['bits-ui']
 	}
 });

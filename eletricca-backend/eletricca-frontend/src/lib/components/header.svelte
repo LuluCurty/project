@@ -4,8 +4,9 @@
 	import { onMount } from 'svelte';
 	import { LogOut } from '@lucide/svelte';
 	import { CircleUserRound, Search } from '@lucide/svelte';
-	import {ChevronDown} from '@lucide/svelte';
+	import { ChevronDown } from '@lucide/svelte';
 	import { userName } from '../stores/stores';
+	import * as Avatar from '$lib/components/ui/avatar/index';
 
 	function goToProfile() {
 		window.location.href = '/profile.html';
@@ -70,31 +71,35 @@
 
 	<div id="header-right" class="flexbox-vertical">
 		<div id="header-search">
-			<Search id='header-search-icon'/>
+			<Search id="header-search-icon" />
 		</div>
-		<div id="header-barrier"></div> 
+		<div id="header-barrier"></div>
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div aria-roledescription="profile-menu-button" id="profile-menu" onclick="{toggleDropDown}">
+		<div aria-roledescription="profile-menu-button" id="profile-menu" onclick={toggleDropDown}>
 			<div id="profile-button" class="flexbox-vertical">
-				<img src="" alt="" />
+				<Avatar.Root>
+					<Avatar.Image src="https://github.com/shadcn.png" alt="{$userName}" />
+					<Avatar.Fallback>CN</Avatar.Fallback>
+				</Avatar.Root>
+
 				<div class="user-name-wrapper">
 					<span id="user-name">{$userName}</span>
 				</div>
 				<span class="header-dropbox-arrow">
-					<ChevronDown id="header-arrow-down"/>
+					<ChevronDown id="header-arrow-down" />
 				</span>
 			</div>
 			<ul id="profile-menu-dropdown" class="dropdown header-dropbox" class:hidden={!menuOpen}>
 				<li id="profile-button" class="profile-menu-dropdown-item">
 					<button type="button" onclick={goToProfile}>
-						<CircleUserRound class='dropbox-icons'/>
+						<CircleUserRound class="dropbox-icons" />
 						<span>Perfil</span>
 					</button>
 				</li>
 				<li class="profile-menu-dropdown-item">
 					<button id="logout-button" type="button" onclick={logOut}>
-						<LogOut class='dropbox-icons' />
+						<LogOut class="dropbox-icons" />
 						<span>logout</span>
 					</button>
 				</li>

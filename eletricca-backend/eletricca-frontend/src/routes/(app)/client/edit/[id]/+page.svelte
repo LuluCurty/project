@@ -27,7 +27,10 @@
 	import ClientForm from '$lib/components/ui/form/ClientForm.svelte';
 
 	// import utils
-	import { capitalizeFirstChar } from '$lib/utils/utils';
+	function capitalizeFirstChar(str: String) {
+		if (!str) { return '' }
+		return str.charAt(0).toUpperCase() + str.slice(1);
+	}
 
 	$effect(() => {
 		if (!client && clientId) {
@@ -81,7 +84,6 @@
 
 <form onsubmit={updateClient} id="update-client">
 	<FormTitle {title} {cancelChanges} saveChanges={updateClient} />
-
 	<ClientForm
 		bind:clientEmail={email}
 		bind:clientFirstName={firstName}
