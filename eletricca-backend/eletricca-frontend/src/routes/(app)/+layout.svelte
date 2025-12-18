@@ -1,13 +1,14 @@
 <script lang="ts">
 	import '../../app.css';
 	import favicon from '$lib/assets/favicon.svg';
-	import Header from '$lib/components/header.svelte';
-	import Aside from '$lib/components/aside.svelte';
 	import Footer from '$lib/components/footer.svelte';
-	import { sideBarCollapsed } from '../../lib/stores/stores';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import { sideBarCollapsed } from '$lib/stores/stores';
 
+	import Aside from '$lib/components/Aside.svelte';
+	import Header from '$lib/components/Header.svelte';
 	// eu amo svelte :D
 
 	let isAuthenticated = $state(false);
@@ -16,17 +17,20 @@
 		try {
 			const res = await fetch('/api/auth/check', {
 				credentials: 'include'
-			})
+			});
 
-			if (!res.ok) { goto('/login'); };
+			if (!res.ok) {
+				goto('/login');
+			}
 
 			const data = await res.json();
 			isAuthenticated = data.authenticated;
 
-			if (!isAuthenticated) { goto('/login'); };
+			if (!isAuthenticated) {
+				goto('/login');
+			}
 
 			isAuthenticated = true;
-
 		} catch (e) {
 			console.error(e);
 		}
@@ -37,22 +41,25 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<style>h1{
-		color: blue;
-	}</style>
+	<style>
+		h1 {
+			color: blue;
+		}
+	</style>
 </svelte:head>
 
-<div class="app-wrapper">
-	<Header />
+	
 
-	<Aside />
+<div class="flex min-h-screen w-full bg-background">
+	<Aside/>
 
-	<main class="main-app-wrapper" class:collapsed={$sideBarCollapsed}>
-		{@render children?.()}
-	</main>
-
-	<Footer />
+	<div class="flex flex-1 flex-col">
+		<Header/>
+		<main class="flex-1 p-6">
+			<Tooltip.Provider>
+				{@render children?.()}
+			</Tooltip.Provider>			
+		</main>
+		<Footer/>
+	</div>
 </div>
-
-
-

@@ -22,6 +22,7 @@
 				throw new Error('Erro ao obter data');
 			}
 			const data = await res.json();
+			console.log(data)
 			userName.set(data.user.first_name);
 			const filtered = data.allowed_tabs.filter(
 				(tab) => tab !== 'supplies_variation' && tab !== 'profile'

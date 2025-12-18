@@ -73,7 +73,7 @@ async function getExtensions(cookie) {
         request: {
             action: "listAccount",
             cookie: cookie,
-            options: "extension,fullname"
+            options: "extension,fullname,addr"
         }
     };
 
