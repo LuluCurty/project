@@ -1,13 +1,13 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
-const pool = require('../db');
-const {requireRole, authenticateToken } = require('../middleware/auth');
-const { requireLocalAccess} = require('../middleware/ipGuard');
+const pool = require('../../../db');
+const {requireRole, authenticateToken } = require('../../../middleware/auth');
+const { requireLocalAccess} = require('../../../middleware/ipGuard');
 
-const { canManage, canCreate, canDelete } = require('../middleware/roleHierarchy');
+const { canManage, canCreate, canDelete } = require('../../../middleware/roleHierarchy');
 
 
-const { getRolePermission } = require('../middleware/roleBasedAccessControl')
+const { getRolePermission } = require('../../../middleware/roleBasedAccessControl')
 
 const router = express.Router();
 const SALT_ROUNDS =10;
@@ -33,52 +33,45 @@ router.post('/create', canCreate, async (req, res) => {
         res.status(500).json({ error: 'Internal server error'});
     }
 })
-
-// PEGAR LISTA DE USUARIOS protegido
+// colocar middleware especifico para cada rota
 router.get('/', async (req, res) => {
-    try {
-        const currentId = req.user.user_id;
-        const currentRole = req.user.user_role;
+    try{
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const search = req.query.search ? `%${req.query.search}%` : `%`;
 
-        let query;
-        let params = [];
+        const offset = (page - 1) * limit;
 
-        if(currentRole === 'admin'){
-            query = `SELECT user_id, email, user_role, first_name, last_name, telphone, creation_date
+        const { rows } = await pool.query(`
+            SELECT user_id, first_name, last_name, telphone,
+                email, creation_date, user_role
             FROM users
-            ORDER BY creation_date DESC;
-            `;
-        } else if (currentRole === 'manager'){
-            query = `SELECT user_id, email, user_role, first_name, last_name, telphone, creation_date
-            FROM users
-            WHERE user_role IN ('operator','client')
-            ORDER BY creation_date DESC;
-            `;
-        } else if(currentRole === 'operator'){
-            query = `SELECT user_id, email, user_role, first_name, last_name, telphone, creation_date
-            FROM users
-            WHERE user_role IN ('operator','client')
-            ORDER BY creation_date DESC;
-            `;
-        } else if(currentRole === 'client'){
-            query = `SELECT user_id, email, user_role, first_name, last_name, telphone, creation_date
-            FROM users
-            WHERE user_id=$1;
-            `;
-            params = [currentId];
-        }
-        else {
-            res.status(403).json({ error: 'Forbidden role'});
-        }
-        const { rows } = await pool.query(query, params);
+            WHERE first_name ILIKE $1 
+                OR last_name ILIKE $1 
+                    OR email ILIKE $1
+            ORDER BY first_name DESC
+            LIMIT $2 OFFSET $3
+        `, [search, limit, offset]);
 
         if (rows === 0) {
-            return res.status(404).json({ error: 'User not found or insufficient role'});
-        }
-        res.json({ users: rows});
-    } catch (error) {
-        console.log(error);
-        res.status(500).json({ error: 'Internal server error'});
+            return res.status(404).json({ error: 'Nenhum usuario encontrado' });
+        }; 
+
+        const countQueryResult = await pool.query(`SELECT COUNT(*) FROM users`);
+        const totalItems = parseInt(countQueryResult.rows[0].count, 10);
+
+        res.status(200).json({
+            users: rows,
+            page,
+            limit,
+            totalItems,
+            totalPages: Math.ceil(totalItems / limit),
+            ok: true,
+        });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Internal server error'});
     }
 })
 

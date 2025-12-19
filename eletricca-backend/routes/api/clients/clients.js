@@ -2,7 +2,6 @@ const pool = require('../../../db');
 const express = require('express');
 const router = express.Router();
 const path = require('path');
-const { authorize } = require('../../../middleware/roleBasedAccessControl');
 
 const { authenticateToken } = require('../../../middleware/auth');
 

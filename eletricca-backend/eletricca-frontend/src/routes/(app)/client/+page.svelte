@@ -76,6 +76,9 @@
 				}
 			);
 			const data = await res.json();
+
+			console.log(data)
+
 			clients = data.clients;
 			totalPages = data.totalPages;
 			totalItems = data.totalItems;

@@ -104,8 +104,8 @@
 						<Table.Body>
 							{#each extensions as extension}
 								<Table.Row class="border-b border-muted transition-colors hover:bg-gray-300/50">
-									<Table.Cell class="font-semibold">{extension.extension}</Table.Cell>
-									<Table.Cell>{extension.fullname}</Table.Cell>
+									<Table.Cell class="font-semibold text-muted-foreground">{extension.extension}</Table.Cell>
+									<Table.Cell class="text-muted-foreground">{extension.fullname}</Table.Cell>
 									<Table.Cell class="text-sm text-muted-foreground">a@a</Table.Cell>
 
 									<Table.Cell class="text-start font-mono text-xs">
@@ -117,7 +117,7 @@
 											<div class="flex flex-row items-center justify-start gap-2">
 												<Badge
 													variant="secondary"
-													class="bg-slate-200 text-slate-700 hover:bg-slate-300"
+													class="bg-slate-200/70 text-slate-700 hover:bg-slate-300"
 												>
 													{ips[0]}
 												</Badge>
@@ -135,7 +135,7 @@
 															class="z-50 flex flex-col items-start border bg-popover p-2 shadow-lg"
 														>
 															{#each ips.slice(1) as ip}
-																<Badge class="bg-slate-50 font-mono text-xs text-slate-600/50">
+																<Badge class="bg-slate-200/70 font-mono text-xs text-slate-700">
 																	{ip}
 																</Badge>
 															{/each}

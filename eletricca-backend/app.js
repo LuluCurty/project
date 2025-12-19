@@ -10,7 +10,7 @@ const fs = require('fs');
 
 // rotas
 const authRoutes = require('./routes/auth');
-const usersRoutes = require('./routes/users');
+const usersRoutes = require('./routes/api/users/router');
 const suppliesRoutes = require('./routes/api/supplies/supplies');
 const announcementRoutes = require('./routes/announce');
 const suppliesListsRoutes = require('./routes/api/supplies/list');
@@ -146,6 +146,6 @@ function displayStats() {
 
 app.listen(port, ()=> {
     console.log(` Server is listening `);
-    setInterval(displayStats, 1000);
+    //setInterval(displayStats, 1000);
 });
 

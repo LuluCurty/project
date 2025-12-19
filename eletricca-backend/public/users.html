@@ -189,6 +189,7 @@
                     return;
                 }
                 const users = await res.json();
+                console.log(users);
                 renderTable(users);
 
             } catch (error) {
