@@ -12,6 +12,7 @@
 	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+    import { page } from '$app/state';
 
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
@@ -21,7 +22,6 @@
 	import { Input } from '$lib/components/ui/input/';
 	import * as Pagination from "$lib/components/ui/pagination/index.js";
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
-	import { cn } from '$lib/utils';
 
 	interface User {
 		user_id: number;
@@ -46,9 +46,9 @@
 	let isLoading = $state(true);
 
 	let search = $state('');
-	let page = $state(1);
 	let limit = 10;
 	let totalItems = $state(0);
+    let currentPage = $derived(Number(page.url.searchParams.get('page')) || 1);
 
 	let searchTimeout: ReturnType<typeof setTimeout>;
 
@@ -57,7 +57,7 @@
 			isLoading = true;
 
 			const params = new URLSearchParams({
-				page: page.toString(),
+				page: currentPage.toString(),
 				limit: limit.toString(),
 				search: search.toString()
 			});
@@ -79,7 +79,12 @@
 		} finally {
 			isLoading = !isLoading;
 		}
-	}
+	};
+
+    $effect(() => {
+        const p = currentPage;
+        getUsers();
+    });
 
 	function handleSearchInput(e: Event) {
 		const target = e.target as HTMLInputElement;
@@ -87,10 +92,16 @@
 
 		clearTimeout(searchTimeout);
 		searchTimeout = setTimeout(() => {
-			page = 1;
+			currentPage = 1;
 			getUsers();
-		}, 500);
-	}
+		}, 1000);
+	};
+
+    function handlePageChange(newPage: string) {
+        const url = new URL(page.url);
+        url.searchParams.set('page', newPage.toString());
+        goto(url.toString(), { keepFocus: true });
+    };
 
 	 
 
@@ -105,7 +116,7 @@
 
 			if (res.ok) {
 				users = users.filter((u) => u.user_id !== id);
-				alert('Usuario excluid com sucesso');
+				alert('Usuario excluido com sucesso');
 			} else {
 				alert('Erro ao excluir.');
 			}
@@ -124,7 +135,7 @@
 			minute: '2-digit'
 		});
 	}
-	onMount(() => getUsers());
+	
 </script>
 
 <div class="space-y-4">
@@ -245,12 +256,17 @@
 				</Table.Root>
 			</div>
 
-            {#if totalItems=0}
-                <Pagination.Root count={totalItems} perPage={limit} page={page}>
+            {#if totalItems > 0}
+                <Pagination.Root count={totalItems} perPage={limit} page={currentPage}>
                     {#snippet children({ pages, currentPage })}
                         <Pagination.Content>
+
                             <Pagination.Item>
-                                <Pagination.PrevButton>
+                                <Pagination.PrevButton
+                                    class="cursor-pointer"
+                                    disabled={currentPage <= 1}
+                                    onclick={() => handlePageChange((currentPage - 1).toString())}
+                                >
                                     <ChevronLeft class="size-4"/>
                                     <span class="hidden sm:block">Anterior</span>
                                 </Pagination.PrevButton>
@@ -264,7 +280,14 @@
                                 
                                 {:else}
                                     <Pagination.Item>
-                                        <Pagination.Link {page} isActive={currentPage === page.value}>
+                                        <Pagination.Link 
+                                            {page} 
+                                            isActive={currentPage === page.value}
+                                            onclick={(e)=> {
+                                                e.preventDefault();
+                                                handlePageChange((page.value).toString())
+                                            }}
+                                        >
                                             {page.value}
                                         </Pagination.Link>
                                     </Pagination.Item>
@@ -272,7 +295,11 @@
                             {/each}
                             
                             <Pagination.Item>
-                                <Pagination.NextButton>
+                                <Pagination.NextButton
+                                    onclick={() => handlePageChange((currentPage + 1).toString())}
+                                    disabled={currentPage * limit >= totalItems}
+                                    class="cursor-pointer"
+                                >
                                     <span class="hidden sm:block">Proximo</span>
                                     <ChevronRight class="size-4" />
                                 </Pagination.NextButton>
