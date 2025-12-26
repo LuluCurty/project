@@ -1,250 +1,322 @@
-<script>
-	import { Plus, FileUp, Search, Trash, FileDown } from '@lucide/svelte';
-	// quando eu aprender a usar as tabelas do shadcn eu volto aqui
-	// import de componentes
-	import TablePagFoot from '$lib/components/ui/uniqueTables/table-template/TablePagFoot.svelte';
-	import TablePopup from '$lib/components/ui/popups/TablePopup.svelte';
-	import TableTitle from '$lib/components/ui/titles/TableTitle.svelte';
+<script lang="ts">
+    import {
+        Plus,
+        Search,
+        EllipsisVertical,
+        Pencil,
+        Trash,
+        ChevronLeft,
+        Loader2,
+        ChevronRight,
+        User
+    } from '@lucide/svelte';
+    import { goto } from '$app/navigation';
+    import { page } from '$app/state';
 
-	// using state from runes 
-	import { setClientToEdit } from '$lib/state/client-to-edit.svelte';
-	import { goto } from '$app/navigation';
+    // Componentes UI (Shadcn)
+    import * as Table from '$lib/components/ui/table/index.js';
+    import * as Card from '$lib/components/ui/card/index.js';
+    import { Badge } from '$lib/components/ui/badge/index.js';
+    import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+    import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
+    import { Input } from '$lib/components/ui/input/';
+    import * as Pagination from "$lib/components/ui/pagination/index.js";
 
-	let loading = $state(false); //Isso aqui é coisa de animação pra mexer depois
-	let clients = $state([]); //ARRAY PRINCIPAL, DEUS DA PAGINA
-	let limit = $state(20); // limit da paginação
-	let search = $state(''); //search stuff
-	// usado na TableFoot
-	let page = $state(1);
-	let totalPages = $state(1);
-	let totalItems = $state(1);
-	
-	// usado nas checkbox para fazer multipla seleção
-	let selectedClients = $state([]);
-	let selectAll = $state(false);
-	let selectedCount = $state(0);
+    // --- TIPAGEM ---
+    // Baseada no teu schema SQL
+    interface Client {
+        id: number;
+        client_first_name: string;
+        client_last_name: string;
+        client_telephone: string;
+        client_email: string;
+        creation_date: string; // Vem como string ISO do JSON
+    }
 
-	function toggleSelectAll() { // seleciona todos os clientes
-		selectAll = !selectAll;
+    interface ApiResponse {
+        clients: Client[];
+        limit: number;
+        ok: boolean;
+        page: number;
+        totalItems: number;
+        totalPages: number;
+    }
 
-		if (selectAll) {
-			selectedClients = clients.map((c) => c.id);
-		} else {
-			selectedClients =[];
-		}
+    // --- ESTADO ---
+    let clients = $state<Client[]>([]);
+    let isLoading = $state<boolean>(true);
 
-		selectedCount = selectedClients.length;
-	}
+    // Params da URL
+    let search = $derived(page.url.searchParams.get('search') || '');
+    let currentPage = $derived(Number(page.url.searchParams.get('page')) || 1);
+    
+    let limit = $state<number>(10);
+    let totalItems = $state<number>(0);
+    let searchTimeout: ReturnType<typeof setTimeout>;
 
-	function toggleSelect(id) {
-		if (selectedClients.includes(id)) {
-			selectedClients = selectedClients.filter((x) => x !== id);
-		} else {
-			selectedClients.push(id);
-		}
+    // --- AÇÕES ---
 
-		selectedCount = selectedClients.length;
-		selectAll = selectedClients.length === clients.length;
-	}
-	async function batchDelete() {
-		if (!confirm(`Deseja excluir ${selectedCount} cliente(s)?`)) return;
+    async function deleteClient(id: number, name: string) {
+        if (!confirm(`Deseja remover o cliente ${name}?`)) {
+            return;
+        }
 
-		for (const id of selectedClients) {
-			await fetch(`/api/client/delete/${id}`, {
-				method: 'DELETE',
-				credentials: 'include'
-			});
-		}
+        try {
+            // Ajustar rota para API de clientes
+            const res = await fetch(`/api/client/${id}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            })    
 
-		await getClients();
-	}
+            if (res.ok) {
+                clients = clients.filter(c => c.id !== id);
+                // Opcional: recarregar a lista se quiser atualizar a paginação corretamente
+                // getClients(); 
+            } else {
+                alert('Erro ao excluir o cliente');
+            };
 
-	// funções gerais
-	$effect(() => {
-		getClients();
-	});
+        } catch (e) {
+            console.error(e);
+            alert('Erro ao apagar o cliente');
+        }
+    }
 
-	function addNewClient() {
-		window.location.href = 'client/add';
-	}
-	async function getClients() {
-		try {
-			const res = await fetch(
-				`/api/client?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`,
-				{
-					credentials: 'include'
-				}
-			);
-			const data = await res.json();
+    async function getClients() {
+        try {
+            isLoading = true;
 
-			console.log(data)
+            const params = new URLSearchParams({
+                page: currentPage.toString(),
+                limit: limit.toString(),
+                search: search.toString()
+            })
 
-			clients = data.clients;
-			totalPages = data.totalPages;
-			totalItems = data.totalItems;
+            const res = await fetch(`/api/client?${params.toString()}`, {
+                credentials: 'include'
+            });
 
-			// limpar checkbox
-			selectedClients = [];
-			selectedCount=0;
-			selectAll=false;
+            if(res.ok){
+                const data: ApiResponse = await res.json();
+                clients = data.clients || [];
+                totalItems = data.totalItems;
+            }
+        } catch (error) {
+            console.error("Erro ao buscar clientes", error);
+        } finally {
+            isLoading = false;
+        }
+    };
 
-			loading = true;
-		} catch (error) {
-			console.error(error);
-			loading = false;
-		}
-	}
-	async function importClientFile() {
-		console.log('nao implementado ainda');
-	}
-	async function exportClientFile() {
-		console.log('nao implementado ainda');
-	}
-	// funções usadas no popup
-	function updateClient(client) {
-		setClientToEdit(client);
-		goto(`/client/edit/${client.id}`);
-	}
-	async function deleteClient(client) {
-		if (confirm(`Deseja Excluir cliente ${client.client_first_name}`)) {
-			const res = await fetch(`/api/client/delete/${client.id}`, {
-				method: 'DELETE',
-				credentials: 'include'
-			});
-			if (!res.ok) {
-				throw new Error('ERRO AO EXCLUIR');
-			}
-			console.log('Client excluido:', client.id);
-			await getClients();
-		}
-	}
+    // Reage a mudanças na URL (search ou page)
+    $effect(() => {
+        // Apenas para triggar a reatividade
+        const _p = currentPage; 
+        const _s = search;
+        getClients();
+    });
+
+    // Debounce na busca para não spamar a API
+    function handleSearchInput(e: Event) {
+        const target = e.target as HTMLInputElement;
+        const value = target.value;
+
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            const url = new URL(page.url);
+            url.searchParams.set('search', value);
+            url.searchParams.set('page', '1'); // Volta para pag 1 ao filtrar
+            goto(url.toString(), { keepFocus: true, noScroll: true });
+        }, 800);
+    };
+
+    function handlePageChange(newPage: string) {
+        const url = new URL(page.url);
+        url.searchParams.set('page', newPage.toString());
+        goto(url.toString(), { keepFocus: true });
+    };
+
+    function formatDate(dateString: string) {
+        if (!dateString) return '-';
+        return new Date(dateString).toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    };
 </script>
 
-<TableTitle title="Cliente" />
+<div class="space-y-4">
+    <div class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+            <h2 class="text-2xl font-bold tracking-tight text-primary">Clientes</h2>
+            <p class="text-muted-foreground">Gerencie a sua base de clientes.</p>
+        </div>
 
-<div class="main-app-table-wrapper h-[575px] p-3.5">
-	<div class="main-app-buttons mb-2.5">
-		<div class="app-buttons-wrapper flex items-center justify-between">
-			<div>
-				<button class="top-button general-buttons" type="button" onclick={addNewClient}>
-					<Plus />
-					<span>Add</span>
-				</button>
-				<button class="top-button general-buttons" type="button" onclick={importClientFile}>
-					<FileUp />
-					<span>Import</span>
-				</button>
-				<button type="button" class="top-button general-buttons" onclick={exportClientFile}>
-					<FileDown />
-					<span>Export</span>
-				</button>
-				<button
-					type="button"
-					class="top-button general-buttons "
-					class:!bg-red-400={selectedCount > 0 }
-					class:!bg-red-300={selectedCount === 0 }
-					onclick={batchDelete}
-					disabled={selectedCount ===0}
-				>
-					<Trash />
-					<span>Apagar</span>
-				</button>
-			</div>
-			<form id="search-form">
-				<div
-					class="search-wrapper focus-within:border-[#155dfc]! inline-block rounded-sm border-2
-                        border-solid border-[#e2e8ef] bg-white align-middle transition-colors"
-				>
-					<div class="ml-1 pl-1 pr-1">
-						<span class="inline-block! relative bottom-[-7px] text-[#10131a]">
-							<Search />
-						</span>
-						<input
-							class="inline-block cursor-text border-none pb-1.5 pt-1.5 focus:ring-0"
-							type="text"
-							id="search-input"
-							placeholder="Pesquisar"
-							bind:value={search}
-						/>
-					</div>
-				</div>
-			</form>
-		</div>
-	</div>
+        <div class="flex w-full items-center gap-2 sm:w-auto">
+            <Button onclick={() => goto('/client/add')}>
+                <Plus class="mr-2 size-4" /> Novo Cliente
+            </Button>
+        </div>
+    </div>
 
-	<div class="wrapper clear-both">
-		<div class="main-container text-[#10131a]">
-			<div class="main-table overflow-auto overflow-x-hidden">
-				<table class="w-full">
-					<thead>
-						<tr
-							class="[*]:uppercase [*]:text-left
-                            [*]:align-middle [*]:font-normal
-                            [*]:h-10 [*]:whitespace-nowrap
-                            [*]:px-2 [*]:text-xs [*]:break-all
-                            text-[#596680]
-                            "
-						>
-							<th class="font-normal" colspan="1">
-								<button aria-label="select-all">
-									<input 
-										type="checkbox" 
-										name="select-all" 
-										id="select-all"
-										checked={selectAll} 
-										onclick={toggleSelectAll} />
-								</button>
-							</th>
-							<th class="font-normal" colspan="1"><div>Nome</div></th>
-							<th class="font-normal" colspan="1"><div>sobrenome</div></th>
-							<th class="font-normal" colspan="1"><div>telefone</div></th>
-							<th class="font-normal" colspan="1"><div>email</div></th>
-							<th class="font-normal" colspan="1"><div>Opções</div></th>
-						</tr>
-					</thead>
-					<tbody
-						id="supplies-list-content"
-						class="[*]:text-left
-                    bg-white"
-					>
-						{#if loading}
-							{#each clients as client}
-								<tr class:bg-gray-200={selectedClients.includes(client.id)}>
-									<td colspan="1">
-										<input 
-										type="checkbox" 
-										name="select-this" 
-										id="select-this"
-										checked={selectedClients.includes(client.id)}
-										onclick={() => toggleSelect(client.id)} />
-									</td>
-									<td colspan="1"><span>{client.client_first_name}</span></td>
-									<td colspan="1"><span>{client.client_last_name}</span></td>
-									<td colspan="1"><span>{client.client_telephone}</span></td>
-									<td colspan="1"><span>{client.client_email}</span></td>
-									<td colspan="1">
-										<TablePopup
-											onDelete={() => deleteClient(client)}
-											onEdit={() => updateClient(client)}
-										/>
-									</td>
-								</tr>
-							{/each}
-						{:else}
-							<tr>
-								<td class="text-center" colspan="6"> NO DATA </td>
-							</tr>
-						{/if}
-					</tbody>
-				</table>
-				<TablePagFoot
-					bind:pagination={limit}
-					bind:totalPages
-					bind:totalItems
-					bind:page
-					bind:itemsSelected={selectedCount}
-				/>
-			</div>
-		</div>
-	</div>
+    <Card.Root>
+        <Card.Header class="pb-3">
+            <div class="flex items-center gap-2">
+                <div class="relative w-full max-w-sm">
+                    <Search class="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        type="search"
+                        placeholder="Buscar por nome ou email..."
+                        class="w-full pl-9"
+                        oninput={handleSearchInput}
+                        value={search} 
+                    />
+                </div>
+            </div>
+        </Card.Header>
+
+        <Card.Content>
+            <div class="rounded-md border">
+                <Table.Root>
+                    <Table.Header>
+                        <Table.Row class="bg-muted/50">
+                            <Table.Head class="w-[50px]">ID</Table.Head>
+                            <Table.Head>Cliente</Table.Head>
+                            <Table.Head>Email</Table.Head>
+                            <Table.Head>Telefone</Table.Head>
+                            <Table.Head>Cadastro</Table.Head>
+                            <Table.Head class="text-right">Ações</Table.Head>
+                        </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                        {#if isLoading}
+                            <Table.Row>
+                                <Table.Cell colspan={6} class="h-24 text-center">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <Loader2 class="size-5 animate-spin text-primary" />
+                                        <span class="text-muted-foreground">Carregando...</span>
+                                    </div>
+                                </Table.Cell>
+                            </Table.Row>
+                        {:else if clients.length === 0}
+                            <Table.Row>
+                                <Table.Cell colspan={6} class="h-24 text-center text-muted-foreground">
+                                    Nenhum cliente encontrado.
+                                </Table.Cell>
+                            </Table.Row>
+                        {:else}
+                            {#each clients as client (client.id)}
+                                <Table.Row>
+                                    <Table.Cell class="font-medium text-muted-foreground">
+                                        #{client.id}
+                                    </Table.Cell>
+                                    
+                                    <Table.Cell>
+                                        <div class="flex items-center gap-2">
+                                            <div class="bg-primary/10 p-1.5 rounded-full">
+                                                <User class="size-4 text-primary" />
+                                            </div>
+                                            <span class="font-medium">
+                                                {client.client_first_name} {client.client_last_name}
+                                            </span>
+                                        </div>
+                                    </Table.Cell>
+
+                                    <Table.Cell>{client.client_email}</Table.Cell>
+                                    
+                                    <Table.Cell>
+                                        <Badge variant="outline">{client.client_telephone}</Badge>
+                                    </Table.Cell>
+
+                                    <Table.Cell class="text-muted-foreground text-sm">
+                                        {formatDate(client.creation_date)}
+                                    </Table.Cell>
+
+                                    <Table.Cell class="text-right">
+                                        <DropdownMenu.Root>
+                                            <DropdownMenu.Trigger
+                                                class={buttonVariants({ variant: "ghost", size: "icon"}) + " size-8"}
+                                            >
+                                                <EllipsisVertical class="size-4" />
+                                                <span class="sr-only">Opções</span>
+                                            </DropdownMenu.Trigger>
+
+                                            <DropdownMenu.Content align="end">
+                                                <DropdownMenu.Item
+                                                    onclick={() => goto(`/client/edit/${client.id}`)}
+                                                >
+                                                    <Pencil class="mr-2 size-4"/> Editar
+                                                </DropdownMenu.Item>
+                                                
+                                                <DropdownMenu.Item 
+                                                    class="text-destructive focus:text-destructive"
+                                                    onclick={() => deleteClient(client.id, client.client_first_name)}
+                                                >
+                                                    <Trash class="mr-2 size-4" /> Excluir
+                                                </DropdownMenu.Item>    
+                                            </DropdownMenu.Content>
+                                        </DropdownMenu.Root>
+                                    </Table.Cell>
+                                </Table.Row>
+                            {/each}
+                        {/if}
+                    </Table.Body>
+                </Table.Root>
+            </div>
+
+            {#if totalItems > 0}
+                <div class="mt-4">
+                    <Pagination.Root count={totalItems} perPage={limit} page={currentPage}>
+                        {#snippet children({ pages, currentPage })}
+                            <Pagination.Content>
+                                <Pagination.Item>
+                                    <Pagination.PrevButton
+                                        class="cursor-pointer"
+                                        disabled={currentPage <= 1}
+                                        onclick={() => handlePageChange((currentPage - 1).toString())}
+                                    >
+                                        <ChevronLeft class="size-4"/>
+                                        <span class="hidden sm:block">Anterior</span>
+                                    </Pagination.PrevButton>
+                                </Pagination.Item>
+
+                                {#each pages as page (page.key)}
+                                    {#if page.type === 'ellipsis'}
+                                        <Pagination.Item>
+                                            <Pagination.Ellipsis />
+                                        </Pagination.Item>
+                                    {:else}
+                                        <Pagination.Item>
+                                            <Pagination.Link 
+                                                {page} 
+                                                isActive={currentPage === page.value}
+                                                onclick={(e)=> {
+                                                    e.preventDefault();
+                                                    handlePageChange((page.value).toString())
+                                                }}
+                                            >
+                                                {page.value}
+                                            </Pagination.Link>
+                                        </Pagination.Item>
+                                    {/if}
+                                {/each}
+                                
+                                <Pagination.Item>
+                                    <Pagination.NextButton
+                                        onclick={() => handlePageChange((currentPage + 1).toString())}
+                                        disabled={currentPage * limit >= totalItems}
+                                        class="cursor-pointer"
+                                    >
+                                        <span class="hidden sm:block">Próximo</span>
+                                        <ChevronRight class="size-4" />
+                                    </Pagination.NextButton>
+                                </Pagination.Item>
+                            </Pagination.Content>
+                        {/snippet}
+                    </Pagination.Root>
+                </div>
+            {/if}
+        </Card.Content>
+    </Card.Root>
 </div>

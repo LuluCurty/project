@@ -4,12 +4,12 @@ import { type HandleFetch, type Handle, redirect } from '@sveltejs/kit';
 // Pega as requisições inbound 
 export const handle: Handle = async ({ event, resolve }) => {
     const token = event.cookies.get('token');
-
     const publicRoutes = ['/login', '/logout'];
 
     const isPublicRoute = publicRoutes.some(route => event.url.pathname.startsWith(route));
 
     if(!token && !isPublicRoute) {
+        console.log('a')
         throw redirect(303, '/login');
     }
 

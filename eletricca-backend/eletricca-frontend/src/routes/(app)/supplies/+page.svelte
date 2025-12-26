@@ -52,8 +52,23 @@
     let searchTimeout: ReturnType<typeof setTimeout>;
 
 
-   async function deleteSupply(id: number, name: string) {
+    async function deleteSupply(id: number, name: string) {
+        if (!confirm(`Deseja remover ${name}?`)) {
+            return;
+        }
+
         try {
+            const res = await fetch(`/api/supplies/${id}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            })    
+
+            if (res.ok) {
+                supplies = supplies.filter(s => s.id !== id);
+                alert('Material excluido com sucesso');
+            } else {
+                alert('Erro ao excluir o material');
+            };
 
         } catch (e) {
             console.error(e);
@@ -76,7 +91,6 @@
             });
 
             const data: ApiResponse = await res.json();
-
             supplies = data.supplies || [];
             totalItems = data.totalItems;
         } catch (error) {

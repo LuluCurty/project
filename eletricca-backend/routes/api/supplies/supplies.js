@@ -2,7 +2,7 @@ import e from 'express';
 const router = e.Router();
 import pool from '../../../db.js';
 import multer from 'multer';
-import path from 'path';
+import path, { parse } from 'path';
 import fs from 'fs';
 import { authorize } from '../../../middleware/roleBasedAccessControl.js';
 import { authenticateToken } from '../../../middleware/auth.js';
@@ -122,54 +122,96 @@ router.get('/', authorize('supplies', 'read'), async (req, res) => {
     }
 });
 
-router.put('/:id', authorize('supplies', 'update'), async (req, res) => {
-    try {
-        const id = parseInt(req.params.id, 10);
-        const { details, supply_name, image_url, quantity } = req.body;
+router.post('/pricing/:id', async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { supplier_id, price } = req.body;
 
-        const { rowCount, rows } = await pool.query(`
+    try{
+        const query = `
+            INSERT INTO supply_pricing (supply_id, supplier_id, price, is_default)
+            VALUES ($1, $2, $3, false)
+            ON CONFLICT (supply_id, supplier_id)
+            DO UPDATE SET price = $3, updated_at = NOW()
+            RETURNING *;
+        `;
+
+        await pool.query(query, [id, supplier_id, price || 0]);
+        res.json({ok: true, message: 'Preço/Forncedor atualizado'});
+
+    } catch(err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error/Erro ao atualizar preço' });
+    }
+});
+
+router.put('/:id', async (req, res) => {
+    const id = parseInt(req.params.id);
+    const { supply_name, quantity, details } = req.body;
+
+    try {        
+        const result = await pool.query(`
             UPDATE supplies
             SET
                 supply_name = COALESCE($1, supply_name),
                 quantity = COALESCE($2, quantity),
-                image_url = COALESCE($3, image_url),
-                details = COALESCE($4, details),
-                price = COALESCE($5, price)
-            WHERE id=$5
-            ;`, [supply_name, quantity, image_url, details, id]
+                details = COALESCE($3, details)
+            WHERE id=$4
+            ;`, [supply_name, quantity, details, id]
         );
 
-        if (rowCount === 0) {
+        if (result.rowCount === 0) {
             return res.status(404).json({ error: 'Material não atualizado' });
         }
-        res.json({ ok: true });
-
+        res.json({ ok: true, message: 'Dados Atualizados' });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-router.delete('/:id', authorize('supplies', 'delete'), async (req, res) => {
-    try {
-        const id = parseInt(req.params.id, 10);
-        const { rowCount } = await pool.query(`
-            DELETE FROM supplies WHERE id=$1
-            ;`, [id]
+router.patch('/pricing/:id/default', async (req, res) => {
+    const id = parseInt(req.params.id, 10); //supply_id
+    const { supplier_id } = req.body;
+
+    const client =  await pool.connect();
+
+    try{
+        await client.query('BEGIN');
+
+        await client.query(
+            'UPDATE supply_pricing SET is_default = false WHERE supply_id = $1',
+            [id]
         );
 
-        if (rowCount === 0) {
-            return res.status(404).json({ error: 'Material não encontrado' });
-        }
-
-        res.json({ message: 'Material removido com sucesso', ok: true, success: true, deletedId: id })
-
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Internal server error' });
+        await client.query(
+            'UPDATE supply_pricing SET is_default = true WHERE supply_id = $1 AND supplier_id = $2',
+            [id, supplier_id]
+        );
+        await client.query('COMMIT');
+        res.json({ok: true});
+    } catch (e) {
+        console.error(e);
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: 'Internal server error/Erro ao definir padrão', ok: false });
+    } finally {
+        client.release();
     }
 });
 
+router.delete('/pricing/:id', async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { supplier_id } = req.body;
+    try{
+        await pool.query(
+            `DELETE FROM supply_pricing WHERE supply_id=$1 AND supplier_id=$2`,
+            [id, supplier_id]
+        );
+        res.status(200).json({ ok: true, message: 'Fornecedor removido com sucesso'});
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ ok: false, error: 'Internal server error/Erro ao remove fornecedor' });
+    }
+})
 // ARQUIVOS
 
 const upload = multer({ dest: "uploads/" });
@@ -245,10 +287,6 @@ router.post('/import', authorize("supplies", "create"), upload.single("file"), a
     }
 })
 
-/**
- * BARRA DE PESQUISA
- */
-
 router.get('/search', authorize('supplies', 'read'), async (req, res) => {
     try {
         const q = req.query.q || '';
@@ -292,30 +330,71 @@ router.get('/search', authorize('supplies', 'read'), async (req, res) => {
 })
 
 router.get('/:id', authorize('supplies', 'read'), async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+        return res.status(400).json({ error: 'ID inválido (deve ser número inteiro)' });
+    }
+    const client = await pool.connect();
+
     try {
-        const id = parseInt(req.params.id, 10);
-
-        if (!Number.isInteger(id)) {
-            return res.status(400).json({ error: 'ID inválido (deve ser número inteiro)' });
-        }
-
-        const { rows } = await pool.query(`
-            SELECT id, supply_name, quantity, image_url, details, price, supplier, creation_date
+        const supplyResponse = await client.query(`
+            SELECT *
             FROM supplies
             WHERE id=$1;
             ;`,
             [id]
         );
-        if (rows === 0) {
-            return res.status(404).json({ error: 'Material não encontrado' });
+
+        if (supplyResponse.rows.length === 0) {
+            client.release();
+            return res.status(404).json({ error: 'Material não encontrado', ok:false});
         }
-        res.json({ supply: rows[0] });
+        const princingResponse = await client.query(`
+            SELECT
+                sp.supplier_id,
+                s.supplier_name,
+                sp.price,
+                sp.updated_at,
+                sp.is_default
+            FROM supply_pricing sp
+            JOIN supplier s on sp.supplier_id = s.id
+            WHERE sp.supply_id = $1
+            ORDER BY sp.price ASC
+            ;`, [id]
+        );
+
+        client.release();
+
+        res.json({
+            ...supplyResponse.rows[0],
+            pricing: princingResponse.rows
+        });
 
     } catch (error) {
         console.error(error);
         return res.status(500).json({ error: 'Internal server error get' });
     }
 });
-/**/
+
+router.delete('/:id', authorize('supplies', 'delete'), async (req, res, next) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        const { rowCount } = await pool.query(`
+            DELETE FROM supplies WHERE id=$1
+            ;`, [id]
+        );
+
+        if (rowCount === 0) {
+            return res.status(404).json({ error: 'Material não encontrado' });
+        }
+
+        res.json({ message: 'Material removido com sucesso', ok: true, success: true, deletedId: id })
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 
 export default router;
