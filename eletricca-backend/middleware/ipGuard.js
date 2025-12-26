@@ -27,7 +27,7 @@ function requireLocalAccess(req, res, next){
     return res.status(403).json({error: 'Access denied: admin operations allowed only from local network!'});
 };
 
-module.exports = {
+export {
     isLocalIP,
     requireLocalAccess,
     normalizeIP

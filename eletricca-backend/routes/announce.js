@@ -1,11 +1,7 @@
-const express = require('express');
-
-const router = express.Router();
-
-const { authenticateToken } = require('../middleware/auth');
-
-const pool = require('../db');
-const { authorize } = require('../middleware/roleBasedAccessControl');
+import e from 'express';
+const router = e.Router();
+import pool from '../db.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 router.use(authenticateToken);
 
@@ -45,10 +41,4 @@ router.post('/', async (req, res) => {
     }
 })
 
-module.exports = router;
-
-/**
- * router.post
-router.put
-router.delete
- */
+export default router;

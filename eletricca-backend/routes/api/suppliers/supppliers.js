@@ -1,12 +1,24 @@
-const express = require('express');
-const path = require('path');
-const router = express.Router();
-const { authorize } = require('../../../middleware/roleBasedAccessControl');
-const { authenticateToken } = require('../../../middleware/auth');
-const { error } = require('console');
-const pool = require('../../../db');
+import e from 'express';
+const router = e.Router();
+import pool from '../../../db.js';
+import { authenticateToken } from '../../../middleware/auth.js';
 
 router.use(authenticateToken);
+
+// GET /api/suppliers/list
+router.get('/list', async (req, res) => {
+    try{
+        const result =  await pool.query(
+            `SELECT id, supplier_name FROM supplier ORDER BY supplier_name ASC;`
+        );
+
+        res.json(result.rows);
+    } catch(err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error/Erro ao buscar fornecedores'});
+    }
+})
+
 
 // GET /api/supplier?page=1&limit=20%search=algumacoisa
 router.get('/', async (req, res) => {
@@ -158,4 +170,4 @@ router.put('/update/:id', async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

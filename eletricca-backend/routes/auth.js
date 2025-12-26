@@ -1,9 +1,9 @@
-const express = require('express');
-const bcrypt = require('bcrypt');
-const pool = require('../db');
-const { generateToken }  = require('../middleware/auth');
-const { isLocalIP, normalizeIP} = require('../middleware/ipGuard');
-const { authenticateToken } = require('../middleware/auth')
+import express from 'express';
+import pool from '../db.js';
+import bcrypt from 'bcrypt';
+import { generateToken } from '../middleware/auth.js';
+import { isLocalIP } from '../middleware/ipGuard.js';
+import {authenticateToken} from '../middleware/auth.js';
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
@@ -96,4 +96,5 @@ router.get('/check', authenticateToken ,async (req, res) => {
         res.status(500).json({ error: 'Internal server error'});
     }
 })
-module.exports= router;
+
+export default router;

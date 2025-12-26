@@ -1,61 +1,114 @@
-const express = require('express');
-const router = express.Router();
-
-const pool = require('../../../db');
-
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const { exec } = require('child_process');
-
-const { authenticateToken } = require('../../../middleware/auth');
-const { authorize } = require('../../../middleware/roleBasedAccessControl');
+import e from 'express';
+const router = e.Router();
+import pool from '../../../db.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { authorize } from '../../../middleware/roleBasedAccessControl.js';
+import { authenticateToken } from '../../../middleware/auth.js';
+import { exec } from 'child_process';
 
 router.use(authenticateToken);
 
-// criar novos materias
+// POST /api/supplies/create
+router.post('/', async (req, res) => {
+    const { supply_name, quantity, details, image_url, supplier_id, price } = req.body;
 
-router.post('/create', authorize('supplies', 'create'), async (req, res) => {
+    if (!supply_name) return res.status(400).json({
+        error: 'Nome do material é obrigatório',
+        ok: false,
+        message: 'Não foi possivel adicionar este material'
+    })
+
+    const client = await pool.connect();
+
     try {
-        const { details, supply_name, image_url, quantity, price, supplier } = req.body;
+        // inicio do socket 
+        await client.query('BEGIN');
 
-        const { rows } = await pool.query(`
-            INSERT INTO supplies
-            (supply_name, quantity, image_url, details, price, supplier)
-            VALUES
-            ($1, $2, $3, $4, $5, $6) 
-            RETURNING id, supply_name, creation_date
-            ;`,
-            [supply_name, quantity, image_url, details, price, supplier]
-        );
+        // inserir material na tabela supplies
+        const insertSupplyText = `
+            INSERT INTO supplies (supply_name, quantity, details, image_url)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id;
+        `;
+        const supplyValues = [supply_name, quantity || 0, details || null, image_url || null];
 
-        res.status(201).json({ user: rows[0] });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ error: 'Internal server error' });
+        const supplyResponse = await client.query(insertSupplyText, supplyValues);
+
+        const newSupplyId = supplyResponse.rows[0].id;
+
+        // vamos vincular o material ao preço e fornecerdor
+
+        if (supplier_id) {
+            const insertPriceText = `
+            INSERT INTO supply_pricing (supply_id, supplier_id, price, is_default)
+            VALUES ($1, $2, $3, true)
+        `;
+            // joga null no campo price para evitar problemas com o frontend
+            const priceValue = price === '' || price === undefined ? 0 : price;
+            await client.query(insertPriceText, [newSupplyId, supplier_id, priceValue]);
+        }
+
+
+        await client.query('COMMIT');
+
+        res.status(201).json({
+            ok: true,
+            message: 'Material criado com sucesso',
+            supplyId: newSupplyId
+        });
+    } catch (e) {
+        // vantagem do connect
+        // se deu erro em algum ponto, volta atras em tudo
+        await client.query('ROLLBACK');
+        console.error(e);
+        res.status(500).json({ ok: false, message: 'Internal server error', error: e });
+    } finally {
+        client.release();
     }
-});
+})
 
 router.get('/', authorize('supplies', 'read'), async (req, res) => {
     try {
+        // setup
         const { page = 1, limit = 20 } = req.query;
         const search = req.query.search ? `%${req.query.search}%` : `%`;
-
         const offset = (page - 1) * limit;
-        // query
-        const { rows } = await pool.query(`SELECT id, supply_name, quantity, image_url, details, price, supplier, creation_date
-            FROM supplies
-            WHERE 
-                supply_name ILIKE $1
-            ORDER BY supply_name DESC
-            LIMIT $2 OFFSET $3;
-        `, [search, limit, offset]);
-        if (rows === 0) {
+
+        // 1. A Query Principal agora busca dados em 3 tabelas
+        // Usamos 's' para supplies, 'sp' para supply_pricing e 'sup' para supplier
+        const queryText = `
+            SELECT
+                s.id,
+                s.supply_name,
+                s.quantity,
+                s.image_url,
+                s.details,
+                s.creation_date,
+                sp.price,
+                sup.supplier_name AS supplier
+            FROM supplies s
+            -- Tras o preço padrão (is_default = true)
+            LEFT JOIN supply_pricing sp ON s.id = sp.supply_id AND sp.is_default = true
+            -- Traz o nome do fornecedor baseado no id que esta no supply_pricieng
+            LEFT JOIN supplier sup ON sp.supplier_id = sup.id
+            WHERE
+                s.supply_name ILIKE $1
+            ORDER BY s.supply_name DESC
+            LIMIT $2 OFFSET $3
+        `;
+
+        const { rows } = await pool.query(queryText, [search, limit, offset]);
+
+        if (rows.length === 0 && page === 1) {
             return res.status(404).json({ error: 'Materiais nao encontrados' });
         }
         // total de registros para calcular a quanditade de paginas
         const countQueryResult = await pool.query(`SELECT COUNT(*) FROM supplies WHERE supply_name ILIKE $1;`, [search]);
         const totalItems = parseInt(countQueryResult.rows[0].count, 10);
+
+
         res.json({
             supplies: rows,
             page: Number(page),
@@ -65,14 +118,14 @@ router.get('/', authorize('supplies', 'read'), async (req, res) => {
         });
     } catch (error) {
         console.error('Erro ao listar materiais' + error);
-        res.status(500).json({ error: 'Internl server error: s' });
+        res.status(500).json({ error: 'Internl server error: ' });
     }
 });
 
 router.put('/:id', authorize('supplies', 'update'), async (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
-        const { details, supply_name, image_url, quantity, price, supplier } = req.body;
+        const { details, supply_name, image_url, quantity } = req.body;
 
         const { rowCount, rows } = await pool.query(`
             UPDATE supplies
@@ -81,10 +134,9 @@ router.put('/:id', authorize('supplies', 'update'), async (req, res) => {
                 quantity = COALESCE($2, quantity),
                 image_url = COALESCE($3, image_url),
                 details = COALESCE($4, details),
-                price = COALESCE($5, price),
-                supplier = COALESCE($6, supplier)
-            WHERE id=$7
-            ;`, [supply_name, quantity, image_url, details, price, supplier, id]
+                price = COALESCE($5, price)
+            WHERE id=$5
+            ;`, [supply_name, quantity, image_url, details, id]
         );
 
         if (rowCount === 0) {
@@ -117,14 +169,7 @@ router.delete('/:id', authorize('supplies', 'delete'), async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
-router.delete('batch-delete', async (req, res) => {
-    try{
-        
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'Internal server error', ok: false});
-    }
-})
+
 // ARQUIVOS
 
 const upload = multer({ dest: "uploads/" });
@@ -210,7 +255,7 @@ router.get('/search', authorize('supplies', 'read'), async (req, res) => {
         const page = parseInt(req.query.page, 10) || 1;
         const limit = parseInt(req.query.limit, 10) || 10;
         // Verificação simples — impede erro se "q" vier vazio
-        if (typeof q !== 'string') {           
+        if (typeof q !== 'string') {
             return res.status(400).json({ error: 'Parâmetro de busca inválido' });
         }
         const offset = (page - 1) * limit;
@@ -273,5 +318,4 @@ router.get('/:id', authorize('supplies', 'read'), async (req, res) => {
 });
 /**/
 
-module.exports = router;
-
+export default router;

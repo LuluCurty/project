@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict sANz82yZLMUf0yCRMEaoKKbkuGdUZHmfvotF7itqzHZ3wRxX4m3aUHyR7yWah2C
+\restrict VykByxJGXLhAsnoObpDeBUkxcb8Em5YdV52GCMRJeljNQdm2US3dVM11wF2JU8h
 
--- Dumped from database version 16.10 (Ubuntu 16.10-0ubuntu0.24.04.1)
--- Dumped by pg_dump version 16.10 (Ubuntu 16.10-0ubuntu0.24.04.1)
+-- Dumped from database version 16.11 (Ubuntu 16.11-0ubuntu0.24.04.1)
+-- Dumped by pg_dump version 16.11 (Ubuntu 16.11-0ubuntu0.24.04.1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -71,6 +71,45 @@ ALTER SEQUENCE public.announcements_id_seq OWNER TO eletricca_user;
 --
 
 ALTER SEQUENCE public.announcements_id_seq OWNED BY public.announcements.id;
+
+
+--
+-- Name: client; Type: TABLE; Schema: public; Owner: eletricca_user
+--
+
+CREATE TABLE public.client (
+    id integer NOT NULL,
+    client_first_name character varying(100) NOT NULL,
+    client_last_name character varying(100) NOT NULL,
+    client_telephone character varying(30) NOT NULL,
+    client_email character varying(255) NOT NULL,
+    creation_date timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+
+ALTER TABLE public.client OWNER TO eletricca_user;
+
+--
+-- Name: client_id_seq; Type: SEQUENCE; Schema: public; Owner: eletricca_user
+--
+
+CREATE SEQUENCE public.client_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.client_id_seq OWNER TO eletricca_user;
+
+--
+-- Name: client_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: eletricca_user
+--
+
+ALTER SEQUENCE public.client_id_seq OWNED BY public.client.id;
 
 
 --
@@ -179,6 +218,43 @@ ALTER SEQUENCE public.services_service_id_seq OWNED BY public.services.service_i
 
 
 --
+-- Name: supplier; Type: TABLE; Schema: public; Owner: eletricca_user
+--
+
+CREATE TABLE public.supplier (
+    id integer NOT NULL,
+    supplier_name character varying(50),
+    supplier_email character varying(50) NOT NULL,
+    supplier_telephone character varying(50),
+    supplier_address text
+);
+
+
+ALTER TABLE public.supplier OWNER TO eletricca_user;
+
+--
+-- Name: supplier_id_seq; Type: SEQUENCE; Schema: public; Owner: eletricca_user
+--
+
+CREATE SEQUENCE public.supplier_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.supplier_id_seq OWNER TO eletricca_user;
+
+--
+-- Name: supplier_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: eletricca_user
+--
+
+ALTER SEQUENCE public.supplier_id_seq OWNED BY public.supplier.id;
+
+
+--
 -- Name: supplies; Type: TABLE; Schema: public; Owner: eletricca_user
 --
 
@@ -216,6 +292,88 @@ ALTER SEQUENCE public.supplies_id_seq OWNER TO eletricca_user;
 --
 
 ALTER SEQUENCE public.supplies_id_seq OWNED BY public.supplies.id;
+
+
+--
+-- Name: supplies_list_items; Type: TABLE; Schema: public; Owner: eletricca_user
+--
+
+CREATE TABLE public.supplies_list_items (
+    id integer NOT NULL,
+    list_id integer,
+    supply_id integer,
+    supplier_id integer,
+    quantity integer NOT NULL,
+    price numeric(12,2) NOT NULL,
+    CONSTRAINT supplies_list_items_quantity_check CHECK ((quantity > 0))
+);
+
+
+ALTER TABLE public.supplies_list_items OWNER TO eletricca_user;
+
+--
+-- Name: supplies_list_items_id_seq; Type: SEQUENCE; Schema: public; Owner: eletricca_user
+--
+
+CREATE SEQUENCE public.supplies_list_items_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.supplies_list_items_id_seq OWNER TO eletricca_user;
+
+--
+-- Name: supplies_list_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: eletricca_user
+--
+
+ALTER SEQUENCE public.supplies_list_items_id_seq OWNED BY public.supplies_list_items.id;
+
+
+--
+-- Name: supplies_lists; Type: TABLE; Schema: public; Owner: eletricca_user
+--
+
+CREATE TABLE public.supplies_lists (
+    id integer NOT NULL,
+    list_name character varying(255) NOT NULL,
+    client_id integer,
+    created_by integer,
+    list_status character varying(50) DEFAULT 'pending'::character varying,
+    creation_date timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now(),
+    priority character varying(50) DEFAULT 'medium'::character varying,
+    description text,
+    CONSTRAINT supplies_lists_list_status_check CHECK (((list_status)::text = ANY ((ARRAY['pending'::character varying, 'approved'::character varying, 'denied'::character varying])::text[]))),
+    CONSTRAINT supplies_lists_priority_check CHECK (((priority)::text = ANY ((ARRAY['low'::character varying, 'medium'::character varying, 'high'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.supplies_lists OWNER TO eletricca_user;
+
+--
+-- Name: supplies_lists_id_seq; Type: SEQUENCE; Schema: public; Owner: eletricca_user
+--
+
+CREATE SEQUENCE public.supplies_lists_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.supplies_lists_id_seq OWNER TO eletricca_user;
+
+--
+-- Name: supplies_lists_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: eletricca_user
+--
+
+ALTER SEQUENCE public.supplies_lists_id_seq OWNED BY public.supplies_lists.id;
 
 
 --
@@ -339,6 +497,13 @@ ALTER TABLE ONLY public.announcements ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
+-- Name: client id; Type: DEFAULT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.client ALTER COLUMN id SET DEFAULT nextval('public.client_id_seq'::regclass);
+
+
+--
 -- Name: resources id; Type: DEFAULT; Schema: public; Owner: eletricca_user
 --
 
@@ -360,10 +525,31 @@ ALTER TABLE ONLY public.services ALTER COLUMN service_id SET DEFAULT nextval('pu
 
 
 --
+-- Name: supplier id; Type: DEFAULT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.supplier ALTER COLUMN id SET DEFAULT nextval('public.supplier_id_seq'::regclass);
+
+
+--
 -- Name: supplies id; Type: DEFAULT; Schema: public; Owner: eletricca_user
 --
 
 ALTER TABLE ONLY public.supplies ALTER COLUMN id SET DEFAULT nextval('public.supplies_id_seq'::regclass);
+
+
+--
+-- Name: supplies_list_items id; Type: DEFAULT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.supplies_list_items ALTER COLUMN id SET DEFAULT nextval('public.supplies_list_items_id_seq'::regclass);
+
+
+--
+-- Name: supplies_lists id; Type: DEFAULT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.supplies_lists ALTER COLUMN id SET DEFAULT nextval('public.supplies_lists_id_seq'::regclass);
 
 
 --
@@ -393,6 +579,22 @@ ALTER TABLE ONLY public.users ALTER COLUMN user_id SET DEFAULT nextval('public.u
 
 ALTER TABLE ONLY public.announcements
     ADD CONSTRAINT announcements_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: client client_client_email_key; Type: CONSTRAINT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.client
+    ADD CONSTRAINT client_client_email_key UNIQUE (client_email);
+
+
+--
+-- Name: client client_pkey; Type: CONSTRAINT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.client
+    ADD CONSTRAINT client_pkey PRIMARY KEY (id);
 
 
 --
@@ -433,6 +635,38 @@ ALTER TABLE ONLY public.roles
 
 ALTER TABLE ONLY public.services
     ADD CONSTRAINT services_pkey PRIMARY KEY (service_id);
+
+
+--
+-- Name: supplier supplier_pkey; Type: CONSTRAINT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.supplier
+    ADD CONSTRAINT supplier_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: supplier supplier_supplier_email_key; Type: CONSTRAINT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.supplier
+    ADD CONSTRAINT supplier_supplier_email_key UNIQUE (supplier_email);
+
+
+--
+-- Name: supplies_list_items supplies_list_items_pkey; Type: CONSTRAINT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.supplies_list_items
+    ADD CONSTRAINT supplies_list_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: supplies_lists supplies_lists_pkey; Type: CONSTRAINT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.supplies_lists
+    ADD CONSTRAINT supplies_lists_pkey PRIMARY KEY (id);
 
 
 --
@@ -492,6 +726,46 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: supplies_list_items supplies_list_items_list_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.supplies_list_items
+    ADD CONSTRAINT supplies_list_items_list_id_fkey FOREIGN KEY (list_id) REFERENCES public.supplies_lists(id) ON DELETE CASCADE;
+
+
+--
+-- Name: supplies_list_items supplies_list_items_supplier_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.supplies_list_items
+    ADD CONSTRAINT supplies_list_items_supplier_id_fkey FOREIGN KEY (supplier_id) REFERENCES public.supplier(id);
+
+
+--
+-- Name: supplies_list_items supplies_list_items_supply_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.supplies_list_items
+    ADD CONSTRAINT supplies_list_items_supply_id_fkey FOREIGN KEY (supply_id) REFERENCES public.supplies(id);
+
+
+--
+-- Name: supplies_lists supplies_lists_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.supplies_lists
+    ADD CONSTRAINT supplies_lists_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.client(id);
+
+
+--
+-- Name: supplies_lists supplies_lists_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: eletricca_user
+--
+
+ALTER TABLE ONLY public.supplies_lists
+    ADD CONSTRAINT supplies_lists_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(user_id);
+
+
+--
 -- Name: supplies_variation supplies_variation_supply_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: eletricca_user
 --
 
@@ -519,5 +793,5 @@ ALTER TABLE ONLY public.user_permissions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict sANz82yZLMUf0yCRMEaoKKbkuGdUZHmfvotF7itqzHZ3wRxX4m3aUHyR7yWah2C
+\unrestrict VykByxJGXLhAsnoObpDeBUkxcb8Em5YdV52GCMRJeljNQdm2US3dVM11wF2JU8h
 

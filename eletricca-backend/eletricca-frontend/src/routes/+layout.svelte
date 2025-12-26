@@ -1,8 +1,6 @@
 <script lang="ts">
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
-	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-	import * as Sidebar from '$lib/components/ui/sidebar/';
 
 	let { children } = $props();
 </script>

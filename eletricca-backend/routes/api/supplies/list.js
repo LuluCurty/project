@@ -1,12 +1,8 @@
-const express = require('express');
-const router = express.Router();
-
-const pool = require('../../../db');
-
-const { authorize } = require('../../../middleware/roleBasedAccessControl');
-const { authenticateToken } = require('../../../middleware/auth');
-
-const path = require('path');
+import e from 'express';
+const router = e.Router();
+import pool from '../../../db.js';
+import { authenticateToken } from '../../../middleware/auth.js';
+import { authorize } from '../../../middleware/roleBasedAccessControl.js';
 
 router.use(authenticateToken);
 
@@ -281,4 +277,4 @@ router.get('/export', authorize('supplies_lists', 'read'), async (req, res) => {
 });
 
 
-module.exports = router; 
+export default router;

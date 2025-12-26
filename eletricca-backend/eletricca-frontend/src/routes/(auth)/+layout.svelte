@@ -1,5 +1,4 @@
 <script>
-	import '$lib/assets/styles/login.css';
 	let { children } = $props();
 </script>
 

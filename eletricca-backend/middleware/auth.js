@@ -1,5 +1,5 @@
-require('dotenv').config();
-const jwt = require('jsonwebtoken');
+import 'dotenv/config.js';
+import jwt from 'jsonwebtoken';
 
 const jwtSecret = process.env.JWT_SECRET || 'dev_secret';
 
@@ -36,7 +36,7 @@ function requireRole(user_role) {
     };
 }
 
-module.exports = {
+export {
     generateToken,
     authenticateToken,
     requireRole

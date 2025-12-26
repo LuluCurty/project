@@ -112,4 +112,4 @@ function canDelete(getTargetRole) {
 
 
 
-module.exports = { canManage, roleHierarchy, canCreate, canDelete };
+export { canManage, roleHierarchy, canCreate, canDelete };

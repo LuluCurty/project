@@ -1,10 +1,8 @@
-const pool = require('../../../db');
-const express = require('express');
-const router = express.Router();
-const path = require('path');
 
-const { authenticateToken } = require('../../../middleware/auth');
-
+import pool from '../../../db.js';
+import e from 'express';
+const router = e.Router();
+import { authenticateToken } from '../../../middleware/auth.js';
 
 router.use(authenticateToken);
 
@@ -206,4 +204,4 @@ router.delete('/delete/:id', async (req, res) => {
     };
 });
 
-module.exports = router;
+export default router;

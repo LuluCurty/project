@@ -1,4 +1,7 @@
-const { roleHierarchy } = require('../middleware/roleHierarchy');
+import { roleHierarchy } from '../middleware/roleHierarchy.js';
+import {createRequire} from 'module';
+const require = createRequire(import.meta.url);
+
 const permissions = require('../permissions.json');
 
 const systemResources = [
@@ -80,4 +83,4 @@ function getRolePermission(roleName) {
 
 
 
-module.exports = { authorize, getRolePermission };
+export { authorize, getRolePermission };

@@ -1,8 +1,8 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const axios = require('axios');
-const https = require('https');
-const crypto = require('crypto');
+import axios from 'axios';
+import https from 'https';
+import crypto from 'crypto';
 
 const UCM = {
     host: '10.242.241.240',
@@ -102,4 +102,4 @@ router.get('/', async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router; 

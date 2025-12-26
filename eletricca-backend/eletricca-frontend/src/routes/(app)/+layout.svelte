@@ -11,31 +11,6 @@
 	import Header from '$lib/components/Header.svelte';
 	// eu amo svelte :D
 
-	let isAuthenticated = $state(false);
-
-	onMount(async () => {
-		try {
-			const res = await fetch('/api/auth/check', {
-				credentials: 'include'
-			});
-
-			if (!res.ok) {
-				goto('/login');
-			}
-
-			const data = await res.json();
-			isAuthenticated = data.authenticated;
-
-			if (!isAuthenticated) {
-				goto('/login');
-			}
-
-			isAuthenticated = true;
-		} catch (e) {
-			console.error(e);
-		}
-	});
-
 	let { children } = $props();
 </script>
 

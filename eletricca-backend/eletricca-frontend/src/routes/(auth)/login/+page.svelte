@@ -1,104 +1,117 @@
 <script lang="ts">
-
-    import { goto } from '$app/navigation';
-    import { LockKeyhole, LockKeyholeOpen, User, LogIn } from '@lucide/svelte';
-
-    let password_hashed = $state<string>('');
-    let email = $state<string>('');
-    let rememberMe = $state<boolean>(false);
-    let err = $state<string>('');
-    let showPassword = $state<boolean>(false);
+    import { enhance } from '$app/forms';
+    import { User, Lock, Loader2, Megaphone } from 'lucide-svelte';
+    import logo from '$lib/assets/logo.png';
     
+    // Componentes Shadcn
+    import * as Card from "$lib/components/ui/card";
+    import { Input } from "$lib/components/ui/input";
+    import { Button } from "$lib/components/ui/button";
+    import { Label } from "$lib/components/ui/label";
+    import { Checkbox } from "$lib/components/ui/checkbox";
+    import { Alert, AlertDescription } from "$lib/components/ui/alert";
 
-    async function login(event: Event): Promise<void> {
-        event.preventDefault();
-        err='';
-        try {
-            const res = await fetch('/api/auth/login', {
-                method: 'POST',
-                credentials: 'include',
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password_hashed, rememberMe })
-            });
+    // Props que vêm do servidor (se der erro, o form volta preenchido)
+    let { form } = $props();
 
-            const user = await res.json();
-
-            if (user.user.user_id) {
-                localStorage.setItem('user', user.user.email);
-                goto('/');
-            }
-
-        } catch (error) {
-            console.error(error);
-            alert('Login Falhou');
-        }
-    }
+    let isLoading = $state(false);
+    let showPassword = $state(false);
 </script>
 
-<div class="main-ap-login">
-    <div class="container">
-        {#if err}
-            <div class="hidden warning"></div>
-        {/if}
-
-        <form class="login-form clear-both" autocomplete="on" onsubmit={login}>
-            
-            <div class="title">
-                <img src="http://10.242.241.230/public/imgs/icone.png" alt="logo">
-                <h2>Intranet</h2>
+<div class="flex min-h-screen w-full items-center justify-center bg-muted/40 px-4">
+    <Card.Root class="w-full max-w-md shadow-lg">
+        <Card.Header class="space-y-2 text-center">
+            <div class="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                <img src={logo} alt="Logo Eletricca" class="h-10 w-auto object-contain" />
             </div>
+            <Card.Title class="text-2xl font-bold text-primary">Intranet</Card.Title>
+            <Card.Description>Bem-vindo à nova Intranet Corporativa</Card.Description>
+        </Card.Header>
 
-            <div class="welcome">
-                <p>Bem vindo a nova Intranet</p>
-            </div>
+        <Card.Content>
+            {#if form?.error}
+                <Alert variant="destructive" class="mb-4">
+                    <Megaphone class="h-4 w-4" />
+                    <AlertDescription>{form.error}</AlertDescription>
+                </Alert>
+            {/if}
 
-            <div class="input-wrapper">
-                <User class="icon" />
-                <input 
-                    type="text" 
-                    class="inputs" 
-                    placeholder="Username/Email" 
-                    required 
-                    autocomplete="username"
-                    id="email"
-                    bind:value={email}
-                >
-            </div>
+            <form 
+                autocomplete="on"
+                method="POST" 
+                action="?/login" 
+                use:enhance={() => {
+                    isLoading = true;
+                    return async ({ update }) => {
+                        await update();
+                        isLoading = false;
+                    };
+                }}
+                class="space-y-4"
+            >
+                <div class="space-y-2">
+                    <Label for="email">Usuário / Email</Label>
+                    <div class="relative">
+                        <User class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            id="email" 
+                            name="email" 
+                            type="text" 
+                            placeholder="usuario@eletricca.com.br" 
+                            class="pl-9" 
+                            value={form?.email ?? ''} 
+                            required 
+                        />
+                    </div>
+                </div>
 
-            <div class="input-wrapper">
-                <button type="button" tabindex="-1">
-                    {#if showPassword} 
-                        <LockKeyholeOpen class="icon"/>
+                <div class="space-y-2">
+                    <Label for="password">Senha</Label>
+                    <div class="relative">
+                        <Lock class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            id="password" 
+                            name="password" 
+                            type={showPassword ? "text" : "password"} 
+                            placeholder="••••••" 
+                            class="pl-9 pr-10" 
+                            required 
+                        />
+                        <button 
+                            type="button" 
+                            onclick={() => showPassword = !showPassword}
+                            class="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                        >
+                            {#if showPassword}
+                                <span class="text-xs font-medium">Ocultar</span>
+                            {:else}
+                                <span class="text-xs font-medium">Ver</span>
+                            {/if}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <Checkbox id="remember-me" name="remember-me" />
+                    <Label for="remember-me" class="text-sm font-normal text-muted-foreground">
+                        Manter conectado
+                    </Label>
+                </div>
+
+                <Button type="submit" class="w-full" disabled={isLoading}>
+                    {#if isLoading}
+                        <Loader2 class="mr-2 h-4 w-4 animate-spin" /> Entrando...
                     {:else}
-                        <LockKeyhole class="icon" />
+                        Entrar
                     {/if}
-                </button>
-                <input 
-                    type={showPassword? "text" : "password"}
-                    autocomplete="current-password"
-                    class="app-input"
-                    required
-                    placeholder="Senha"
-                    bind:value={password_hashed}
-                >
-            </div>
-
-            <div class="remember-me">
-                <input 
-                    type="checkbox" 
-                    name="remember-me" 
-                    id="remember-me" 
-                    bind:checked={rememberMe}
-                >
-                <label for="remember-me">Lembre-me</label>
-            </div>
-
-            <div class="log-in">
-                <button type="submit" class="login-wrapper">
-                    <LogIn class='icon'/>
-                    <span>Login</span>
-                </button>
-            </div>
-        </form>
-    </div>
+                </Button>
+            </form>
+        </Card.Content>
+        
+        <Card.Footer class="flex justify-center pb-6">
+            <p class="text-xs text-muted-foreground">
+                © {new Date().getFullYear()} Eletricca. Todos os direitos reservados.
+            </p>
+        </Card.Footer>
+    </Card.Root>
 </div>
