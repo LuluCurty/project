@@ -107,8 +107,6 @@ router.get('/', authorize('supplies', 'read'), async (req, res) => {
         // total de registros para calcular a quanditade de paginas
         const countQueryResult = await pool.query(`SELECT COUNT(*) FROM supplies WHERE supply_name ILIKE $1;`, [search]);
         const totalItems = parseInt(countQueryResult.rows[0].count, 10);
-
-
         res.json({
             supplies: rows,
             page: Number(page),

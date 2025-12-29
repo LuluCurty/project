@@ -1,145 +1,153 @@
-<script>
+<script lang="ts">
+    import { goto } from '$app/navigation';
+    import { ChevronLeft, Save, Loader2, UserPlus, AlertCircle } from 'lucide-svelte';
+    
+    // Componentes Shadcn
+    import * as Card from '$lib/components/ui/card';
+    import { Input } from '$lib/components/ui/input';
+    import { Label } from '$lib/components/ui/label';
+    import { Button } from '$lib/components/ui/button';
 
-	let clientFirstName = '';
-	let clientLastName = '';
-	let clientTel = '';
-	let clientEmail = '';
+    // Estado do formulário
+    let isLoading = $state(false);
+    let errorMessage = $state('');
 
-	async function cList(event) {
-		event.preventDefault();
+    // Objeto correspondente ao teu Schema SQL
+    let formData = $state({
+        client_first_name: '',
+        client_last_name: '',
+        client_email: '',
+        client_telephone: ''
+    });
 
-		if ( !clientFirstName.trim() || !clientLastName.trim() || !clientTel.trim() || !clientEmail.trim() ) {
-			alert('Por favor, preencha todos os campos antes de salvar.');
-			return;
-		}
+    async function handleSubmit(e: Event) {
+        e.preventDefault();
+        isLoading = true;
+        errorMessage = '';
 
-		try {
-			const res = await fetch(`/api/client`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					clientFirstName,
-					clientLastName,
-					clientTel,
-					clientEmail
-				}),
-				credentials: 'include'
-			});
+        try {
+            const res = await fetch('/api/client', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
 			const data = await res.json();
 
-			if (res.ok) {
-				alert('Cliente criado');
-				clientFirstName = clientLastName = clientTel = clientEmail = ''; // limpa campos
-			} else {
-				alert(data.message || 'Erro ao criar cliente');
-			}
-		} catch (error) {
-			console.error(error);
-			alert('Erro com o servidor');
-		}
-	}
+            if (!res.ok) {
+                // Se o email já existir (constraint unique), o backend deve avisar
+                throw new Error(data.error || 'Erro ao criar cliente');
+            }
 
-    function cCancel() {
-        history.back();
+            alert('Cliente cadastrado com sucesso!');
+            goto('/client'); // Volta para a lista
+
+        } catch (error: any) {
+            console.error(error);
+            errorMessage = error.message;
+        } finally {
+            isLoading = false;
+        }
     }
 </script>
 
-<form id="createCliente" onsubmit={cList}>
-	<div
-		class="mb-3.5 items-center border-b border-[#e7ecf0]
-        bg-white font-normal leading-[50px]
-        shadow-[0px_1px_10px_rgba(223,225,229,0.5)]"
-	>
-		<div class="pl-6"><h3>Cadastrar Cliente</h3></div>
-		<div class="flex justify-end">
-			<div>
-				<button type="button" onclick={cCancel}>Cancelar</button>
-				<button type="button" onclick={cList}>Salvar</button>
-			</div>
-		</div>
-	</div>
+<div class="max-w-2xl mx-auto space-y-4">
+    
+    <div class="flex items-center gap-2 mb-6">
+        <Button variant="ghost" size="icon" onclick={() => goto('/client')}>
+            <ChevronLeft class="size-5" />
+        </Button>
+        <h1 class="text-2xl font-bold tracking-tight">Novo Cliente</h1>
+    </div>
 
-	<div class="main-form w-full">
-		<div class="form-wrapper h-full overflow-auto pb-3.5 pr-3.5 pt-0">
-			<div
-				class="border border-solid border-[#dadfe580] bg-white pb-5 pl-[30px] pr-[30px] pt-[30px]"
-			>
-				<h4
-					class="leading-3.5 clear-both mb-12 mt-[25px] h-3.5 border-l-2
-                    border-solid border-l-[#3370ff] pl-2 text-base font-semibold text-[#596680]"
-				>
-					Geral
-				</h4>
+    <Card.Root>
+        <Card.Header>
+            <div class="flex items-center gap-2">
+                <div class="p-2 bg-primary/10 rounded-full">
+                    <UserPlus class="size-5 text-primary" />
+                </div>
+                <div>
+                    <Card.Title>Dados Pessoais</Card.Title>
+                    <Card.Description>Preencha os campos abaixo para cadastrar um novo cliente.</Card.Description>
+                </div>
+            </div>
+        </Card.Header>
 
-				<section class="flex w-full">
-					<div class="w-1/2">
-						<div class="mb-6 flex items-center">
-							<div class="inline-block w-[30%]">
-								<label for="client_name" class="text-normal text-[#000000a6]"> Nome: </label>
-							</div>
-							<div class="inline-block w-[50%]">
-								<input
-									class="h-8 rounded-sm border-[#a4adb7] leading-8"
-									bind:value={clientFirstName}
-									type="text"
-									id="client_name"
-									placeholder="Nome do Cliente"
-									required
-								/>
-							</div>
-						</div>
-						<div class="mb-6 flex items-center">
-							<div class="inline-block w-[30%]">
-								<label for="client_email" class="text-normal text-[#000000a6]"> Email: </label>
-							</div>
-							<div class="inline-block w-[50%]">
-								<input
-									bind:value={clientEmail}
-									class="h-8 rounded-sm border-[#a4adb7] leading-8"
-									type="text"
-									id="client_email"
-									placeholder="Email"
-									required
-								/>
-							</div>
-						</div>
-					</div>
-					<div class="w-1/2">
-						<div class="mb-6 flex items-center">
-							<div class="inline-block w-[30%]">
-								<label for="client_lastname" class="text-normal text-[#000000a6]">
-									Sobrenome:
-								</label>
-							</div>
-							<div class="inline-block w-[50%]">
-								<input
-									bind:value={clientLastName}
-									class="h-8 rounded-sm border-[#a4adb7] leading-8"
-									type="text"
-									id="client_lastname"
-									placeholder="Sobrenome"
-									required
-								/>
-							</div>
-						</div>
-						<div class="mb-6 flex items-center">
-							<div class="inline-block w-[30%]">
-								<label for="client_tel" class="text-normal text-[#000000a6]"> Telefone: </label>
-							</div>
-							<div class="inline-block w-[50%]">
-								<input
-									bind:value={clientTel}
-									class="h-8 rounded-sm border-[#a4adb7] leading-8"
-									type="text"
-									id="client_tel"
-									placeholder="Telefone"
-									required
-								/>
-							</div>
-						</div>
-					</div>
-				</section>
-			</div>
-		</div>
-	</div>
-</form>
+        <Card.Content class="pt-6">
+            <form onsubmit={handleSubmit} class="space-y-6">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <Label for="firstname">Primeiro Nome *</Label>
+                        <Input 
+                            id="firstname" 
+                            placeholder="Ex: João" 
+                            required 
+                            bind:value={formData.client_first_name}
+                        />
+                    </div>
+
+                    <div class="space-y-2">
+                        <Label for="lastname">Sobrenome *</Label>
+                        <Input 
+                            id="lastname" 
+                            placeholder="Ex: Silva" 
+                            required 
+                            bind:value={formData.client_last_name}
+                        />
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <Label for="email">Email *</Label>
+                    <Input 
+                        id="email" 
+                        type="email" 
+                        placeholder="cliente@exemplo.com" 
+                        required 
+                        bind:value={formData.client_email}
+                    />
+                    <p class="text-[11px] text-muted-foreground">Este email deve ser único no sistema.</p>
+                </div>
+
+                <div class="space-y-2">
+                    <Label for="phone">Telefone / Celular *</Label>
+                    <Input 
+                        id="phone" 
+                        type="tel" 
+                        placeholder="(00) 00000-0000" 
+                        required 
+                        bind:value={formData.client_telephone}
+                    />
+                </div>
+
+                <div class="flex justify-end gap-3 pt-4 border-t">
+
+                    {#if errorMessage}
+                <div class="flex items-center gap-2 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md animate-in fade-in slide-in-from-top-1">
+                    <AlertCircle class="size-4" />
+                    <span class="font-medium">{errorMessage}</span>
+                </div>
+            {/if}
+
+            <div class="flex justify-end gap-3 pt-4 border-t">
+                </div>
+
+
+                    <Button type="button" variant="outline" onclick={() => goto('/client')}>
+                        Cancelar
+                    </Button>
+                    <Button type="submit" disabled={isLoading}>
+                        {#if isLoading}
+                            <Loader2 class="mr-2 size-4 animate-spin" /> Salvando...
+                        {:else}
+                            <Save class="mr-2 size-4" /> Cadastrar Cliente
+                        {/if}
+                    </Button>
+                </div>
+
+            </form>
+        </Card.Content>
+    </Card.Root>
+</div>

@@ -36,7 +36,7 @@
 			icon: Container,
 			dropdown: [
 				{ title: 'Lista Geral', href: '/supplies' },
-				{ title: 'Fornecedores', href: '/supplies/suppliers' },
+				{ title: 'Fornecedores', href: '/suppliers' },
 				{ title: 'Listas', href: '/supplies/lists' }
 			]
 		}

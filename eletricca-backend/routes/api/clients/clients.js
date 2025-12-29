@@ -104,7 +104,8 @@ router.get('/:id', async (req, res) => {
         }
 
         res.status(200).json({
-            client: rows[0]
+            client: rows[0],
+            ok: true
         })
 
     } catch (error) {
@@ -117,9 +118,9 @@ router.get('/:id', async (req, res) => {
 // POST /api/client/ //estado completo
 router.post('/', async (req, res) => {
     try {
-        const { clientFirstName, clientLastName, clientTel, clientEmail } = req.body;
+        const { client_first_name, client_last_name, client_telephone, client_email } = req.body;
 
-        if (![clientFirstName, clientLastName, clientTel, clientEmail].every(v => v && v.trim() !== '')) {
+        if (![client_first_name, client_last_name, client_telephone, client_email].every(v => v && v.trim() !== '')) {
             return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
         }
 
@@ -129,17 +130,30 @@ router.post('/', async (req, res) => {
             VALUES
             ($1, $2, $3, $4)
             RETURNING client_first_name, creation_date
-            ;`, [clientFirstName, clientLastName, clientTel, clientEmail]
+            ;`, [client_first_name, client_last_name, client_telephone, client_email]
         );
 
         return res.status(201).json({
             client: rows[0],
-            ok: true
+            ok: true,
+            message: 'Cliente criado com sucesso'
         });
 
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Internal server error' });
+
+        if (error.code === '23505') {
+            if (error.constraint === 'client_client_email_key') {
+                return res.status(404).json({
+                    ok: false,
+                    error: 'E-mail já cadastrado para outro cliente'
+                })
+            }
+
+            return res.status(404).json({ok: false, error: 'Registro já existente'})
+        }
+
+        return res.status(500).json({ message: 'Internal server error', ok: false });
     }
 });
 
@@ -152,7 +166,7 @@ router.put('/edit/:id', async (req, res) => {
             return res.status(400).json({ error: "ID inválido (deve ser número inteiro)", ok: false});
         };
 
-        const {firstName, lastName, email, tel} = req.body;
+        const {client_first_name, client_last_name, client_email, client_telephone} = req.body;
 
         const { rowCount } = await pool.query(`
             UPDATE client
@@ -163,7 +177,7 @@ router.put('/edit/:id', async (req, res) => {
                 client_telephone =COALESCE($4, client_telephone),
                 updated_at = NOW()
             WHERE id=$5
-            ;`,[firstName, lastName, email, tel, id]
+            ;`,[client_first_name, client_last_name, client_email, client_telephone, id]
         );
 
         if ( rowCount === 0) {
@@ -174,11 +188,10 @@ router.put('/edit/:id', async (req, res) => {
         console.error(error);
         res.status(500).json({ mesage: "Internal server error"});
     }
-
 });
 
 // DELETE /api/client/delete/:id //estado completo
-router.delete('/delete/:id', async (req, res) => {
+router.delete('/:id', async (req, res) => {
     try{
         const id = parseInt(req.params.id, 10);
 

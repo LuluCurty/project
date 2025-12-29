@@ -19,11 +19,52 @@ router.get('/list', async (req, res) => {
     }
 })
 
-
 // GET /api/supplier?page=1&limit=20%search=algumacoisa
 router.get('/', async (req, res) => {
     try{
+        // 1. Parametros da URL
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search || '';
+        const offset = ( page -1 )  * limit;
+        // 2. Query dinamica, para mudar todo acerca da query
+        let queryText = `SELECT * FROM supplier`;
+        let countText = `SELECT COUNT(*) FROM supplier`;
+        let queryParams = [limit, offset];
+        let countParams = [];
 
+        // Tem busca?
+        if (search ) {
+            const searctTerm = `%${search}%`;
+            const whereClause = ` WHERE supplier_name ILIKE $3 OR supplier_email ILIKE $3`;
+
+            queryText += whereClause;
+            countText += ` WHERE supplier_name ILIKE $1 OR supplier_email ILIKE $1`;
+
+            queryParams.push(searctTerm); // $3 nessa
+            countParams.push(searctTerm); // $1 nessa
+        }
+        // Ordenação e paginação são separados para granular a ordenação.
+        queryText += ` ORDER BY id ASC LIMIT $1 OFFSET $2`;
+
+        // 3. Executar as queries 
+        const [suppliersResponse, CountResponse] = await Promise.all([
+            pool.query(queryText, queryParams),
+            pool.query(countText, countParams)
+        ]);
+
+        const totalItems = parseInt(CountResponse.rows[0].count);
+        const totalPages = Math.ceil(totalItems / limit);
+
+        // 4. Responder as queries
+        res.json({
+            suppliers: suppliersResponse.rows,
+            page,
+            limit,
+            totalItems,
+            totalPages,
+            ok: true
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Internal server error'});
@@ -91,33 +132,62 @@ router.get('/:id', async (req, res) => {
 // POST /api/supplier
 router.post('/', async (req, res) => {
     try{
-        console.log(req.body);
-        const { supplierName, supplierEmail, supplierTelephone, supplierAddress} = req.body;
-        if (![supplierName, supplierEmail, supplierTelephone].every(v => v && v.trim() !== '')) {
-            return res.status(400).json({ error: 'Todos os campos sao obrigatorios'});
+        const { 
+            supplier_name, 
+            supplier_email, 
+            supplier_telephone, 
+            supplier_address
+        } = req.body;
+
+        if (!supplier_email?.trim() || !supplier_name?.trim() || !supplier_telephone?.trim()) {
+            return res.status(400).json({
+                ok: false,
+                error: 'Nome, email e telefone são obrigatórios'
+            })
         }
-        console.log('l');
 
         const { rows } = await pool.query(`
             INSERT INTO supplier
             (supplier_name, supplier_email, supplier_telephone, supplier_address)
             VALUES
             ($1, $2, $3, $4)
-            RETURNING supplier_name
-            ;`,[supplierName, supplierEmail, supplierTelephone, supplierAddress]
+            RETURNING id, supplier_name;`, // Retornamos o ID também
+            [
+                supplier_name, 
+                supplier_email, 
+                supplier_telephone, 
+                supplier_address || null // Se vier vazio, salva null (ou string vazia se preferires)
+            ]
         );
-        return res.status(200).json({
+
+        return res.status(201).json({
+            ok: true,
             supplier: rows[0],
-            ok: true
-        })
+            message: 'Fornecedor cadastrado com sucesso'
+        });
+
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Internal server error'});
+        if (error.code === '23505') {
+            // Verifica se foi o email
+            if (error.constraint === 'supplier_supplier_email_key') {
+                return res.status(409).json({ 
+                    ok: false, 
+                    error: 'Este email já está cadastrado para outro fornecedor.' 
+                });
+            }
+            return res.status(409).json({ ok: false, error: 'Fornecedor já cadastrado.' });
+        }
+
+        // Erro genérico
+        return res.status(500).json({ 
+            ok: false, 
+            error: 'Erro interno ao salvar fornecedor.' 
+        });
     }
 });
 
 // DELETE /api/supplier/:id
-router.delete('/delete/:id', async (req, res) => {
+router.delete('/:id', async (req, res) => {
     try{
         const id = parseInt(req.params.id, 10);
 
@@ -143,30 +213,48 @@ router.delete('/delete/:id', async (req, res) => {
 
 // PUT /api/supplier/update/:id
 router.put('/update/:id', async (req, res) => {
-    try{
+    try {
         const id = parseInt(req.params.id, 10);
-        if(!Number.isInteger(id)) { return res.status(400).json({ error: 'ID não é um numero'});};
-
-        const { supplierName, supplierEmail, supplierTelephone, supplierAddress } = req.body;
         
-        console.log('Funciona, só escrever a query');
+        if (!Number.isInteger(id)) { 
+            return res.status(400).json({ error: 'ID inválido (deve ser número inteiro)' });
+        }
 
-        const { rowCount } = await pool.query(`
+        const { supplier_name, supplier_email, supplier_telephone, supplier_address } = req.body;
+        
+        // Query com RETURNING * para devolver o dado atualizado
+        const { rowCount, rows } = await pool.query(`
             UPDATE supplier
             SET
                 supplier_name = COALESCE($1, supplier_name),
                 supplier_email = COALESCE($2, supplier_email),
                 supplier_telephone = COALESCE($3, supplier_telephone),
                 supplier_address = COALESCE($4, supplier_address)
-            WHERE id=$5
-            ;`, [supplierName, supplierEmail, supplierTelephone, supplierAddress]
+            WHERE id = $5
+            RETURNING *;`, 
+            // CORREÇÃO: Adicionei o 'id' ao final do array
+            [supplier_name, supplier_email, supplier_telephone, supplier_address, id]
         );
-        if (rowCount === 0) { return res.status(400).json({ error: "Nenhum fornecedor modificado"}); }
-        return res.status(200).json({ ok: true, rowCount });
 
-    } catch (error){
-        console.error(error);
-        res.status(500).json({ error: 'Internal server error'});
+        if (rowCount === 0) { 
+            return res.status(404).json({ error: "Fornecedor não encontrado." }); 
+        }
+
+        return res.status(200).json({ 
+            ok: true, 
+            message: 'Fornecedor atualizado com sucesso',
+            supplier: rows[0]
+        });
+
+    } catch (error) {
+        console.error('Erro no UPDATE supplier:', error);
+
+        // Tratamento de Email Duplicado
+        if (error.code === '23505') {
+            return res.status(409).json({ error: 'Este e-mail já pertence a outro fornecedor.' });
+        }
+
+        res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 });
 
