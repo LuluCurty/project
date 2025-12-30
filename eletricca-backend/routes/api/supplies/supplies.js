@@ -296,7 +296,7 @@ router.get('/search', authorize('supplies', 'read'), async (req, res) => {
         }
         const offset = (page - 1) * limit;
         const { rows } = await pool.query(`
-            SELECT id, supply_name, quantity, image_url, details, price, supplier
+            SELECT id, supply_name, quantity, image_url, details
             FROM supplies
             WHERE supply_name ILIKE '%' || $1 || '%'
             ORDER BY supply_name ASC 

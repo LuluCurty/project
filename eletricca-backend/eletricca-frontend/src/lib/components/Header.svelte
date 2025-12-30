@@ -7,6 +7,14 @@
     import { onMount } from "svelte";
 
     let systemMessage = $state<string>('');
+    
+    function handleToggle () {
+        if (window.innerWidth < 768) {
+            layoutState.toggleMobile();
+        } else {
+            layoutState.toggleCollapsed();
+        }
+    }
 
 	async function loadAnnouncement() {
 		try {
@@ -24,7 +32,7 @@
 	}
 
 	onMount(async () => {
-		systemMessage = await loadAnnouncement();
+		systemMessage = await loadAnnouncement() || '';
 	});
 
 </script>
@@ -34,7 +42,7 @@
         <button 
             type="button"
             class="p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
-            onclick={() => layoutState.toggle()}
+            onclick={handleToggle}
             aria-label="Alternar Menu"
         >
             <Menu size={20}/>

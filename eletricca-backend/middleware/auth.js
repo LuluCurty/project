@@ -9,7 +9,7 @@ function generateToken(user, rememberMe) {
         user_role: user.user_role,
         email: user.email
     };
-    const expiresIn = rememberMe ? '30d' : '2h';
+    const expiresIn = rememberMe ? '7d' : '2h';
     return jwt.sign(payload, jwtSecret, {expiresIn:expiresIn || process.env.JWT_EXPIRES_IN || '8h'});
 };
 

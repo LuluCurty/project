@@ -106,7 +106,7 @@
 	 
 
 	async function deleteUser(id: number, name: string) {
-		if (!confirm(`Tem certeza que deseja excluir ${name}?`)) return;
+		/*if (!confirm(`Tem certeza que deseja excluir ${name}?`)) return;
 
 		try {
 			const res = await fetch(`/api/users/${id}`, {
@@ -122,7 +122,9 @@
 			}
 		} catch (e) {
 			console.error(e);
-		}
+		} */
+
+		alert('Nem tenta, meu caro')
 	}
 	function formatDate(dateString: string) {
 		if (!dateString) return '-';

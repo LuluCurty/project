@@ -13,7 +13,7 @@ export const actions: Actions = {
         const formData = await request.formData();
         const email = formData.get('email') as string;
         const password = formData.get('password') as string;
-        const rememberMe = formData.get('remember-me') === 'on';
+        const rememberMe = formData.get('remember-me') === 'on';        
 
         if (!email || !password) {
             return fail(400, {

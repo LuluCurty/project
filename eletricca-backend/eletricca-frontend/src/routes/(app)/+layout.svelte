@@ -2,10 +2,7 @@
 	import '../../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import Footer from '$lib/components/footer.svelte';
-	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-	import { sideBarCollapsed } from '$lib/stores/stores';
 
 	import Aside from '$lib/components/Aside.svelte';
 	import Header from '$lib/components/Header.svelte';
@@ -28,9 +25,9 @@
 <div class="flex min-h-screen w-full bg-background">
 	<Aside/>
 
-	<div class="flex flex-1 flex-col">
+	<div class="flex min-w-0 flex-1 flex-col transition-all duration-300">
 		<Header/>
-		<main class="flex-1 p-6">
+		<main class="flex-1 p-4 md:p-6 overflow-x-hidden">
 			<Tooltip.Provider>
 				{@render children?.()}
 			</Tooltip.Provider>			

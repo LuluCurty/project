@@ -43,15 +43,15 @@ router.post('/login', async (req, res) => {
         const ok = await bcrypt.compare(password_hashed, user.password_hashed);
         if(!ok) return res.status(401).json({ error: 'Invalid credentials'});
 
-        if (user.role === 'admin' && !isLocalIP(ip)){
-            return res.status(403).json({ error: 'Admin access only allowed from local network'});
-        }
-        const token = generateToken(user);
+        const token = generateToken(user, rememberMe);
+
+        const cookieDuration = rememberMe ? 7 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000;
+
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
-            maxAge: rememberMe ? 30 * 24 * 60 * 60 * 1000 : 8 * 60 * 60 * 1000
+            maxAge: cookieDuration
         })
 
         res.json({ 

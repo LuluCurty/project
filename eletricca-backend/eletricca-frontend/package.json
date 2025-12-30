@@ -47,6 +47,7 @@
 		"vite-plugin-devtools-json": "^1.0.0"
 	},
 	"dependencies": {
+		"jwt-decode": "^4.0.0",
 		"lucide-svelte": "^0.552.0"
 	}
 }

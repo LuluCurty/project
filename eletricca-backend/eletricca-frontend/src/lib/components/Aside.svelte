@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Avatar from '$lib/components/ui/avatar';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import logo from '$lib/assets/logo.png'; // Caminho da sua imagem
+	import logo from '$lib/assets/logo.png'; //  
 	import { layoutState } from '$lib/state/layoutState.svelte';
 	import { enhance } from '$app/forms'; //
 
@@ -47,10 +47,30 @@
 		{ title: 'Google', href: 'https://google.com', internal: false },
 		{ title: 'Relatório Trimestral', href: '/reports/q3', internal: true }
 	];
+
+	// Fechar quando clicar num link em mobileFirest 
+	function handleLinkClick() {
+		if (window.innerWidth < 768) {
+			layoutState.closeMobile();
+		}
+	}
 </script>
 
+{#if layoutState.mobileOpen}
+	<div 
+		class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+		onclick={() => layoutState.closeMobile()}
+		aria-hidden="true"
+	>
+	</div>
+{/if}
+
 <aside
-	class="sticky top-0 flex h-screen flex-col border-r bg-card transition-all duration-300 ease-in-out"
+	class="
+		fixed inset-y-0 left-0 z-50 flex h-full flex-col border-r bg-card  transition-all duration-300 ease-in-out
+		md:sticky md:top-0 md:h-screen md:translate-x-0
+		{layoutState.mobileOpen ? 'translate-x-0' : '-translate-x-full'}  
+	"
 	style="width: {layoutState.collapsed ? '80px' : '288px'};"
 >
 	<div class="flex h-16 items-center overflow-hidden border-b px-6 whitespace-nowrap">
@@ -192,3 +212,11 @@
 		</DropdownMenu.Root>
 	</div>
 </aside>
+
+<style>
+	@media (max-width: 768px) {
+		aside {
+			width: 18rem !important;
+		}
+	}
+</style>

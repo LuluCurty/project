@@ -1,624 +1,446 @@
 <script lang="ts">
-	import { Plus, X, Trash2 } from '@lucide/svelte';
-	import '../s.css';
+    import { goto } from '$app/navigation';
+    import { Plus, X, Trash2, Save, ChevronLeft, Search, LoaderCircle, PackageOpen } from '@lucide/svelte';
 
-	//tipo cliente
-	interface Client {
-		id: number;
-		client_first_name: string;
-		client_last_name: String;
-		client_email: string;
-	}
-	interface Supply {
-		id: number;
-		supply_name: string;
-		supply_description?: string;
-	}
-	interface Supplier {
-		id: number;
-		supplier_name: string;
-		supplier_email: string;
-		price: number;
-	}
-	interface ListItem {
-		supply: Supply;
-		supplier: Supplier;
-		quantity: number;
-		price: number;
-	}
+    // UI Components
+    import * as Card from '$lib/components/ui/card';
+    import { Input } from '$lib/components/ui/input';
+    import { Label } from '$lib/components/ui/label';
+    import { Button } from '$lib/components/ui/button';
+    import { Textarea } from '$lib/components/ui/textarea';
+    import * as Tabs from "$lib/components/ui/tabs";
+    import * as Table from "$lib/components/ui/table";
+    import { Badge } from "$lib/components/ui/badge";
+    import * as Select from '$lib/components/ui/select';
+    import { Separator } from "$lib/components/ui/separator";
 
-	// variavel de mudança de pagina
-	let currentTab = $state('lista');
+    // --- TIPAGEM ---
+    interface Client { id: number; client_first_name: string; client_last_name: string; client_email: string; }
+    interface Supply { id: number; supply_name: string; }
+    interface Supplier { id: number; supplier_name: string; price?: number; }
+    
+    interface ListItem {
+        supply: Supply;
+        supplier: Supplier;
+        quantity: number;
+        price: number;
+    }
 
-	// Estados da aba de Lista
-	let listName = $state('');
-	let description = $state('');
-	let priority = $state('medium');
-	let selectedClient = $state<Client | null>(null);
+    // --- ESTADO GERAL ---
+    let isSaving = $state(false);
+    let formError = $state(''); // Para erros de validação visual
 
-	// Estados da aba de materiais
-	let selectedSupply = $state<Supply | null>();
-	let selectedSupplier = $state<Supplier | null>();	
-	let currentQuantity = $state(1);
-	let currentPrice = $state(0);
-	let listItems = $state<ListItem[]>([]);
-	let totalValue = $derived(
-		listItems.reduce((sum, item) => sum + item.quantity * item.price, 0)
-	);
+    // Dados da Lista
+    let listData = $state({
+        name: '',
+        description: '',
+        priority: 'medium',
+        client: null as Client | null
+    });
 
-	// autocompletes
-	let clientSearch = $state('');
-	let clientSuggestions = $state<Client[]>([]);
-	let showClientSuggestions = $state(false);
+    // Dados do Item (Sendo adicionado) - Agrupado para facilitar reset
+    let newItem = $state({
+        supply: null as Supply | null,
+        supplier: null as Supplier | null,
+        quantity: 1,
+        price: 0
+    });
 
-	let supplySearch = $state('');
-	let supplySuggestions = $state<Supply[]>([]);
-	let showSupplySuggestions = $state(false);
+    // Lista Final
+    let listItems = $state<ListItem[]>([]);
+    
+    // Total (Calculado automaticamente)
+    let totalValue = $derived(
+        listItems.reduce((sum, item) => sum + (item.quantity * item.price), 0)
+    );
 
-	let supplierSearch = $state('');
-	let supplierSuggestions = $state<Supplier[]>([]);
-	let showSupplierSuggestions = $state(false);
+    // --- BUSCA (Com Debounce) ---
+    let search = $state({ client: '', supply: '', supplier: '' });
+    let suggestions = $state({ client: [] as Client[], supply: [] as Supply[], supplier: [] as Supplier[] });
+    let showSuggestions = $state({ client: false, supply: false, supplier: false });
+    let searchTimeout: ReturnType<typeof setTimeout>;
 
-	// =========== QUERY FUNCIONS =============
-	// são funções de busca de dados
-	async function searchClients() {
-		if (clientSearch.length < 3) {
-			// só começa a mostrar depois do terceiro digito
-			clientSuggestions = [];
-			showClientSuggestions = false;
-			return;
-		}
-		try { // usar padrao '%path%/search?search='!
-			const res = await fetch(`/api/client/search?search=${encodeURIComponent(clientSearch)}`, {
-				credentials: "include"
-			});
+    // Função genérica de busca com delay
+    async function handleSearch(type: 'client' | 'supply' | 'supplier', query: string) {
+        // Atualiza o valor do input
+        search[type] = query;
+        clearTimeout(searchTimeout);
 
-			if (res.ok) {
-				const data = await res.json();
-				clientSuggestions = data.rows;
-				showClientSuggestions = clientSuggestions.length > 0;
-			}
-		} catch (error) {
-			console.log('Erro ao buscar clientes: <searchClients> \n', error);
-		}
-	}
+        if (query.length < 3) {
+            suggestions[type] = [];
+            showSuggestions[type] = false;
+            return;
+        }
 
-	async function searchSupply() {
-		if (supplySearch.length < 3) {
-			supplySuggestions = [];
-			showSupplySuggestions = false;
-			return;
-		}
-		
-		try {
-			const res = await fetch(`/api/supplies/search?q=${encodeURIComponent(supplySearch)}`, {
-				credentials: "include"
-			});
-			if(res.ok) {
-				const data = await res.json();
-				supplySuggestions = data.supplies;
-				showSupplySuggestions = supplySuggestions.length > 0;
-			}
-		} catch (error) {
-			console.error(error);
-		}
-	}
-	async function searchSupplier() {
-		if (supplierSearch.length < 2) {
-			supplierSuggestions = [];
-			showSupplierSuggestions = false;
-			return;
-		}
-		try {
-			const res = await fetch(`/api/supplier/search?search=${encodeURIComponent(supplierSearch)}`, { 
-				credentials: 'include' 
-			});
-			
-			if (res.ok) {
-				const data = await res.json();
-				supplierSuggestions = data.rows;
-				showSupplierSuggestions = supplierSuggestions.length > 0;
-			}
-			
-		} catch (error) {
-			console.error('Erro ao buscar fornecedores', error);
-		}
-	}
-	// ================ HANDLERS ===========
-	// autocomplete client
-	function selectClient(client: Client) {
-		selectedClient = client;
-		clientSearch = ''; 
-		clientSuggestions = []; 
-		showClientSuggestions = false; 
-	}
-	function removeClient() {
-		selectedClient = null;
-	}
-	// autocomplete de supply
-	function selectSupply(supply: Supply) {
-		selectedSupply = supply;
-		supplySearch = '';
-		supplySuggestions = [];
-		showSupplySuggestions = false; 
-	}
-	function removeSupply(){
-		selectedSupply = null;
-	}
-	// autocomplete de fornecedor
-	function selectSupplier(supplier: Supplier) {
-		selectedSupplier = supplier;
-		supplierSearch = '';
-		supplierSuggestions = [];
-		showSupplierSuggestions = false;
-	}
-	function removeSupplier() {
-		selectedSupplier = null;
-	}
+        // Delay de 300ms para evitar chamadas excessivas
+        searchTimeout = setTimeout(async () => {
+            try {
+                let url = '';
+                if (type === 'client') url = `/api/client/search?search=${encodeURIComponent(query)}`;
+                if (type === 'supply') url = `/api/supplies/search?q=${encodeURIComponent(query)}`;
+                if (type === 'supplier') url = `/api/supplier/search?search=${encodeURIComponent(query)}`;
 
-	// ===== list state
-	function addItemToList() {
-		if (!selectedSupply || !selectedSupplier || currentQuantity <= 0) {
-			alert('Preencha todos os campos');
-			return;
-		}
+                const res = await fetch(url, {
+                    credentials: 'include'
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    // Ajuste conforme o retorno da tua API (rows, supplies, etc)
+                    suggestions[type] = data.rows || data.supplies || []; 
+                    showSuggestions[type] = true;
+                }
+            } catch (e) { console.error(e); }
+        }, 300);
+    }
 
-		listItems = [
-			...listItems,
-			{
-				supply: selectedSupply,
-				supplier: selectedSupplier,
-				quantity: currentQuantity,
-				price: currentPrice
-			}
-		];
-		selectedSupplier = null;
-		selectedSupply = null;
-		currentPrice = 0;
-		currentQuantity = 0;
-		supplySearch = '';
-		supplierSearch = '';
-	}
-	function removeItem(index: number){
-		listItems = listItems.filter((_, i) => i !== index);
-	}
+    // --- SELEÇÃO ---
+    function selectItem(type: 'client' | 'supply' | 'supplier', item: any) {
+        if (type === 'client') listData.client = item;
+        if (type === 'supply') newItem.supply = item;
+        if (type === 'supplier') {
+            newItem.supplier = item;
+            if (item.price) newItem.price = item.price; // Preenche preço se vier do banco
+        }
+        
+        // Limpa busca
+        search[type] = '';
+        showSuggestions[type] = false;
+    }
 
-	async function cList() {
-		if (!listName || !selectedClient) {
-			alert('Preencha o nome da lista e cliente');
-			return;
-		}
+    // --- ADICIONAR / REMOVER DA TABELA ---
+    function addItemToList() {
+        formError = '';
+        if (!newItem.supply || !newItem.supplier) {
+            formError = 'Selecione um material e um fornecedor.';
+            return;
+        }
+        if (newItem.quantity <= 0) {
+            formError = 'A quantidade deve ser maior que zero.';
+            return;
+        }
 
-		if (listItems.length === 0) {
-			alert('Adicione pelo menus um material a lista');
-			return;
-		}
+        listItems = [...listItems, {
+            supply: newItem.supply,
+            supplier: newItem.supplier,
+            quantity: Number(newItem.quantity),
+            price: Number(newItem.price)
+        }];
 
-		try {
-			const payload = {
-				listName,
-				clientId: selectedClient.id,
-				priority,
-				description,
-				listItems: listItems.map(item => ({
-					supply_id: item.supply.id,
-					supplier_id: item.supplier.id,
-					quantity: item.quantity,
-					price: item.price
-				}))
-			};
+        // Resetar apenas campos de adição
+        newItem.supply = null;
+        newItem.supplier = null;
+        newItem.quantity = 1;
+        newItem.price = 0;
+    }
 
+    function removeItem(index: number) {
+        listItems = listItems.filter((_, i) => i !== index);
+    }
 
-			const res = await fetch(`/api/suplist`, {
-				method: 'POST',
-				credentials: 'include',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(payload)
-			});
+    // --- SALVAR NO BACKEND ---
+    async function submitList() {
+        if (!listData.name || !listData.client) {
+            alert('Por favor, preencha o Nome da Lista e o Cliente na aba Geral.');
+            return;
+        }
+        if (listItems.length === 0) {
+            alert('A lista precisa de pelo menos um material.');
+            return;
+        }
 
-			if (res.ok) {
-				alert('Lista criada com sucesso');
-				history.back();
-			} else {
-				const data = await res.json();
-				console.log(data);
-				alert('Erro ao criar lista');
-			}
-		} catch (error) {
-			console.error('Error:\n'+ error);
-		}
+        isSaving = true;
+        try {
+            const payload = {
+                list_name: listData.name,
+                client_id: listData.client.id,
+                priority: listData.priority,
+                description: listData.description,
+                listItems: listItems.map(item => ({
+                    supply_id: item.supply.id,
+                    supplier_id: item.supplier.id,
+                    quantity: item.quantity,
+                    price: item.price
+                }))
+            };
 
+            const res = await fetch(`/api/suplist`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
 
-	}
-	function cCancel() {
-		// go back
-		history.back();
-	}
-	// +++++ page changer ++++++
-	function changeTab(tabToChange = 'lista') {
-		currentTab = tabToChange;
-	}
-
+            if (res.ok) {
+                alert('Lista criada com sucesso!');
+                history.back();
+            } else {
+                const data = await res.json();
+                alert(data.message || 'Erro ao salvar.');
+            }
+        } catch (error) {
+            alert('Erro de conexão.');
+        } finally {
+            isSaving = false;
+        }
+    }
 </script>
 
-<form id="createList" onsubmit={(event) => { event.preventDefault(); cList(); }}>
-	<div
-		class="main-form-title mb-3.5 items-center border-b border-[#e7ecf0]
-        bg-white font-normal leading-[50px]
-        shadow-[0px_1px_10px_rgba(223,225,229,0.5)]"
-	>
-		<div class="pl-6"><h3>Criar lista</h3></div>
-		<div class="flex justify-between">
-			<div
-				class="[*]:text-[#596680] flex
-			overflow-hidden"
-			>
-				<div
-					class="ml-5 mr-11 text-[14px] transition-colors duration-300 ease-[cubic-bezier(0.645,0.045,0.355,1)]"
-					class:text-[#3D77FF]={currentTab === 'lista'}
-					class:font-bold={currentTab === 'lista'}
-					class:border-b-[#3D77FF]={currentTab === 'lista'}
-					class:border-b-[3px]={currentTab === 'lista'}
-				>
-					<button onclick={() => changeTab('lista')} type="button" class="">Lista</button>
-				</div>
-				<div
-					class="ml-5 mr-11 text-[14px] transition-colors duration-300 
-							ease-[cubic-bezier(0.645,0.045,0.355,1)]"
-					class:text-[#3D77FF]={currentTab === 'materiais'}
-					class:font-bold={currentTab === 'materiais'}
-					class:border-b-[#3D77FF]={currentTab === 'materiais'}
-					class:border-b-[3px]={currentTab === 'materiais'}
-				>
-					<button onclick={() => changeTab('materiais')} type="button" class="">Materiais</button>
-				</div>
-			</div>
+<div class="max-w-6xl mx-auto p-4 space-y-6 pb-20">
+    
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onclick={() => history.back()} class="shrink-0">
+                <ChevronLeft class="size-5" />
+            </Button>
+            <div>
+                <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Nova Lista</h1>
+                <p class="text-muted-foreground text-sm">Orçamento e Planejamento</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <Button variant="outline" class="flex-1 sm:flex-none" onclick={() => history.back()}>
+                Cancelar
+            </Button>
+            <Button class="flex-1 sm:flex-none" onclick={submitList} disabled={isSaving}>
+                {#if isSaving}
+                    <LoaderCircle class="mr-2 size-4 animate-spin" /> Salvando...
+                {:else}
+                    <Save class="mr-2 size-4" /> Salvar
+                {/if}
+            </Button>
+        </div>
+    </div>
 
-			<div class="">
-				<button type="button" onclick={cCancel} class="general-button">Cancelar</button>
-				<button type="submit"  class="general-button">Salvar</button>
-			</div>
-		</div>
-	</div>
+    <Tabs.Root value="geral" class="w-full">
+        <Tabs.List class="w-full sm:w-[400px] grid grid-cols-2">
+            <Tabs.Trigger value="geral">Geral</Tabs.Trigger>
+            <Tabs.Trigger value="materiais">Itens ({listItems.length})</Tabs.Trigger>
+        </Tabs.List>
 
-	<div class="main-form w-full">
-		<div class="w-full">
-			<div class="tabpanel-content h-full  pb-3.5 pl-3.5 pr-3.5 pt-0">
-				<div
-					class="form-content border border-solid border-[#dadfe580]
-					 bg-white pb-5 pl-[30px] pr-[30px] pt-[30px]"
-				>
-					{#if currentTab === 'lista'}
-						<h4
-							class="leading-3.5 clear-both mb-[25px] mt-[25px] h-3.5 border-l-2
-								border-solid border-l-[#3370ff] pl-2 text-base 
-								font-semibold text-[#596680]
-							"
-						>
-							Geral
-						</h4>
-						<section class="flex w-full">
-							<div class="mb-3.5 w-1/2">
-								<div class="mb-3 h-8 leading-8">
-									<div class="inline-block w-1/3">
-										<label class="text-normal text-[#000000a6]" for="list-name"> Nome: </label>
-									</div>
-									<div class="inline-block w-1/2">
-										<div class=" h-8 leading-8">
-											<input
-												name="list-name"
-												id="list-name"
-												class="h-8 w-full cursor-text border-[#a4adb7] bg-white"
-												type="text"
-												bind:value={listName}
-											/>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class="mb-3.5 w-1/2">
-								<div class="mb-3 h-8 leading-8">
-									<div class="inline-block w-1/3">
-										<label class="text-normal text-[#000000a6]" for="client-name">
-											Cliente:
-										</label>
-									</div>
-									<div class="inline-block w-1/2 relative">
-										{#if selectedClient}
-											<div class="flex items-center gap-2 rounded border
-											border-[#3D77FF] bg-[#E6F2FF] px-2 py-1 h-8">
-												<span class="text-sm">
-													{selectedClient.client_first_name} {selectedClient.client_last_name}
-												</span>
-												<button 
-													type="button"
-													class="text-gray-500 hover:text-red-500"
-													onclick={removeClient}
-												>
-													<X class="h-4 w-4"/>
-												</button>
-											</div>
-										{:else}
-											<div class="relative" >
-												<input 
-													type="text" 
-													name="search-client" 
-													id="search-client"
-													placeholder="Digite para buscar"
-													class="h-8 w-full cursor-text border-[#a4adb7] bg-white rounded"
-													bind:value={clientSearch}
-													oninput={searchClients}
-													onfocus={searchClients}
-												>
-												{#if showClientSuggestions && clientSuggestions.length > 0}
-													<div
-														class="absolute z-50 mt-1 max-h-60 w-full overflow-auto
-														rounded border border-[#d9d9d9] bg-white shadow-lg"
-													>
-														{#each clientSuggestions as client}
-															<button 
-															type="button"
-															class="w-full cursor-pointer px-3 py-2 text-left
-															hover:bg-[#f5f5f5]"
-															onclick={() => selectClient(client)}
-															>
-																<div class="font-medium text-sm">
-																	{client.client_first_name}
-																	{client.client_last_name}
-																</div>
-																<div class="text-gray-500 text-xs">
-																	{client.client_email}
-																</div>
-															</button>
-														{/each}
-													</div>
-												{/if}
-											</div>
-										{/if}
-									</div>
-								</div>
-							</div>
-						</section>
+        <Tabs.Content value="geral" class="mt-4">
+            <Card.Root>
+                <Card.Content class="pt-6 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <Label for="name">Nome da Lista *</Label>
+                            <Input id="name" placeholder="Ex: Obra da Cozinha" bind:value={listData.name} />
+                        </div>
 
-						<section class="flex w-full">
-							<div class="mb-3.5 w-1/2">
-								<div class="mb-3 h-8 leading-8">
-									<div class="inline-block w-1/3">
-										<label class="text-normal text-[#000000a6]" for="priority">Prioridade:</label>
-									</div>
-									<div class="inline-block w-1/2">
-										<div class=" h-8 leading-8">
-											<select
-												class="border-[#a4adb7]"
-												name="priority"
-												id="priority"
-												bind:value={priority}
-											>
-												<option value="low">Baixa</option>
-												<option value="medium" selected>Média</option>
-												<option value="high">Alta</option>
-											</select>
-										</div>
-									</div>
-								</div>
-							</div>
-						</section>
+                        <div class="space-y-2">
+                            <Label>Prioridade</Label>
+                            <Select.Root type="single" bind:value={listData.priority}>
+                                <Select.Trigger>
+                                    {#if listData.priority === 'low'}Baixa
+                                    {:else if listData.priority === 'high'}Alta
+                                    {:else}Média{/if}
+                                </Select.Trigger>
+                                <Select.Content>
+                                    <Select.Item value="low">Baixa</Select.Item>
+                                    <Select.Item value="medium">Média</Select.Item>
+                                    <Select.Item value="high">Alta</Select.Item>
+                                </Select.Content>
+                            </Select.Root>
+                        </div>
+                    </div>
 
-						<section>
-							<div class="mb-8 w-1/2">
-								<div class="mb-3 h-8 leading-8">
-									<div class="float-left inline-block w-1/3">
-										<label class="text-normal text-[#000000a6]" for="description">Descrição:</label>
-									</div>
-									<div class="inline-block w-3/5">
-										<textarea
-											class="ml-[3px] w-full border border-solid border-[#d9d9d9] pb-0"
-											name="description"
-											id="description"
-											placeholder="Descrição"
-											bind:value={description}
-										></textarea>
-									</div>
-								</div>
-							</div>
-						</section>
-					{:else}
-						<h4 
-						class="leading-3.5 clear-both mb-[25px] mt-[25px] h-3.5 border-l-2
-								border-solid border-l-[#3370ff] pl-2 text-base 
-								font-semibold text-[#596680]"
-						>
-							Adicionar Materiais
-						</h4>
-						<div class="grid grid-cols-2 gap-6">
-							<!--autocomplete-->
-							<section class="rounded space-y-4 p-4 bg-[#fafafa] border border-[#d9d9d9]">
-								<div id="f">
-									<label for="select-supplies" class="mb-2 block text-sm font-medium text-[#596680]">
-										Material
-									</label>
-									{#if selectedSupply}
-										<div class="flex items-center gap-2 rounded border
-											border-[#3D77FF] bg-[#e6f2ff] px-2 py-1"
-										>
-											<span class="text-sm">{selectedSupply.supply_name}</span>
-											<button type="button" onclick={removeSupply} class="text-gray-500 hover:text-red-500">
-												<X class="h-4 w-4"/>
-											</button>
-										</div>
-									{:else}
-										<div class="relative">
-											<input 
-												type="text" 
-												name="select-supplies" 
-												id="select-supplies"
-												placeholder="Digite para buscar"
-												class="w-full px-2 border border-[#a4adb7] rounded"
-												bind:value={supplySearch}
-												oninput={searchSupply}
-												onfocus={searchSupply}
-											>
+                    <div class="space-y-2 relative">
+                        <Label>Cliente *</Label>
+                        {#if listData.client}
+                            <div class="flex items-center justify-between p-3 border rounded-md bg-muted/30">
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-primary/10 size-8 rounded-full flex items-center justify-center text-primary font-bold text-xs">
+                                        {listData.client.client_first_name[0]}
+                                    </div>
+                                    <div class="truncate">
+                                        <p class="font-medium text-sm truncate">
+                                            {listData.client.client_first_name} {listData.client.client_last_name}
+                                        </p>
+                                        <p class="text-xs text-muted-foreground truncate">{listData.client.client_email}</p>
+                                    </div>
+                                </div>
+                                <Button variant="ghost" size="icon" onclick={() => listData.client = null}>
+                                    <X class="size-4" />
+                                </Button>
+                            </div>
+                        {:else}
+                            <div class="relative">
+                                <Search class="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                                <Input 
+                                    placeholder="Buscar cliente..." 
+                                    class="pl-9"
+                                    bind:value={search.client}
+                                    oninput={(e) => handleSearch('client', e.currentTarget.value)}
+                                />
+                                {#if showSuggestions.client && suggestions.client.length > 0}
+                                    <div class="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                                        {#each suggestions.client as c}
+                                            <button class="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm border-b last:border-0"
+                                                onclick={() => selectItem('client', c)}>
+                                                <span class="font-medium">{c.client_first_name} {c.client_last_name}</span>
+                                            </button>
+                                        {/each}
+                                    </div>
+                                {/if}
+                            </div>
+                        {/if}
+                    </div>
 
-											{#if showSupplySuggestions && supplySuggestions.length >0}
-												<div class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded border border-[#d9d9d9] bg-white shadow-lg">
-													{#each supplySuggestions as supply}
-														<button type="button"
-															onclick={() => selectSupply(supply)}
-															class="w-full  cursor-pointer px-3 py-2 text-left hover:bg-[#f5f5f5]"
-														>
-															<div class="font-medium text-sm">{supply.supply_name}</div>
-															{#if supply.supply_description}
-																<div class="text-xs text-gray-500">
-																	{supply.supply_description}
-																</div>
-															{/if}
-														</button>
-													{/each}
-												</div>
-											{/if}
-										</div>
-									{/if}
-								</div>
+                    <div class="space-y-2">
+                        <Label>Descrição</Label>
+                        <Textarea class="h-24 resize-none" bind:value={listData.description} />
+                    </div>
+                </Card.Content>
+            </Card.Root>
+        </Tabs.Content>
 
-								{#if selectedSupply}
-									<div id="f2">
-										<label for="supplier" class="mb-2 block text-sm font-medium text-[#596680]">Fornecedor</label>
-										
-										{#if selectedSupplier}
-											<div>
-												<span class="text-sm">
-													{selectedSupplier.supplier_name} - R$ 
-												</span>
-												<button 
-													type="button"
-													onclick={removeSupplier}
-													class="hover:text-red-500 text-gray-500"
-												>
-													<X class="h-4 w-4"/>
-												</button>
-											</div>
+        <Tabs.Content value="materiais" class="mt-4">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <div class="lg:col-span-1 space-y-4">
+                    <Card.Root>
+                        <Card.Header class="pb-3">
+                            <Card.Title class="text-lg">Adicionar Item</Card.Title>
+                        </Card.Header>
+                        <Card.Content class="space-y-4">
+                            
+                            <div class="space-y-2 relative">
+                                <Label>Material</Label>
+                                {#if newItem.supply}
+                                    <div class="flex items-center justify-between p-2 border rounded bg-blue-50 border-blue-200">
+                                        <span class="text-sm font-medium text-blue-800 truncate">{newItem.supply.supply_name}</span>
+                                        <button onclick={() => newItem.supply = null} class="text-blue-500 hover:text-blue-700">
+                                            <X class="size-4" />
+                                        </button>
+                                    </div>
+                                {:else}
+                                    <Input placeholder="Buscar material..." bind:value={search.supply} oninput={(e) => handleSearch('supply', e.currentTarget.value)} />
+                                    {#if showSuggestions.supply && suggestions.supply.length > 0}
+                                        <div class="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
+                                            {#each suggestions.supply as s}
+                                                <button class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b last:border-0"
+                                                    onclick={() => selectItem('supply', s)}>{s.supply_name}</button>
+                                            {/each}
+                                        </div>
+                                    {/if}
+                                {/if}
+                            </div>
 
-										{:else} 
-											<div class="relative">
-												<input 
-													type="text" 
-													name="supplier" 
-													id="supplier"
-													placeholder="Buscar Fornecedor"
-													bind:value={supplierSearch}
-													oninput={searchSupplier}
-													onfocus={searchSupplier}
-												>
+                            <div class="space-y-2 relative">
+                                <Label>Fornecedor</Label>
+                                {#if newItem.supplier}
+                                    <div class="flex items-center justify-between p-2 border rounded bg-green-50 border-green-200">
+                                        <span class="text-sm font-medium text-green-800 truncate">{newItem.supplier.supplier_name}</span>
+                                        <button onclick={() => newItem.supplier = null} class="text-green-500 hover:text-green-700">
+                                            <X class="size-4" />
+                                        </button>
+                                    </div>
+                                {:else}
+                                    <Input placeholder="Buscar fornecedor..." bind:value={search.supplier} oninput={(e) => handleSearch('supplier', e.currentTarget.value)} disabled={!newItem.supply}/>
+                                    {#if showSuggestions.supplier && suggestions.supplier.length > 0}
+                                        <div class="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
+                                            {#each suggestions.supplier as s}
+                                                <button class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b last:border-0"
+                                                    onclick={() => selectItem('supplier', s)}>{s.supplier_name}</button>
+                                            {/each}
+                                        </div>
+                                    {/if}
+                                {/if}
+                            </div>
 
-												{#if showSupplierSuggestions && supplierSuggestions.length > 0}
-													<div>
-														{#each supplierSuggestions as supplier}
-															<button 
-																class="w-full cursor-pointer px-3 py-2 text-left hover:bg-[#f5f5f5]"
-																type="button"
-																onclick={() => selectSupplier(supplier)}
-															>
-																<div class="font-medium text-sm">
-																	{supplier.supplier_name}
-																</div>
-																<div class="text-xs text-gray-500">
-																	Preço: R$ 
-																</div>
-															</button>
-														{/each}
-													</div>
-												{/if}
-											</div>	
-										{/if}
-									</div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="space-y-2">
+                                    <Label>Qtd</Label>
+                                    <Input type="number" min="1" bind:value={newItem.quantity} />
+                                </div>
+                                <div class="space-y-2">
+                                    <Label>Preço (R$)</Label>
+                                    <Input type="number" step="0.01" bind:value={newItem.price} />
+                                </div>
+                            </div>
 
-									<div id='price-and-quantity' class="grid grid-cols-2 gap-4">
-										<div id="quanttt">
-											<label for="supply-quantity">Quantidade:</label>
-											<input type="number" 
-												name="supply-quantity" 
-												id="supply-quantity"
-												bind:value={currentQuantity}
-												class="h-8 w-full border border-[#a4adb7] px-2"
-											/>
-										</div>
-										<div id="price">
-											<label for="supply-price">Preço Unit.</label>
-											<input 
-												type="number" 
-												name="supply-price" 
-												id="supply-price"
-												step="0.01"
-												min="0"
-												class="h-8 w-full border px-2 border-[#a4adb7]"
-												bind:value={currentPrice}
-											>
-										</div>
-									</div>
+                            {#if formError}
+                                <p class="text-xs text-red-500 font-medium">{formError}</p>
+                            {/if}
 
-									<button 
-										type="button"
-										class="flex w-full items-center justify-center gap-2 rounded bg-[#3D77FF]! px-4 py-2 text-sm text-white hover:bg-[#2a5fd9]!"
-										onclick={addItemToList}
-									>
-										<Plus class="h-4 w-4"/>
-										Adicionar à Lista
-									</button>
-								{/if}
-							</section>
+                            <Button class="w-full" onclick={addItemToList}>
+                                <Plus class="mr-2 size-4" /> Adicionar
+                            </Button>
+                        </Card.Content>
+                    </Card.Root>
+                </div>
 
-							<!--lista-->
-							<section class="rounded space-y-4 p-4 bg-white
-								border border-[#d9d9d9]"
-							>
-								<h5 class="mb-4 font-semibold text-[#596680]">
-									Materiais Adicionados ({listItems.length})
-								</h5>
-
-								{#if listItems.length === 0}
-									<p class="text-center text-sm text-gray-400 py-8">
-										Nenhum material
-									</p>
-								{:else}
-									<div class="space-y-2 max-h-[400px] overflow-auto">
-										{#each listItems as item, index}
-											<div class="flex items-start justify-between rounded border border-[#e7ecf0] bg-[#f9fafb] p-3">
-												<div class="flex-1">
-													<div class="font-medium text-sm">
-														{item.supply.supply_name}
-													</div>
-													<div class="text-xs text-gray-500 mt-1">
-														{item.supplier.supplier_name}
-													</div>
-													<div class="text-xs text-gray-600 mt-1">
-														Qtd: {item.quantity} x R$ =
-													</div>
-												</div>
-												<button
-													type="button"
-													onclick={() => removeItem(index)}
-													class="text-gray-400 hover:text-red-500 ml-2"
-												>
-													<Trash2 class="h-4 w-4"/>
-												</button>
-											</div>
-										{/each}
-									</div>
-
-									<div class="mt-4 border-t pt-4">
-										<div class="flex justify-between font-semibold text-lg">
-											<span>Total:</span>
-											<span class="text-[#3D77FF]">VALOR TOTAL</span>
-										</div>
-									</div>
-								{/if}
-							</section>
-						</div>
-					{/if}
-				</div>
-			</div>
-		</div>
-	</div>
-</form>
+                <div class="lg:col-span-2">
+                    <Card.Root class="h-full">
+                        <Card.Header class="pb-3 border-b">
+                            <div class="flex items-center justify-between">
+                                <Card.Title class="text-lg">Itens na Lista</Card.Title>
+                                <Badge variant="secondary">{listItems.length} item(s)</Badge>
+                            </div>
+                        </Card.Header>
+                        
+                        <Card.Content class="p-0">
+                            <div class="w-full overflow-x-auto">
+                                <Table.Root>
+                                    <Table.Header>
+                                        <Table.Row>
+                                            <Table.Head class="min-w-[150px]">Material</Table.Head>
+                                            <Table.Head class="min-w-[120px]">Fornecedor</Table.Head>
+                                            <Table.Head class="text-center w-[80px]">Qtd</Table.Head>
+                                            <Table.Head class="text-right min-w-[100px]">Unit.</Table.Head>
+                                            <Table.Head class="text-right min-w-[100px]">Total</Table.Head>
+                                            <Table.Head class="w-[50px]"></Table.Head>
+                                        </Table.Row>
+                                    </Table.Header>
+                                    <Table.Body>
+                                        {#each listItems as item, index}
+                                            <Table.Row>
+                                                <Table.Cell class="font-medium">
+                                                    {item.supply.supply_name}
+                                                </Table.Cell>
+                                                <Table.Cell class="text-xs text-muted-foreground">
+                                                    {item.supplier.supplier_name}
+                                                </Table.Cell>
+                                                <Table.Cell class="text-center">{item.quantity}</Table.Cell>
+                                                <Table.Cell class="text-right">
+                                                    {item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                </Table.Cell>
+                                                <Table.Cell class="text-right font-medium">
+                                                    {(item.quantity * item.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                </Table.Cell>
+                                                <Table.Cell>
+                                                    <Button variant="ghost" size="icon" class="h-8 w-8 text-muted-foreground hover:text-red-500" onclick={() => removeItem(index)}>
+                                                        <Trash2 class="size-4" />
+                                                    </Button>
+                                                </Table.Cell>
+                                            </Table.Row>
+                                        {:else}
+                                            <Table.Row>
+                                                <Table.Cell colspan={6} class="text-center h-32 text-muted-foreground">
+                                                    <div class="flex flex-col items-center justify-center gap-2">
+                                                        <PackageOpen class="size-8 opacity-20" />
+                                                        <p>Nenhum item adicionado.</p>
+                                                    </div>
+                                                </Table.Cell>
+                                            </Table.Row>
+                                        {/each}
+                                    </Table.Body>
+                                </Table.Root>
+                            </div>
+                        </Card.Content>
+                        
+                        {#if listItems.length > 0}
+                            <Card.Footer class="bg-muted/10 border-t p-4 flex justify-end">
+                                <div class="text-right">
+                                    <p class="text-sm text-muted-foreground">Total Estimado</p>
+                                    <p class="text-2xl font-bold text-primary">
+                                        {totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    </p>
+                                </div>
+                            </Card.Footer>
+                        {/if}
+                    </Card.Root>
+                </div>
+            </div>
+        </Tabs.Content>
+    </Tabs.Root>
+</div>

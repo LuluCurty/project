@@ -91,7 +91,6 @@
             const res = await fetch(`/api/supplier?${params.toString()}`, {
                 credentials: 'include'
             });
-			console.log(res)
             if(res.ok){
                 const data: ApiResponse = await res.json();
                 suppliers = data.suppliers || [];
