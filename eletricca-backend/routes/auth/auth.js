@@ -36,15 +36,16 @@ router.post('/login', async (req, res) => {
     try {
         const { email, password_hashed, rememberMe} = req.body;
         const ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+
         const { rows } = await pool.query('SELECT user_id, email, password_hashed, user_role, first_name, last_name FROM users WHERE email=$1', [email]);
+        
         if (!rows[0]) return res.status(401).json({ error: 'Invalid credentials'});
+        
         const user = rows[0]
         const ok = await bcrypt.compare(password_hashed, user.password_hashed);
+        
         if(!ok) return res.status(401).json({ error: 'Invalid credentials'});
 
-        if (user.role === 'admin' && !isLocalIP(ip)){
-            return res.status(403).json({ error: 'Admin access only allowed from local network'});
-        }
         const token = generateToken(user);
         res.cookie('token', token, {
             httpOnly: true,

@@ -1,38 +1,51 @@
 // src/hooks.server.ts
 import { type HandleFetch, type Handle, redirect } from '@sveltejs/kit';
-import {jwtDecode} from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
+
+interface userData {
+    user_id: number;
+    email: string;
+    first_name: string;
+    last_name: string;
+    user_role: string;
+    permissions?: string[];
+    iat: number;
+    exp: number;
+} 
 
 // Pega as requisições inbound 
 export const handle: Handle = async ({ event, resolve }) => {
     const token = event.cookies.get('token');
-    const publicRoutes = ['/login', '/logout'];
+    const publicRoutes = ['/login', '/logout', 'auth'];
 
     const isPublicRoute = publicRoutes.some(route => event.url.pathname.startsWith(route));
 
-    if(!token && !isPublicRoute) {
+    event.locals.user = null;
+
+    if (!token && !isPublicRoute) {
         throw redirect(303, '/login');
     }
 
-    if(token)  {
+    if (token) {
         try {
-            const decoded = jwtDecode(token);
+            const decoded: userData = jwtDecode(token);
             const currentTime = Date.now() / 1000;
-            
             if (decoded.exp === undefined) {
                 event.cookies.delete('token', { path: '/' });
                 throw redirect(303, '/login');
             }
-            
             // const d = new Date(decoded.exp*1000).toLocaleString('pt-BR');
 
             if (decoded.exp < currentTime) {
-                
+
                 event.cookies.delete('token', { path: '/' });
 
                 if (!isPublicRoute) {
                     throw redirect(303, '/login');
                 }
             }
+            event.locals.user = decoded;
+
         } catch (error) {
             console.error(error);
             event.cookies.delete('token', { path: '/' });
@@ -58,7 +71,7 @@ export const handleFetch: HandleFetch = async ({ request, fetch, event }) => {
         // OU, simplesmente definimos a var de ambiente momentaneamente se for localhost
         process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
     }
-    
+
     return fetch(request);
 };
 

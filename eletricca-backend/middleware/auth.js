@@ -7,7 +7,12 @@ function generateToken(user, rememberMe) {
     const payload = {
         user_id: user.user_id,
         user_role: user.user_role,
-        email: user.email
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        role_id: user.role_id,
+        role_name: user.role_name || 'Sem Cargo',
+        permissions: user.permissions || []
     };
     const expiresIn = rememberMe ? '7d' : '2h';
     return jwt.sign(payload, jwtSecret, {expiresIn:expiresIn || process.env.JWT_EXPIRES_IN || '8h'});

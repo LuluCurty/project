@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS users (
-    id                  SERIAL PRIMARY KEY,
+    user_id                  SERIAL PRIMARY KEY,
     email               VARCHAR(150) NOT NULL UNIQUE,
     password_hashed     VARCHAR(255) NOT NULL,
     telphone            VARCHAR(20),
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS services (
-    service_id  SERIAL PRIMARY KEY,
+    id  SERIAL PRIMARY KEY,
     first_name  VARCHAR(10) NOT NULL,
     service_status  VARCHAR(30) DEFAULT 'pending',
     details     TEXT,
@@ -94,6 +94,56 @@ CREATE OR REPLACE VIEW v_supplies_list_totals AS
     JOIN supplies_list_items items ON list.id = items.list_id
     GROUP BY list.id, list.list_name;
 
+CREATE TABLE IF NOT EXISTS user_favorites (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+    title VARCHAR(50) NOT NULL,
+    url TEXT NOT NULL,
+    is_internal BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS permissions (
+    id SERIAL PRIMARY KEY,
+    slug VARCHAR(100) NOT NULL UNIQUE,
+    description VARCHAR(50) NOT NULL,
+    module VARCHAR(50),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS role_permissions (
+    role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
+    permissions_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (role_id, permissions_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_permissions (
+    user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+    permissions_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, permissions_id)
+);
+
+INSERT INTO roles(name, description) VALUES 
+('Super Admin','Acesso total'),
+('Admin','Acesso administrativo'),
+('Gerente','Gestão'),
+('Usuario', 'Usuario Blank Padrão');
+
+INSERT INTO permissions (slug, description, module) VALUES 
+('users.view', 'Visualizar lista de usuários', 'Usuários'),
+('users.create', 'Criar novos usuários', 'Usuários'),
+('users.edit', 'Editar usuários existentes', 'Usuários'),
+('users.delete', 'Excluir usuários', 'Usuários'),
+('favorites.manage', 'Gerenciar favoritos globais', 'Sistema');
+
+INSERT INTO role_permissions (role_id, permissions_id) SELECT 1, id FROM permissions
 
 /* CREATE DATABASE eletricca;
 CREATE USER eletricca_user WITH PASSWORD "eletrO@8002";

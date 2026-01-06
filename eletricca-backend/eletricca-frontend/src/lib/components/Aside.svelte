@@ -4,6 +4,9 @@
 	import logo from '$lib/assets/logo.png'; //  
 	import { layoutState } from '$lib/state/layoutState.svelte';
 	import { enhance } from '$app/forms'; //
+	import { page } from '$app/state';
+	import AddFavoriteDialog from './AddFavoriteDialog.svelte';
+	import { goto } from '$app/navigation';
 
 	import {
 		House,
@@ -14,18 +17,32 @@
 		LogOut,
 		User,
 		Settings,
+		Plus,
 		Star,
 		ExternalLink,
 		ChevronRight
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
+	import { Trash2 } from 'lucide-svelte';
 
 	// 1b. Dados simulados conforme seu objeto real
-	let userData = {
-		first_name: 'Super',
-		last_name: 'Admin',
-		email: 'ti@eletricca.com.br'
-	};
+	const user = $derived(page.data.user || {
+		first_name: "Usuario",
+		last_name: "Desconhecido",
+		email: '...',
+		initials: 'UD'
+	})
 
+	let defaultFavorites = [
+		{ title: 'Google', url: 'https://google.com', is_internal: false },
+		{ title: 'Relatório Trimestral', url: '/reports/q3', is_internal: true }
+	];
+	const favorites = $derived(page.data.favorites || defaultFavorites);
+	let isFavoriteModalOpen = $state(false);
+	console.log(page.data.user)
+
+	function getInitials(f: string, l: string) {
+		return (f?.[0] || '' + (l?.[0] || ''));
+	}
 	// Estrutura de menus organizada
 	const menus = [
 		{ title: 'Início', href: '/', icon: House },
@@ -40,12 +57,6 @@
 				{ title: 'Listas', href: '/supplies/lists' }
 			]
 		}
-	];
-
-	// 2. Favoritos (Placeholder para banco de dados futuro)
-	let favorites = [
-		{ title: 'Google', href: 'https://google.com', internal: false },
-		{ title: 'Relatório Trimestral', href: '/reports/q3', internal: true }
 	];
 
 	// Fechar quando clicar num link em mobileFirest 
@@ -133,23 +144,54 @@
 		{/each}
 
 		<div class="mt-4 border-t border-muted/50 pt-4">
-			<p class="px-2 pb-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
-				{layoutState.collapsed ? '*' : 'Favoritos'}
-			</p>
+			<div class="flex items-center justify-between px-2 pb-2">
+				<p class="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+					{layoutState.collapsed ? '*' : 'Favoritos'}
+				</p>
+				{#if !layoutState.collapsed}
+					<button
+						onclick={() => isFavoriteModalOpen = true}
+						title="Adicionar Favorito"
+						class="text-muted-foreground hover:text-primary transition-colors p-1 rounded hover:bg-muted"
+					>
+						<Plus size={14}/>
+					</button>
+				{/if}
+			</div>
 			{#each favorites as fav}
-				<a
-					href={fav.href}
-					target={fav.internal ? '_self' : '_blank'}
-					class="flex min-w-max items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground/80 transition-colors hover:bg-muted"
-				>
-					<Star size={16} class={fav.internal ? 'text-yellow-500' : 'text-blue-400'} />
-					{#if !layoutState.collapsed}
-						<span class="w-40 truncate">{fav.title}</span>
-						{#if !fav.internal}
-							<ExternalLink size={12} class="opacity-30" />
+				<div class="group relative flex items-center">
+					<a
+						href={fav.url}
+						onclick={handleLinkClick}
+						target={fav.is_internal ? '_self' : '_blank'}
+						class="flex w-full min-w-max items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground/80 transition-colors hover:bg-muted"
+					>
+						<Star size={16} class={fav.is_internal ? 'text-yellow-500' : 'text-blue-400'} />
+						{#if !layoutState.collapsed}
+							<span class="w-36 truncate" title={fav.title}>{fav.title}</span>
+							{#if !fav.is_internal}
+								<ExternalLink size={10} class="opacity-30 ml-1" />
+							{/if}
 						{/if}
+					</a>
+
+					{#if !layoutState.collapsed}
+						<form
+							action="/favorites?/delete"
+							method="POST"
+							use:enhance
+							class="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+						>
+							<input type="hidden" name="id" value={fav.id}>
+							<button 
+								type="submit"
+								class="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive¹0 rounded-md transition-colors"
+							>
+								<Trash2 size={14}/>
+							</button>
+						</form>
 					{/if}
-				</a>
+				</div>
 			{/each}
 		</div>
 	</nav>
@@ -162,19 +204,19 @@
 				>
 					<Avatar.Root class="h-9 w-9 shrink-0 border">
 						<Avatar.Fallback class="bg-primary text-xs font-bold text-primary-foreground uppercase">
-							{userData.first_name[0]}
-							{userData.last_name[0]}
+							{user.first_name[0]}
+							{user.last_name[0]}
 						</Avatar.Fallback>
 					</Avatar.Root>
 
 					{#if !layoutState.collapsed}
 						<div class="min-w-0 flex-1 transition-opacity">
 							<p class="truncate text-sm font-semibold text-primary">
-								{userData.first_name}
-								{userData.last_name}
+								{user.first_name}
+								{user.last_name}
 							</p>
 							<p class="truncate text-xs text-muted-foreground">
-								{userData.email}
+								{user.email}
 							</p>
 						</div>
 						<EllipsisVertical size={16} class="shrink-0 text-muted-foreground" />
@@ -212,6 +254,8 @@
 		</DropdownMenu.Root>
 	</div>
 </aside>
+
+<AddFavoriteDialog bind:open={isFavoriteModalOpen}/>
 
 <style>
 	@media (max-width: 768px) {
