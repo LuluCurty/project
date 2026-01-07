@@ -11,6 +11,7 @@ declare global {
 				last_name: string;
 				user_role: string;
 				permissions?: string[];
+				role_id: number;
 			} | null
 		}
 		// interface PageData {}

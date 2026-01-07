@@ -9,6 +9,7 @@ interface userData {
     last_name: string;
     user_role: string;
     permissions?: string[];
+    role_id: number;
     iat: number;
     exp: number;
 } 

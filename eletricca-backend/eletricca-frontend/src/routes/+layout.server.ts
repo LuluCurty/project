@@ -1,5 +1,5 @@
 import type { LayoutServerLoad } from "./$types";
-import pool from '../../../db.js';
+import { pool } from "$lib/server/db";
 
 export const load: LayoutServerLoad = async ({locals}) => {
     const user = locals.user;

@@ -229,11 +229,17 @@
 
 				<DropdownMenu.Separator />
 
-				<DropdownMenu.Item class="cursor-pointer">
+				<DropdownMenu.Item 
+					class="cursor-pointer"
+					onclick={() => goto('profile')}
+				>
 					<User size={16} class="mr-2" /> Perfil
 				</DropdownMenu.Item>
 
-				<DropdownMenu.Item class="cursor-pointer">
+				<DropdownMenu.Item 
+					class="cursor-pointer"
+					onclick={() => goto('settings')}
+				>
 					<Settings size={16} class="mr-2" /> Configurações
 				</DropdownMenu.Item>
 
