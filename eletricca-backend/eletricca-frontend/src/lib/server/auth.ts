@@ -50,7 +50,7 @@ export function guardModule(routeId: string | null, user: App.Locals['user']) {
     if (!routeId || !user) return;
 
     const match = routeId.match(/\/\(app\)\/\(([^)]+)\)/);
-
+    
     if (match && match[1]) {
         const moduleName = match[1];
         const requirePermission = `${moduleName}.view`;

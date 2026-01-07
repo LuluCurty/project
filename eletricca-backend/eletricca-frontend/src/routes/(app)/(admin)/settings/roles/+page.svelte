@@ -1,8 +1,8 @@
 <script lang="ts">
     import { enhance } from '$app/forms';
     import { goto } from '$app/navigation';
-    import { page } from '$app/stores'; // Svelte 4/5 store standard
-    import { navigating } from '$app/stores';
+    import { page } from '$app/state';
+    import { navigating } from '$app/state';
 
     // Componentes UI (Shadcn)
     import * as Table from '$lib/components/ui/table/index.js';
@@ -31,7 +31,7 @@
     // Estado Local
     let searchTimeout: ReturnType<typeof setTimeout>;
     // Se navigating for booleano no seu sveltekit version ou objeto
-    let isLoading = $derived(!!$navigating); 
+    let isLoading = $derived(!!navigating.to); 
 
     // Formata permissões para visualização
     function formatPermissions(perms: string[]) {
@@ -51,7 +51,7 @@
 
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
-            const url = new URL($page.url);
+            const url = new URL(page.url);
             url.searchParams.set('search', value);
             url.searchParams.set('page', '1'); // Volta para pag 1 ao filtrar
             
@@ -61,7 +61,7 @@
     };
 
     function handlePageChange(newPage: number) {
-        const url = new URL($page.url);
+        const url = new URL(page.url);
         url.searchParams.set('page', newPage.toString());
         goto(url.toString(), { keepFocus: true });
     };
@@ -91,7 +91,7 @@
                         placeholder="Buscar cargo..."
                         class="w-full pl-9"
                         oninput={handleSearchInput}
-                        defaultValue={$page.url.searchParams.get('search') || ''} 
+                        defaultValue={page.url.searchParams.get('search') || ''} 
                     />
                 </div>
             </div>
