@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS permissions (
     id SERIAL PRIMARY KEY,
     slug VARCHAR(100) NOT NULL UNIQUE,
     description VARCHAR(50) NOT NULL,
-    module VARCHAR(50),
+    module VARCHAR(50) NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
 );
 

@@ -15,7 +15,7 @@
     // Ícones
     import { 
         Plus, Search, EllipsisVertical, Trash, 
-        ChevronLeft, ChevronRight, Shield, LoaderCircle, Pencil
+        ChevronLeft, ChevronRight, Shield, LoaderCircle, Pencil, ArrowLeft
     } from '@lucide/svelte';
 
     // Recebe dados do servidor
@@ -24,9 +24,9 @@
     // Estado Derivado (Svelte 5)
     // Sempre que o 'data' mudar (pela navegação), essas variáveis atualizam
     let roles = $derived(data.roles);
-    let totalItems = $derived(data.totalItems);
-    let currentPage = $derived(data.page);
-    let limit = $derived(data.limit);
+    let totalItems = $derived(data.pagination.totalItems);
+    let currentPage = $derived(data.pagination.page);
+    let limit = $derived(data.pagination.limit);
     
     // Estado Local
     let searchTimeout: ReturnType<typeof setTimeout>;
@@ -69,9 +69,14 @@
 
 <div class="space-y-4">
     <div class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-            <h2 class="text-2xl font-bold tracking-tight text-primary">Cargos</h2>
-            <p class="text-muted-foreground">Gerencie os perfis de acesso e suas permissões.</p>
+        <div class="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onclick={() => goto('/settings')}>
+                <ArrowLeft class="size-4" />
+            </Button>
+            <div>
+                <h2 class="text-2xl font-bold tracking-tight text-primary">Cargos</h2>
+                <p class="text-muted-foreground">Gerencie os perfis de acesso e suas permissões.</p>
+            </div>
         </div>
 
         <div class="flex w-full items-center gap-2 sm:w-auto">
@@ -135,7 +140,7 @@
                                     <Table.Cell>
                                         <div class="font-medium">{role.name}</div>
                                         {#if role.description}
-                                            <div class="text-xs text-muted-foreground truncate max-w-[200px]">
+                                            <div class="text-xs text-muted-foreground truncate max-w-[200px]" title={role.description}>
                                                 {role.description}
                                             </div>
                                         {/if}

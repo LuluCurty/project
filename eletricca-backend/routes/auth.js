@@ -118,7 +118,7 @@ router.post('/login', async (req, res) => {
                         first_name,
                         last_name,
                         defaultRoleId,
-                        'Linux SSH'
+                        authSource
                     ]);
                     user = newRows.rows[0];
                 }

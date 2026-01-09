@@ -1,6 +1,6 @@
 import { fail, error } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
-import { checkSystemAdmin, guardAction  } from '$lib/server/auth';
+import { checkSystemAdmin, guardAction } from '$lib/server/auth';
 import type { PageServerLoad, Actions } from './$types';
 
 // Interface do que o banco vai retornar
@@ -52,10 +52,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
         return {
             roles: rows,
-            totalItems,
-            limit,
-            page,
-            totalPages: Math.ceil(totalItems / limit)
+            pagination: {
+                totalItems,
+                limit,
+                page,
+                totalPages: Math.ceil(totalItems / limit)
+            }
         };
 
     } catch (e) {
@@ -65,10 +67,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 };
 
 export const actions: Actions = {
-    delete: async ({ request, route,locals }) => {
+    delete: async ({ request, route, locals }) => {
         guardAction(route.id, locals.user, 'delete');
         checkSystemAdmin(locals.user);
-        
+
         const data = await request.formData();
         const id = Number(data.get('id'));
 

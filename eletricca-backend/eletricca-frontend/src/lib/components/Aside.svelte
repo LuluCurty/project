@@ -238,7 +238,7 @@
 
 				<DropdownMenu.Item 
 					class="cursor-pointer"
-					onclick={() => goto('settings')}
+					onclick={() => goto('/settings')}
 				>
 					<Settings size={16} class="mr-2" /> Configurações
 				</DropdownMenu.Item>

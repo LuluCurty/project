@@ -3,6 +3,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import Footer from '$lib/components/footer.svelte';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import { Toaster } from '$lib/components/ui/sonner';
 
 	import Aside from '$lib/components/Aside.svelte';
 	import Header from '$lib/components/Header.svelte';
@@ -20,7 +21,7 @@
 	</style>
 </svelte:head>
 
-	
+<Toaster/>
 
 <div class="flex min-h-screen w-full bg-background">
 	<Aside/>
