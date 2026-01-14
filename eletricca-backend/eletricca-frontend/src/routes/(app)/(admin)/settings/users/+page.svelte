@@ -22,7 +22,19 @@
 
     let { data } = $props();
 
-    let users = $derived(data.users);
+    interface Users {
+        first_name: string;
+        last_name: string;
+        user_id: number;
+        role_name: string;
+        telphone: string;
+        auth_source: string;
+        user_role: string;
+        email: string;
+        creation_date: Date;
+    }
+
+    let users: Users[] = $derived(data.users);
     let pagination = $derived(data.pagination);
     let isLoading = $derived(!!navigating.to);
 
@@ -112,6 +124,7 @@
                             <Table.Head>Email</Table.Head>
                             <Table.Head>Função / Cargo</Table.Head>
                             <Table.Head>Telefone</Table.Head>
+                            <Table.Head>Método</Table.Head>
                             <Table.Head>Criação</Table.Head>
                             <Table.Head class="text-right">Opções</Table.Head>
                         </Table.Row>
@@ -160,7 +173,11 @@
                                     </Table.Cell>
                                     
                                     <Table.Cell>{user.telphone || '-'}</Table.Cell>
-                                    
+
+                                    <Table.Cell>
+                                        {user.auth_source}
+                                    </Table.Cell>
+
                                     <Table.Cell class="text-muted-foreground text-xs">
                                         {formatDate(user.creation_date)}
                                     </Table.Cell>

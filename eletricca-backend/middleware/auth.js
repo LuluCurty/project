@@ -1,6 +1,7 @@
 import 'dotenv/config.js';
 import jwt from 'jsonwebtoken';
 
+
 const jwtSecret = process.env.JWT_SECRET || 'dev_secret';
 
 function generateToken(user, rememberMe) {

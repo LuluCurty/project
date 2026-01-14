@@ -1,165 +1,178 @@
 <script lang="ts">
-	import * as Avatar from '$lib/components/ui/avatar';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import logo from '$lib/assets/logo.png'; //  
-	import { layoutState } from '$lib/state/layoutState.svelte';
-	import { enhance } from '$app/forms'; //
-	import { page } from '$app/state';
-	import AddFavoriteDialog from './AddFavoriteDialog.svelte';
-	import { goto } from '$app/navigation';
+    import * as Avatar from '$lib/components/ui/avatar';
+    import * as DropdownMenu from '$lib/components/ui/dropdown-menu'; // Usado apenas para o User Profile
+    import logo from '$lib/assets/logo.png'; 
+    import { layoutState } from '$lib/state/layoutState.svelte';
+    import { enhance } from '$app/forms'; 
+    import { page } from '$app/state';
+    import AddFavoriteDialog from './AddFavoriteDialog.svelte';
+    import { goto } from '$app/navigation';
+    import { generateMenuFromRoutes } from '$lib/utils/menuGenerator'; // IMPORT DA LÓGICA
+    import { slide } from 'svelte/transition'; // Para animação suave do dropdown
 
-	import {
-		House,
-		Users,
-		FileUser,
-		Container,
-		EllipsisVertical,
-		LogOut,
-		User,
-		Settings,
-		Plus,
-		Star,
-		ExternalLink,
-		ChevronRight
-	} from '@lucide/svelte';
-	import { Trash2 } from 'lucide-svelte';
+    import {
+        EllipsisVertical,
+        LogOut,
+        User,
+        Settings,
+        Plus,
+        Star,
+        ExternalLink,
+        ChevronRight,
+        Trash2,
+        ChevronDown
+    } from '@lucide/svelte';
 
-	// 1b. Dados simulados conforme seu objeto real
-	const user = $derived(page.data.user || {
-		first_name: "Usuario",
-		last_name: "Desconhecido",
-		email: '...',
-		initials: 'UD'
-	})
+    // --- DADOS DO USUÁRIO ---
+    const user = $derived(page.data.user || {
+        first_name: "Usuario",
+        last_name: "Desconhecido",
+        email: '...',
+    });
 
-	let defaultFavorites = [
-		{ title: 'Google', url: 'https://google.com', is_internal: false },
-		{ title: 'Relatório Trimestral', url: '/reports/q3', is_internal: true }
-	];
-	const favorites = $derived(page.data.favorites || defaultFavorites);
-	let isFavoriteModalOpen = $state(false);
-	console.log(page.data.user)
+    // --- FAVORITOS ---
+    let defaultFavorites = [
+        { title: 'Google', url: 'https://google.com', is_internal: false },
+    ];
+    const favorites = $derived(page.data.favorites || defaultFavorites);
+    let isFavoriteModalOpen = $state(false);
 
-	function getInitials(f: string, l: string) {
-		return (f?.[0] || '' + (l?.[0] || ''));
-	}
-	// Estrutura de menus organizada
-	const menus = [
-		{ title: 'Início', href: '/', icon: House },
-		{ title: 'Usuários', href: '/users', icon: Users },
-		{ title: 'Clientes', href: '/client', icon: FileUser },
-		{
-			title: 'Materiais',
-			icon: Container,
-			dropdown: [
-				{ title: 'Lista Geral', href: '/supplies' },
-				{ title: 'Fornecedores', href: '/suppliers' },
-				{ title: 'Listas', href: '/supplies/lists' }
-			]
-		}
-	];
+    // --- GERAÇÃO AUTOMÁTICA DE MENUS ---
+    const menus = generateMenuFromRoutes();
 
-	// Fechar quando clicar num link em mobileFirest 
-	function handleLinkClick() {
-		if (window.innerWidth < 768) {
-			layoutState.closeMobile();
-		}
-	}
+    // Estado para controlar quais menus dropdown estão abertos
+    // Ex: { 'Financeiro': true }
+    let openMenus = $state<Record<string, boolean>>({});
+
+    function toggleMenu(title: string) {
+        if (layoutState.collapsed) return; // Não abre se o aside estiver fechado
+        openMenus[title] = !openMenus[title];
+    }
+
+    // --- UTILITÁRIOS ---
+    function handleLinkClick() {
+        if (window.innerWidth < 768) {
+            layoutState.closeMobile();
+        }
+    }
+
+    // Verifica se a rota está ativa
+    function isActive(href: string) {
+        if (href === '/') return page.url.pathname === '/';
+        return page.url.pathname.startsWith(href);
+    }
+
+    // Verifica se algum filho do dropdown está ativo para manter o menu aberto ou pintado
+    function isParentActive(children: any[] | undefined) {
+        return children?.some(c => isActive(c.href));
+    }
 </script>
 
 {#if layoutState.mobileOpen}
-	<div 
-		class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
-		onclick={() => layoutState.closeMobile()}
-		aria-hidden="true"
-	>
-	</div>
+    <div 
+        class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+        onclick={() => layoutState.closeMobile()}
+        aria-hidden="true"
+    ></div>
 {/if}
 
 <aside
-	class="
-		fixed inset-y-0 left-0 z-50 flex h-full flex-col border-r bg-card  transition-all duration-300 ease-in-out
-		md:sticky md:top-0 md:h-screen md:translate-x-0
-		{layoutState.mobileOpen ? 'translate-x-0' : '-translate-x-full'}  
-	"
-	style="width: {layoutState.collapsed ? '80px' : '288px'};"
+    class="
+        fixed inset-y-0 left-0 z-50 flex h-full flex-col border-r bg-card transition-all duration-300 ease-in-out
+        md:sticky md:top-0 md:h-screen md:translate-x-0
+        {layoutState.mobileOpen ? 'translate-x-0' : '-translate-x-full'}  
+    "
+    style="width: {layoutState.collapsed ? '80px' : '260px'};"
 >
-	<div class="flex h-16 items-center overflow-hidden border-b px-6 whitespace-nowrap">
-		<div class="flex items-center gap-3">
-			<img src={logo} alt="logo" class="size-8 rounded object-contain" />
-			{#if !layoutState.collapsed}
-				<span class="text-xl font-bold tracking-tight text-primary transition-opacity">
-					Eletricca
-				</span>
-			{/if}
-		</div>
-	</div>
+    <div class="flex h-16 items-center overflow-hidden border-b px-6 whitespace-nowrap">
+        <div class="flex items-center gap-3">
+            <img src={logo} alt="logo" class="size-8 rounded object-contain" />
+            {#if !layoutState.collapsed}
+                <span class="text-xl font-bold tracking-tight text-primary transition-opacity">
+                    Eletricca
+                </span>
+            {/if}
+        </div>
+    </div>
 
-	<nav class="flex-1 space-y-2 overflow-x-hidden overflow-y-auto p-4">
-		<p class="px-2 pb-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
-			{layoutState.collapsed ? '...' : 'Menus'}
-		</p>
+    <nav class="flex-1 space-y-1 overflow-x-hidden overflow-y-auto p-3 custom-scrollbar">
+        <p class="px-3 pb-2 pt-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase opacity-70">
+            {layoutState.collapsed ? '...' : 'Menu Principal'}
+        </p>
 
-		{#each menus as item}
-			{#if item.dropdown}
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger class="w-full">
-						<div
-							class="flex min-w-max cursor-pointer items-center gap-3 rounded-md px-3 py-2
-                            text-sm font-medium text-muted-foreground transition-colors
-                            hover:bg-muted hover:text-primary
-                            "
-						>
-							<item.icon size={18} />
-							{#if !layoutState.collapsed}
-								<span class="flex-1 text-left">{item.title}</span>
-								<ChevronRight size={14} class="opacity-50" />
-							{/if}
-						</div>
-					</DropdownMenu.Trigger>
+        {#each menus as item}
+            {#if item.type === 'dropdown'}
+                <div>
+                    <button
+                        onclick={() => toggleMenu(item.title)}
+                        class="group flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors
+                        {isParentActive(item.children) ? 'text-primary' : 'text-muted-foreground hover:bg-muted hover:text-primary'}
+                        "
+                    >
+                        <div class="flex items-center gap-3">
+                            <item.icon size={20}/>
+                            {#if !layoutState.collapsed}
+                                <span>{item.title}</span>
+                            {/if}
+                        </div>
+                        
+                        {#if !layoutState.collapsed}
+                            <ChevronRight 
+                                size={14} 
+                                class="transition-transform duration-200 {openMenus[item.title] || isParentActive(item.children) ? 'rotate-90' : ''}" 
+                            />
+                        {/if}
+                    </button>
 
-					<DropdownMenu.Content side="right" align="start" class="w-48">
-						<DropdownMenu.Label>{item.title}</DropdownMenu.Label>
-						<DropdownMenu.Separator />
-						{#each item.dropdown as sub}
-							<DropdownMenu.Item>
-								<a href={sub.href} class="w-full">{sub.title}</a>
-							</DropdownMenu.Item>
-						{/each}
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
-			{:else}
-				<a
-					href={item.href}
-					class="flex min-w-max items-center gap-3 rounded-md px-3 py-2 text-sm
-                        font-medium text-muted-foreground transition-colors
-                        hover:bg-muted hover:text-primary"
-				>
-					<item.icon size={18} />
-					{#if !layoutState.collapsed}
-						<span>{item.title}</span>
-					{/if}
-				</a>
-			{/if}
-		{/each}
+                    {#if !layoutState.collapsed && (openMenus[item.title] || isParentActive(item.children))}
+                        <div transition:slide={{ duration: 200 }} class="ml-9 mt-1 flex flex-col space-y-1 border-l pl-2">
+                            {#each item.children as sub}
+                                <a
+                                    href={sub.href}
+                                    onclick={handleLinkClick}
+                                    class="block rounded-md px-3 py-1.5 text-sm transition-colors
+                                    {isActive(sub.href) 
+                                        ? 'bg-primary/10 text-primary font-semibold' 
+                                        : 'text-muted-foreground hover:text-primary hover:bg-muted/50'}"
+                                >
+                                    {sub.title}
+                                </a>
+                            {/each}
+                        </div>
+                    {/if}
+                </div>
 
-		<div class="mt-4 border-t border-muted/50 pt-4">
-			<div class="flex items-center justify-between px-2 pb-2">
-				<p class="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
-					{layoutState.collapsed ? '*' : 'Favoritos'}
-				</p>
-				{#if !layoutState.collapsed}
-					<button
-						onclick={() => isFavoriteModalOpen = true}
-						title="Adicionar Favorito"
-						class="text-muted-foreground hover:text-primary transition-colors p-1 rounded hover:bg-muted"
-					>
-						<Plus size={14}/>
-					</button>
-				{/if}
-			</div>
-			{#each favorites as fav}
-				<div class="group relative flex items-center">
+            {:else}
+                <a
+                    href={item.href}
+                    onclick={handleLinkClick}
+                    class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors
+                    {isActive(item.href) 
+                        ? 'bg-primary/10 text-primary' 
+                        : 'text-muted-foreground hover:bg-muted hover:text-primary'}"
+                >
+                    <item.icon size={20}/>
+                    {#if !layoutState.collapsed}
+                        <span>{item.title}</span>
+                    {/if}
+                </a>
+            {/if}
+        {/each}
+
+        <div class="mt-6 border-t border-muted/50 pt-4">
+            <div class="flex items-center justify-between px-3 pb-2">
+                <p class="text-[10px] font-bold tracking-widest text-muted-foreground uppercase opacity-70">
+                    {layoutState.collapsed ? '*' : 'Atalhos'}
+                </p>
+                {#if !layoutState.collapsed}
+                    <button onclick={() => isFavoriteModalOpen = true} class="text-muted-foreground hover:text-primary p-1 hover:bg-muted rounded">
+                        <Plus size={14}/>
+                    </button>
+                {/if}
+            </div>
+            
+            {#each favorites as fav}
+                <div class="group relative flex items-center">
 					<a
 						href={fav.url}
 						onclick={handleLinkClick}
@@ -192,81 +205,63 @@
 						</form>
 					{/if}
 				</div>
-			{/each}
-		</div>
-	</nav>
+            {/each}
+        </div>
+    </nav>
 
-	<div class="mt-auto border-t bg-card/50 p-4">
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger class="w-full outline-none">
-				<div
-					class="flex w-full items-center gap-3 overflow-hidden rounded-md p-2 text-left transition-all hover:bg-muted"
-				>
-					<Avatar.Root class="h-9 w-9 shrink-0 border">
-						<Avatar.Fallback class="bg-primary text-xs font-bold text-primary-foreground uppercase">
-							{user.first_name[0]}
-							{user.last_name[0]}
-						</Avatar.Fallback>
-					</Avatar.Root>
+    <div class="mt-auto border-t bg-card/50 p-3">
+        <DropdownMenu.Root>
+            <DropdownMenu.Trigger class="w-full outline-none">
+                <div class="flex w-full items-center gap-3 rounded-md p-2 hover:bg-muted transition-colors">
+                    <Avatar.Root class="h-8 w-8 rounded-lg border">
+                        <Avatar.Fallback class="rounded-lg bg-primary/10 text-primary font-bold text-xs">
+                            {user.first_name[0]}{user.last_name[0]}
+                        </Avatar.Fallback>
+                    </Avatar.Root>
+                    {#if !layoutState.collapsed}
+                        <div class="flex-1 text-left overflow-hidden">
+                            <p class="truncate text-sm font-semibold">{user.first_name} {user.last_name}</p>
+                            <p class="truncate text-xs text-muted-foreground">{user.email}</p>
+                        </div>
+                        <EllipsisVertical size={16} class="text-muted-foreground" />
+                    {/if}
+                </div>
+            </DropdownMenu.Trigger>
+            
+            <DropdownMenu.Content class="w-56" align="end">
+                 <DropdownMenu.Label>Minha Conta</DropdownMenu.Label>
 
-					{#if !layoutState.collapsed}
-						<div class="min-w-0 flex-1 transition-opacity">
-							<p class="truncate text-sm font-semibold text-primary">
-								{user.first_name}
-								{user.last_name}
-							</p>
-							<p class="truncate text-xs text-muted-foreground">
-								{user.email}
-							</p>
-						</div>
-						<EllipsisVertical size={16} class="shrink-0 text-muted-foreground" />
-					{/if}
-				</div>
-			</DropdownMenu.Trigger>
+                 <DropdownMenu.Separator />
 
-			<DropdownMenu.Content>
-				<DropdownMenu.Label>Minha Conta</DropdownMenu.Label>
-
-				<DropdownMenu.Separator />
-
-				<DropdownMenu.Item 
+                 <DropdownMenu.Item 
 					class="cursor-pointer"
 					onclick={() => goto('profile')}
 				>
 					<User size={16} class="mr-2" /> Perfil
 				</DropdownMenu.Item>
 
-				<DropdownMenu.Item 
-					class="cursor-pointer"
-					onclick={() => goto('/settings')}
-				>
-					<Settings size={16} class="mr-2" /> Configurações
-				</DropdownMenu.Item>
-
-				<DropdownMenu.Separator />
-
-				<form action="/logout" method="POST" use:enhance class="w-full">
-					<button type="submit" class="w-full text-left">
-						<DropdownMenu.Item
-							class="w-full cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
-						>
-							<LogOut size={16} class="mr-2" />
-							Sair
-						</DropdownMenu.Item>
-					</button>
-				</form>
-                
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
-	</div>
+                 <DropdownMenu.Item 
+                    onclick={() => goto('/settings')}> <Settings size={14} class="mr-2"/> Configurações </DropdownMenu.Item>
+                 <form action="/logout" method="POST" use:enhance>
+                    <button type="submit" class="w-full">
+                        <DropdownMenu.Item class="text-red-500 focus:text-red-500"> <LogOut size={14} class="mr-2"/> Sair </DropdownMenu.Item>
+                    </button>
+                 </form>
+            </DropdownMenu.Content>
+        </DropdownMenu.Root>
+    </div>
 </aside>
 
 <AddFavoriteDialog bind:open={isFavoriteModalOpen}/>
 
 <style>
-	@media (max-width: 768px) {
-		aside {
-			width: 18rem !important;
-		}
-	}
+    /* Estilização suave para scrollbar */
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.2); border-radius: 4px; }
+    .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.4); }
+
+    @media (max-width: 768px) {
+        aside { width: 18rem !important; }
+    }
 </style>

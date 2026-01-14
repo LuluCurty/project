@@ -61,7 +61,7 @@ export const load: PageServerLoad = async ({locals, params}) => {
             });
 
             //agrupar 
-            const permissionsByModule = allPermsRes.rows.reduce((acc: { [x: string]: any[]; }, curr: { module: string; }) => {
+            const permissionsByModule = allPermsRes.rows.reduce((acc, curr) => {
                 const mod = curr.module || 'Geral';
                 if (!acc[mod]) acc[mod] = [];
                 acc[mod].push(curr);

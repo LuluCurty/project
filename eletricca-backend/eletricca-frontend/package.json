@@ -25,7 +25,9 @@
 		"@tailwindcss/forms": "^0.5.10",
 		"@tailwindcss/vite": "^4.1.13",
 		"@tanstack/table-core": "^8.21.3",
+		"@types/bcrypt": "^6.0.0",
 		"@types/node": "^20",
+		"@types/pg": "^8.16.0",
 		"bits-ui": "^2.14.4",
 		"clsx": "^2.1.1",
 		"eslint": "^9.36.0",
@@ -49,7 +51,11 @@
 		"vite-plugin-devtools-json": "^1.0.0"
 	},
 	"dependencies": {
+		"bcrypt": "^6.0.0",
+		"fs": "^0.0.1-security",
 		"jwt-decode": "^4.0.0",
-		"lucide-svelte": "^0.552.0"
+		"lucide-svelte": "^0.552.0",
+		"path": "^0.12.7",
+		"pg": "^8.16.3"
 	}
 }

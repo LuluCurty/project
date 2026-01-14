@@ -37,7 +37,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
             'SELECT id, slug, description, module FROM permissions ORDER BY module ASC, slug ASC;'
         );
         // agrupar por modulo (chatgpt)
-        const permissionsByModule: PermissionGroup = allPermsRes.rows.reduce((acc: { [x: string]: any[]; }, curr: { module: string; }) => {
+        const permissionsByModule: PermissionGroup = allPermsRes.rows.reduce((acc, curr) => {
             const mod = curr.module || 'Geral';
             if (!acc[mod]) acc[mod] = [];
             acc[mod].push(curr);

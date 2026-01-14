@@ -16,7 +16,8 @@
         Mail, 
         Database, 
         Activity,
-        ChevronRight
+        ChevronRight,
+        Megaphone
     } from '@lucide/svelte';
 
     // Recebe a lista de pastas do servidor
@@ -50,6 +51,12 @@
             description: 'Configurações de faturamento e chaves de API de pagamento.',
             icon: CreditCard,
             color: 'text-emerald-600 bg-emerald-600/10'
+        }, 
+        'announcements': {
+            label: 'Anúncio',
+            description: 'Altere o anúncio que aparece para todos os usuarios.',
+            icon: Megaphone,
+            color: 'text-red-600 bg-red-600/10'
         }
         // Adicione outros conforme criar...
     };

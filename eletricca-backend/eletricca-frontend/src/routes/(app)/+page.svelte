@@ -90,7 +90,7 @@
 			</Card.Header>
 
 			<Card.Content class="border-muted">
-				<div class="relative max-h-[500px] overflow-y-auto">
+				<div class="relative max-h-[500px] overflow-y-auto custom-scrollbar">
 					<Table.Root>
 						<Table.Caption>Dados dos ramais</Table.Caption>
 						<Table.Header class="border-b border-muted bg-card">
@@ -168,3 +168,11 @@
 
 	<Tabs.Content value="acesso-rapido">Em criação 2</Tabs.Content>
 </Tabs.Root>
+
+<style>
+    /* Estilização suave para scrollbar */
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.2); border-radius: 4px; }
+    .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.4); }
+</style>

@@ -9,7 +9,7 @@
 	import Header from '$lib/components/Header.svelte';
 	// eu amo svelte :D
 
-	let { children } = $props();
+	let { children, data } = $props();
 </script>
 
 <svelte:head>
@@ -27,7 +27,7 @@
 	<Aside/>
 
 	<div class="flex min-w-0 flex-1 flex-col transition-all duration-300">
-		<Header/>
+		<Header announcement={data.announcement}/>
 		<main class="flex-1 p-4 md:p-6 overflow-x-hidden">
 			<Tooltip.Provider>
 				{@render children?.()}

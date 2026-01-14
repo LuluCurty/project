@@ -8,7 +8,6 @@ export const load: PageServerLoad = async ({locals}) => {
         const settingsDir = join(process.cwd(), 'src/routes/(app)/(admin)/settings');
 
         if (!existsSync(settingsDir)) {
-            console.log(settingsDir)
             return { settingsRoutes: [] };
         }
 

@@ -46,6 +46,7 @@ export const load: PageServerLoad = async ({locals, url}) => {
                 u.telphone,
                 u.creation_date,
                 u.user_role,
+                u.auth_source, 
                 r.name as role_name
             FROM users u
             LEFT JOIN roles r ON u.role_id = r.id
@@ -56,9 +57,9 @@ export const load: PageServerLoad = async ({locals, url}) => {
             LIMIT $2 OFFSET $3
         ;`;
 
-        const {rows} = await pool.query<UserData>(dataQuery, [`%${search}%`, limit, offset]);
+        const queryResult = await pool.query<UserData>(dataQuery, [`%${search}%`, limit, offset]);
         return {
-            users: rows,
+            users: queryResult.rows,
             pagination: {
                 totalItems,
                 limit, 

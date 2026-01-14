@@ -130,6 +130,19 @@ CREATE TABLE IF NOT EXISTS user_permissions (
     PRIMARY KEY (user_id, permissions_id)
 );
 
+CREATE TABLE messages (
+    id SERIAL PRIMARY KEY,
+    sender_id INTEGER NOT NULL,
+    receiver_id INTEGER NOT NULL,
+    content TEXT,
+    msg_type VARCHAR(10) DEFAULT 'text', 
+    is_deleted BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    
+    CONSTRAINT fk_sender FOREIGN KEY(sender_id) REFERENCES users(id),
+    CONSTRAINT fk_receiver FOREIGN KEY(receiver_id) REFERENCES users(id)
+);
+
 INSERT INTO roles(name, description) VALUES 
 ('Super Admin','Acesso total'),
 ('Admin','Acesso administrativo'),
@@ -143,7 +156,7 @@ INSERT INTO permissions (slug, description, module) VALUES
 ('users.delete', 'Excluir usuários', 'Usuários'),
 ('favorites.manage', 'Gerenciar favoritos globais', 'Sistema');
 
-INSERT INTO role_permissions (role_id, permissions_id) SELECT 1, id FROM permissions
+INSERT INTO role_permissions (role_id, permissions_id) SELECT 1, id FROM permissions;
 
 /* CREATE DATABASE eletricca;
 CREATE USER eletricca_user WITH PASSWORD "eletrO@8002";
