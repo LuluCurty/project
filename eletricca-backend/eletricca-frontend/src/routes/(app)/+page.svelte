@@ -98,60 +98,14 @@
 								<Table.Head class="w-[100px] text-primary">Ramal</Table.Head>
 								<Table.Head class="text-primary">Nome</Table.Head>
 								<Table.Head class="text-primary">Email</Table.Head>
-								<Table.Head class="text-start text-primary">IP</Table.Head>
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
 							{#each extensions as extension}
-								<Table.Row class="border-b border-muted transition-colors hover:bg-gray-300/50">
+								<Table.Row class="border-b border-muted transition-colors">
 									<Table.Cell class="font-semibold text-muted-foreground">{extension.extension}</Table.Cell>
 									<Table.Cell class="text-muted-foreground">{extension.fullname}</Table.Cell>
 									<Table.Cell class="text-sm text-muted-foreground">a@a</Table.Cell>
-
-									<Table.Cell class="text-start font-mono text-xs">
-										{@const ips = extension.addr
-											? extension.addr.split(',').map((ip) => ip.trim())
-											: []}
-
-										{#if ips.length > 0}
-											<div class="flex flex-row items-center justify-start gap-2">
-												<Badge
-													variant="secondary"
-													class="bg-slate-200/70 text-slate-700 hover:bg-slate-300"
-												>
-													{ips[0]}
-												</Badge>
-
-												{#if ips.length > 1}
-													<Tooltip.Root>
-														<Tooltip.Trigger
-															class="inline-flex h-6 w-6 
-                                    							cursor-help items-center justify-center 
-                                   								rounded-full border border-dashed font-bold text-muted-foreground hover:bg-muted"
-														>
-															...
-														</Tooltip.Trigger>
-														<Tooltip.Content
-															class="z-50 flex flex-col items-start border bg-popover p-2 shadow-lg"
-														>
-															{#each ips.slice(1) as ip}
-																<Badge class="bg-slate-200/70 font-mono text-xs text-slate-700">
-																	{ip}
-																</Badge>
-															{/each}
-														</Tooltip.Content>
-													</Tooltip.Root>
-												{/if}
-											</div>
-										{:else}
-											<Badge
-												variant="destructive"
-												class="bg-slate-200 text-slate-700 hover:bg-slate-300"
-											>
-												Não Registrado
-											</Badge>
-										{/if}
-									</Table.Cell>
 								</Table.Row>
 							{/each}
 						</Table.Body>

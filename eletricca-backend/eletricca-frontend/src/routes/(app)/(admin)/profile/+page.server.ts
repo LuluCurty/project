@@ -49,7 +49,7 @@ export const actions: Actions = {
             await pool.query(`
                     UPDATE users
                     SET first_name = $1, last_name = $2, telphone = $3
-                    WHERE id = $4
+                    WHERE user_id = $4
                 `, 
                 [firstName, lastName, telphone || null, locals.user!.user_id]
             );

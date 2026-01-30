@@ -33,6 +33,5 @@
 				{@render children?.()}
 			</Tooltip.Provider>			
 		</main>
-		<Footer/>
 	</div>
 </div>

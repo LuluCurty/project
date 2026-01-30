@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS user_permissions (
     PRIMARY KEY (user_id, permissions_id)
 );
 
-CREATE TABLE messages (
+CREATE TABLE IF NOT EXISTS messages (
     id SERIAL PRIMARY KEY,
     sender_id INTEGER NOT NULL,
     receiver_id INTEGER NOT NULL,
@@ -139,9 +139,104 @@ CREATE TABLE messages (
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW(),
     
-    CONSTRAINT fk_sender FOREIGN KEY(sender_id) REFERENCES users(id),
-    CONSTRAINT fk_receiver FOREIGN KEY(receiver_id) REFERENCES users(id)
+    CONSTRAINT fk_sender FOREIGN KEY(sender_id) REFERENCES users(user_id),
+    CONSTRAINT fk_receiver FOREIGN KEY(receiver_id) REFERENCES users(user_id)
 );
+
+-- =============================
+-- FORMS
+-- =============================
+CREATE TABLE IF NOT EXISTS forms (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_by INT NOT NULL REFERENCES users(user_id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- =============================
+-- FORMS FIELDS
+-- =============================
+CREATE TABLE IF NOT EXISTS form_fields(
+    id SERIAL PRIMARY KEY,
+    form_id INT NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
+    field_type VARCHAR(50) NOT NULL, --text, number, select, checkbox, date, textarea, file
+    label VARCHAR(255) NOT NULL,
+    placeholder VARCHAR(255),
+    options JSONB, -- ["opção 1", "opção 2"]
+    is_required BOOLEAN DEFAULT false,
+    field_order INT NOT NULL, 
+    -- conditional
+    condition_field_id INT REFERENCES form_fields(id) ON DELETE SET NULL, 
+    condition_operator VARCHAR(20), -- equals, not_equals, contains
+    condition_value TEXT,
+    -- soft delete
+    is_deleted BOOLEAN DEFAULT false,
+    deleted_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()   
+);
+
+-- =============================
+--  FORM ASSIGNMENTS
+-- =============================
+CREATE TABLE IF NOT EXISTS form_assignments(
+    id SERIAL PRIMARY KEY,
+    form_id INT NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
+    user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    assigned_by INT NOT NULL REFERENCES users(user_id),
+    assigned_at TIMESTAMP DEFAULT NOW(),
+    due_date TIMESTAMP,
+    period_reference VARCHAR(50), --'Jan/2025', 'Semana 15'
+    is_completed BOOLEAN DEFAULT false,
+    completed_at TIMESTAMP
+);
+
+-- =============================
+-- FORM RESPONSES
+-- =============================
+CREATE TABLE IF NOT EXISTS form_responses(
+    id SERIAL PRIMARY KEY,
+    form_id INT NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
+    user_id INT NOT NULL REFERENCES users(user_id),
+    assignment_id INT REFERENCES form_assignments(id) ON DELETE SET NULL,
+    submitted_at TIMESTAMP DEFAULT NOW(),
+    edited_by INT REFERENCES users(user_id),
+    edited_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS form_response_values(
+    id SERIAL PRIMARY KEY, 
+    response_id INT NOT NULL REFERENCES form_responses(id) ON DELETE CASCADE,
+    field_id INT NOT NULL REFERENCES form_fields(id) ON DELETE RESTRICT,
+    value TEXT
+);
+
+CREATE TABLE IF NOT EXISTS form_files(
+    id SERIAL PRIMARY KEY,
+    response_id INT NOT NULL REFERENCES form_responses(id) ON DELETE CASCADE,
+    field_id INT NOT NULL REFERENCES form_fields(id) ON DELETE RESTRICT,
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_type VARCHAR(100),
+    file_size INT,
+    uploaded_at TIMESTAMP DEFAULT NOW()
+);
+
+-- =============================
+-- INDEXES
+-- =============================
+CREATE INDEX idx_form_fields_form ON form_fields(form_id);
+CREATE INDEX idx_assignments_user ON form_assignments(user_id);
+CREATE INDEX idx_assignments_form ON form_assignments(form_id);
+CREATE INDEX idx_responses_form ON form_responses(form_id);
+CREATE INDEX idx_responses_user ON form_responses(user_id);
+CREATE INDEX idx_values_response ON form_response_values(response_id);
+CREATE INDEX idx_files_response ON form_files(response_id);
+
+
+
 
 INSERT INTO roles(name, description) VALUES 
 ('Super Admin','Acesso total'),

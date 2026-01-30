@@ -1,7 +1,7 @@
 import {
     House, Users, FileUser, Container, Settings,
     Folder, Calculator, FileText, LayoutDashboard,
-    Briefcase, TableProperties, MessageCircleMore // Exemplo de mais ícones
+    Briefcase, TableProperties, MessageCircleMore, Form // Exemplo de mais ícones
 } from '@lucide/svelte';
 
 // =========================================================
@@ -21,9 +21,16 @@ const translations: Record<string, string> = {
     'profile': 'Perfil',
     'reports': 'Relatórios',
     'chat': 'Chat',
+    'forms': 'Formulários',
+    'manage': 'Gerenciar',
+    'assign': 'Atribuir',
+    'assigned': 'Atribuido',
+    'assignment': 'Atribuição',
+    'assignments': 'Atribuições',
+    
 
     // Sub-rotas comuns
-    'list': 'Lista Geral',
+    'lists': 'Lista Geral',
     'new': 'Novo Cadastro',
     'history': 'Histórico',
     'suppliers': 'Fornecedores',
@@ -48,6 +55,7 @@ const iconMap: Record<string, any> = {
     'config': Settings,
     'settings': Settings,
     'chat': MessageCircleMore,
+    'formulários': Form,
 };
 
 interface Menu {
@@ -101,7 +109,8 @@ export function generateMenuFromRoutes() {
         // --- FILTROS ---
         if (segments.some(s =>
             blacklistedSegments.includes(s) ||
-            ['add', 'edit', 'new'].includes(s) ||
+            ['add', 'edit', 'new', 'create', 'update', 'delete', 'responses', 'response']
+            .includes(s) ||
             s.startsWith('[')
         )) {
             continue;
@@ -143,10 +152,11 @@ export function generateMenuFromRoutes() {
         // O jeito mais fácil: Adicione as palavras em português no iconMap lá em cima.
 
         const iconKey = groupTitle.toLowerCase()
-            .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos (Usuários -> usuarios)
+            //.normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos (Usuários -> usuarios)
             .replace(/\s/g, '');
 
         const modIcon = iconMap[iconKey] || Folder;
+        
 
         if (routes.length === 1) {
             finalMenu.push({
@@ -168,6 +178,7 @@ export function generateMenuFromRoutes() {
 
     const [home, ...rest] = finalMenu;
     rest.sort((a, b) => a.title.localeCompare(b.title));
+    
 
     return [home, ...rest];
 }
