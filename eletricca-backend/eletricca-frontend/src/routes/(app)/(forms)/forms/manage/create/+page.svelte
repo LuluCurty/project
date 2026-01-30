@@ -30,10 +30,10 @@
 	import * as Select from '$lib/components/ui/select/';
 	import { Separator } from '$lib/components/ui/separator/';
 
-	import type { PageProps } from './$types';
-
-	let { data, form }: PageProps = $props();
-
+    import type { PageData, ActionData } from './$types.js';
+    
+    let { data, form }: {data: PageData, form: ActionData} = $props();
+    
 	const fieldTypes = [
 		{ value: 'text', label: 'Texto', icon: Type },
 		{ value: 'number', label: 'Número', icon: Hash },
