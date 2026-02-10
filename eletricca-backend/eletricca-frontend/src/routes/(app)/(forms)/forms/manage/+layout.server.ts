@@ -1,6 +1,6 @@
 import type { LayoutServerLoad } from './$types';
-import { guardModule } from '$lib/server/auth';
+import { requirePermission } from '$lib/server/auth';
 
 export const load: LayoutServerLoad = async ({ locals, route }) => {
-    guardModule(route.id, locals.user);
+    requirePermission(locals.user, 'forms.manage');
 };

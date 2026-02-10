@@ -14,8 +14,12 @@
         FileUp,
         ChevronDown,
         ChevronUp,
+        ChevronsUp,
+        ChevronsDown,
         Settings2,
-        LoaderCircle as Loader2
+        LoaderCircle as Loader2,
+        Copy,
+        CopyPlus
     } from '@lucide/svelte';
     import { goto } from '$app/navigation';
     import { enhance } from '$app/forms';
@@ -43,9 +47,36 @@
         { value: 'select', label: 'Seleção', icon: ListChecks },
         { value: 'checkbox', label: 'Checkbox', icon: CheckSquare },
         { value: 'date', label: 'Data', icon: Calendar },
-        { value: 'textarea', label: 'Texto Longo', icon: AlignLeft },
-        { value: 'file', label: 'Arquivo', icon: FileUp }
+        { value: 'textarea', label: 'Texto Longo', icon: AlignLeft }
+        // { value: 'file', label: 'Arquivo', icon: FileUp } // TODO: implementar upload
     ];
+
+    // Estado para o menu flutuante de adicionar campo
+    let showAddFieldMenu = $state(false);
+    let addFieldSectionVisible = $state(true);
+    let addFieldSection: HTMLElement | null = $state(null);
+
+    // Intersection Observer para detectar quando a seção sai da tela
+    $effect(() => {
+        if (!addFieldSection) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    addFieldSectionVisible = entry.isIntersecting;
+                    // Fecha o menu quando a seção volta a ficar visível
+                    if (entry.isIntersecting) {
+                        showAddFieldMenu = false;
+                    }
+                });
+            },
+            { threshold: 0.1 }
+        );
+
+        observer.observe(addFieldSection);
+
+        return () => observer.disconnect();
+    });
 
     const conditionOperators = [
         { value: 'equals', label: 'Igual a' },
@@ -113,7 +144,10 @@
         return `field_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     }
 
-    function addField(type: string) {
+    // Índice após o qual inserir um novo campo (-1 = no final)
+    let insertAfterIndex: number | null = $state(null);
+
+    function addField(type: string, afterIndex?: number) {
         const newField: FormField = {
             id: generateId(),
             field_type: type,
@@ -127,13 +161,28 @@
             condition_value: null,
             expanded: true
         };
-        fields = [...fields, newField];
+
+        if (afterIndex !== undefined && afterIndex >= 0) {
+            const newFields = [...fields];
+            newFields.splice(afterIndex + 1, 0, newField);
+            fields = newFields.map((f, i) => ({ ...f, field_order: i + 1 }));
+        } else {
+            fields = [...fields, newField];
+        }
+
+        insertAfterIndex = null;
+
+        // Scroll para o novo campo após um tick
+        setTimeout(() => {
+            const element = document.getElementById(`field-${newField.id}`);
+            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
     }
 
     // MUDANÇA: Aceitar string | number
     function removeField(id: string | number) {
         fields = fields.filter((f) => f.id !== id);
-        
+
         fields = fields.map((f, index) => ({
             ...f,
             field_order: index + 1,
@@ -141,6 +190,40 @@
             condition_operator: f.condition_field_id === id ? null : f.condition_operator,
             condition_value: f.condition_field_id === id ? null : f.condition_value
         }));
+    }
+
+    // Duplicar um campo existente (com ou sem condições)
+    function duplicateField(id: string | number, withConditions: boolean = false) {
+        const fieldIndex = fields.findIndex((f) => f.id === id);
+        if (fieldIndex === -1) return;
+
+        const original = fields[fieldIndex];
+        const newField: FormField = {
+            id: generateId(),
+            field_type: original.field_type,
+            label: original.label + ' (cópia)',
+            placeholder: original.placeholder,
+            options: [...original.options],
+            is_required: original.is_required,
+            field_order: fieldIndex + 2,
+            condition_field_id: withConditions ? original.condition_field_id : null,
+            condition_operator: withConditions ? original.condition_operator : null,
+            condition_value: withConditions ? original.condition_value : null,
+            expanded: true
+        };
+
+        // Insere logo após o campo original
+        const newFields = [...fields];
+        newFields.splice(fieldIndex + 1, 0, newField);
+
+        // Reordena
+        fields = newFields.map((f, index) => ({ ...f, field_order: index + 1 }));
+
+        // Scroll para o novo campo
+        setTimeout(() => {
+            const element = document.getElementById(`field-${newField.id}`);
+            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
     }
 
     function moveField(index: number, direction: 'up' | 'down') {
@@ -152,6 +235,18 @@
             const temp = fields[index];
             fields[index] = fields[index + 1];
             fields[index + 1] = temp;
+        }
+        fields = fields.map((f, i) => ({ ...f, field_order: i + 1 }));
+    }
+
+    function moveFieldToEdge(index: number, position: 'start' | 'end') {
+        if (fields.length <= 1) return;
+
+        const [field] = fields.splice(index, 1);
+        if (position === 'start') {
+            fields.unshift(field);
+        } else {
+            fields.push(field);
         }
         fields = fields.map((f, i) => ({ ...f, field_order: i + 1 }));
     }
@@ -266,6 +361,7 @@
         </div>
 
         <div class="grid gap-4 lg:grid-cols-3">
+            <!-- Sidebar -->
             <div class="space-y-4 lg:col-span-1">
                 <Card.Root>
                     <Card.Header><Card.Title class="text-lg">Informações</Card.Title></Card.Header>
@@ -293,24 +389,26 @@
                     </Card.Content>
                 </Card.Root>
 
-                <Card.Root>
-                    <Card.Header><Card.Title class="text-lg">Adicionar Campo</Card.Title></Card.Header>
-                    <Card.Content>
-                        <div class="grid grid-cols-2 gap-2">
-                            {#each fieldTypes as fieldType}
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    class="h-auto flex-col gap-1 py-3"
-                                    onclick={() => addField(fieldType.value)}
-                                >
-                                    <fieldType.icon class="size-5" />
-                                    <span class="text-xs">{fieldType.label}</span>
-                                </Button>
-                            {/each}
-                        </div>
-                    </Card.Content>
-                </Card.Root>
+                <div bind:this={addFieldSection}>
+                    <Card.Root>
+                        <Card.Header><Card.Title class="text-lg">Adicionar Campo</Card.Title></Card.Header>
+                        <Card.Content>
+                            <div class="grid grid-cols-2 gap-2">
+                                {#each fieldTypes as fieldType}
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        class="h-auto flex-col gap-1 py-3"
+                                        onclick={() => addField(fieldType.value)}
+                                    >
+                                        <fieldType.icon class="size-5" />
+                                        <span class="text-xs">{fieldType.label}</span>
+                                    </Button>
+                                {/each}
+                            </div>
+                        </Card.Content>
+                    </Card.Root>
+                </div>
             </div>
 
             <div class="lg:col-span-2">
@@ -334,9 +432,9 @@
                             <div class="space-y-3">
                                 {#each fields as field, index (field.id)}
                                     {@const typeInfo = getFieldTypeInfo(field.field_type)}
-                                    <div class="rounded-lg border bg-card">
+                                    <div id="field-{field.id}" class="rounded-lg border bg-card">
                                         <button
-                                            class="flex cursor-pointer flex-wrap items-center gap-2 p-3 select-none sm:flex-nowrap"
+                                            class="flex w-full cursor-pointer items-center gap-2 overflow-hidden p-3 select-none"
                                             onclick={() => toggleField(field.id)}
                                             type="button"
                                             tabindex="0"
@@ -348,7 +446,10 @@
                                                 <span class="hidden sm:inline">{typeInfo.label}</span>
                                             </Badge>
 
-                                            <span class="min-w-12 flex-1 truncate text-sm font-medium sm:text-base">
+                                            <span
+                                                class="min-w-0 flex-1 truncate text-left text-sm font-medium sm:text-base"
+                                                title={field.label || 'Sem rótulo'}
+                                            >
                                                 {field.label || 'Sem rótulo'}
                                             </span>
 
@@ -377,9 +478,24 @@
                                                     class="hidden size-7 sm:inline-flex"
                                                     onclick={(e) => {
                                                         e.stopPropagation();
+                                                        moveFieldToEdge(index, 'start');
+                                                    }}
+                                                    disabled={index === 0}
+                                                    title="Mover para o início"
+                                                >
+                                                    <ChevronsUp class="size-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    class="hidden size-7 sm:inline-flex"
+                                                    onclick={(e) => {
+                                                        e.stopPropagation();
                                                         moveField(index, 'up');
                                                     }}
                                                     disabled={index === 0}
+                                                    title="Mover para cima"
                                                 >
                                                     <ChevronUp class="size-4" />
                                                 </Button>
@@ -393,9 +509,52 @@
                                                         moveField(index, 'down');
                                                     }}
                                                     disabled={index === fields.length - 1}
+                                                    title="Mover para baixo"
                                                 >
                                                     <ChevronDown class="size-4" />
                                                 </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    class="hidden size-7 sm:inline-flex"
+                                                    onclick={(e) => {
+                                                        e.stopPropagation();
+                                                        moveFieldToEdge(index, 'end');
+                                                    }}
+                                                    disabled={index === fields.length - 1}
+                                                    title="Mover para o fim"
+                                                >
+                                                    <ChevronsDown class="size-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    class="size-7 text-muted-foreground hover:text-primary"
+                                                    onclick={(e) => {
+                                                        e.stopPropagation();
+                                                        duplicateField(field.id, false);
+                                                    }}
+                                                    title="Duplicar campo (sem condições)"
+                                                >
+                                                    <Copy class="size-4" />
+                                                </Button>
+                                                {#if field.condition_field_id}
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        class="size-7 text-orange-500 hover:text-orange-600"
+                                                        onclick={(e) => {
+                                                            e.stopPropagation();
+                                                            duplicateField(field.id, true);
+                                                        }}
+                                                        title="Duplicar campo com condições"
+                                                    >
+                                                        <CopyPlus class="size-4" />
+                                                    </Button>
+                                                {/if}
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
@@ -405,6 +564,7 @@
                                                         e.stopPropagation();
                                                         removeField(field.id);
                                                     }}
+                                                    title="Remover campo"
                                                 >
                                                     <Trash2 class="size-4" />
                                                 </Button>
@@ -570,6 +730,39 @@
                                             </div>
                                         {/if}
                                     </div>
+
+                                    <!-- Botão de inserir campo após este -->
+                                    <div class="group relative flex items-center justify-center py-0.5">
+                                        <div class="absolute inset-x-0 top-1/2 border-t border-dashed border-transparent transition-colors group-hover:border-muted-foreground/30"></div>
+                                        <button
+                                            type="button"
+                                            class="relative z-10 flex size-6 items-center justify-center rounded-full border bg-background text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 {insertAfterIndex === index ? 'opacity-100 bg-muted text-foreground' : ''}"
+                                            onclick={(e) => {
+                                                e.stopPropagation();
+                                                insertAfterIndex = insertAfterIndex === index ? null : index;
+                                            }}
+                                            title="Inserir campo aqui"
+                                        >
+                                            <Plus class="size-3.5" />
+                                        </button>
+
+                                        {#if insertAfterIndex === index}
+                                            <div class="absolute top-full z-20 mt-1 flex flex-wrap items-center gap-1.5 rounded-lg border bg-card p-2 shadow-md">
+                                                {#each fieldTypes as fieldType}
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        class="gap-1.5 text-xs"
+                                                        onclick={() => addField(fieldType.value, index)}
+                                                    >
+                                                        <fieldType.icon class="size-3.5" />
+                                                        {fieldType.label}
+                                                    </Button>
+                                                {/each}
+                                            </div>
+                                        {/if}
+                                    </div>
                                 {/each}
                             </div>
                         {/if}
@@ -578,4 +771,47 @@
             </div>
         </div>
     </div>
+
+    <!-- Floating Action Button para adicionar campos (aparece quando a seção sai da tela) -->
+    {#if !addFieldSectionVisible}
+    <div class="fixed bottom-6 right-6 z-50 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4">
+        {#if showAddFieldMenu}
+            <!-- Backdrop -->
+            <button
+                type="button"
+                class="fixed inset-0 bg-black/20 backdrop-blur-sm"
+                onclick={() => showAddFieldMenu = false}
+                aria-label="Fechar menu"
+            ></button>
+
+            <!-- Menu de tipos de campo -->
+            <div class="absolute bottom-16 right-0 w-48 rounded-lg border bg-card p-2 shadow-lg">
+                <p class="mb-2 px-2 text-xs font-medium text-muted-foreground">Adicionar campo</p>
+                {#each fieldTypes as fieldType}
+                    <button
+                        type="button"
+                        class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted"
+                        onclick={() => {
+                            addField(fieldType.value);
+                            showAddFieldMenu = false;
+                        }}
+                    >
+                        <fieldType.icon class="size-4" />
+                        {fieldType.label}
+                    </button>
+                {/each}
+            </div>
+        {/if}
+
+        <!-- FAB Button -->
+        <Button
+            type="button"
+            size="icon"
+            class="size-14 rounded-full shadow-lg {showAddFieldMenu ? 'rotate-45' : ''} transition-transform"
+            onclick={() => showAddFieldMenu = !showAddFieldMenu}
+        >
+            <Plus class="size-6" />
+        </Button>
+    </div>
+    {/if}
 </form>

@@ -97,12 +97,42 @@ export const actions: Actions = {
 
         if (!id) return fail(400, { error: 'ID inválido' });
 
+        const client = await pool.connect();
         try {
-            // O "ON DELETE CASCADE" no banco cuida dos campos, respostas e assignments
-            await pool.query('DELETE FROM forms WHERE id = $1', [id]);
+            await client.query('BEGIN');
+
+            // Deletar na ordem correta (filhos antes dos pais)
+            // 1. Arquivos e valores das respostas (referenciam form_fields com RESTRICT)
+            await client.query(`
+                DELETE FROM form_files WHERE response_id IN (
+                    SELECT id FROM form_responses WHERE form_id = $1
+                )
+            `, [id]);
+            await client.query(`
+                DELETE FROM form_response_values WHERE response_id IN (
+                    SELECT id FROM form_responses WHERE form_id = $1
+                )
+            `, [id]);
+
+            // 2. Respostas
+            await client.query('DELETE FROM form_responses WHERE form_id = $1', [id]);
+
+            // 3. Atribuições
+            await client.query('DELETE FROM form_assignments WHERE form_id = $1', [id]);
+
+            // 4. Campos (agora sem dependentes)
+            await client.query('DELETE FROM form_fields WHERE form_id = $1', [id]);
+
+            // 5. Formulário
+            await client.query('DELETE FROM forms WHERE id = $1', [id]);
+
+            await client.query('COMMIT');
         } catch (e) {
+            await client.query('ROLLBACK');
             console.error(e);
             return fail(500, { error: 'Erro ao excluir formulário' });
+        } finally {
+            client.release();
         }
 
         return { success: true };

@@ -99,18 +99,18 @@ export const actions: Actions = {
             // Pegamos todos os IDs que vieram do front (apenas os numéricos são existentes)
             const incomingIds = fields
                 .map(f => f.id)
-                .filter(id => typeof id === 'number');
+                .filter((id): id is number => typeof id === 'number');
 
-            // Se a lista estiver vazia, passamos [0] para o SQL não quebrar com IN ()
+            // Usando ANY($2) com array parametrizado para evitar SQL injection
             const safeIds = incomingIds.length > 0 ? incomingIds : [0];
 
             await client.query(`
-                UPDATE form_fields 
+                UPDATE form_fields
                 SET is_deleted = TRUE, deleted_at = NOW()
-                WHERE form_id = $1 
-                AND id NOT IN (${safeIds.join(',')})
+                WHERE form_id = $1
+                AND id != ALL($2::int[])
                 AND is_deleted = FALSE
-            `, [formId]);
+            `, [formId, safeIds]);
 
             // 3. Upsert (Insert ou Update) dos Campos
             // Mapa para traduzir IDs (Temp/Real -> Real)

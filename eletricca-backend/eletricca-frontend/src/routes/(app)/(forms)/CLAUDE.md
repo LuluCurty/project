@@ -139,3 +139,6 @@ WHERE f.response_id = $1;
         │       └── +page.server.ts
         │
         └── +layout.server.ts     # Guard - só managers/admins
+
+
+# Security, Authentication and Logging

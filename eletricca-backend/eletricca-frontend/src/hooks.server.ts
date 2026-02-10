@@ -1,6 +1,7 @@
 // src/hooks.server.ts
 import { type HandleFetch, type Handle, redirect } from '@sveltejs/kit';
-import { jwtDecode } from 'jwt-decode';
+import { JWT_SECRET } from '$env/static/private';
+import jwt from 'jsonwebtoken';
 
 interface userData {
     user_id: number;
@@ -12,9 +13,9 @@ interface userData {
     role_id: number;
     iat: number;
     exp: number;
-} 
+}
 
-// Pega as requisições inbound 
+// Pega as requisições inbound
 export const handle: Handle = async ({ event, resolve }) => {
     const token = event.cookies.get('token');
     const publicRoutes = ['/login', '/logout', 'auth'];
@@ -29,26 +30,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 
     if (token) {
         try {
-            const decoded: userData = jwtDecode(token);
-            const currentTime = Date.now() / 1000;
-            if (decoded.exp === undefined) {
-                event.cookies.delete('token', { path: '/' });
-                throw redirect(303, '/login');
-            }
-            // const d = new Date(decoded.exp*1000).toLocaleString('pt-BR');
-
-            if (decoded.exp < currentTime) {
-
-                event.cookies.delete('token', { path: '/' });
-
-                if (!isPublicRoute) {
-                    throw redirect(303, '/login');
-                }
-            }
+            // jwt.verify valida assinatura E expiração automaticamente
+            const decoded = jwt.verify(token, JWT_SECRET) as userData;
             event.locals.user = decoded;
 
         } catch (error) {
-            console.error(error);
+            // Token inválido, expirado ou assinatura incorreta
             event.cookies.delete('token', { path: '/' });
             if (!isPublicRoute) {
                 throw redirect(303, '/login');
@@ -75,4 +62,3 @@ export const handleFetch: HandleFetch = async ({ request, fetch, event }) => {
 
     return fetch(request);
 };
-

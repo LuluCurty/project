@@ -56,15 +56,28 @@
         }
     }
 
-    // Verifica se a rota está ativa
+    // Verifica se a rota está ativa (para itens de link simples)
     function isActive(href: string) {
         if (href === '/') return page.url.pathname === '/';
-        return page.url.pathname.startsWith(href);
+        return page.url.pathname === href || page.url.pathname.startsWith(href + '/');
     }
 
-    // Verifica se algum filho do dropdown está ativo para manter o menu aberto ou pintado
-    function isParentActive(children: any[] | undefined) {
-        return children?.some(c => isActive(c.href));
+    // Para dropdown: retorna o href do filho mais específico que bate com a URL
+    // Isso evita que múltiplos filhos fiquem "ativos" ao mesmo tempo
+    function getActiveChildHref(children: any[] | undefined): string | null {
+        if (!children) return null;
+        const pathname = page.url.pathname;
+        let best: string | null = null;
+        let bestLen = 0;
+        for (const child of children) {
+            if (pathname === child.href || pathname.startsWith(child.href + '/')) {
+                if (child.href.length > bestLen) {
+                    bestLen = child.href.length;
+                    best = child.href;
+                }
+            }
+        }
+        return best;
     }
 </script>
 
@@ -102,11 +115,12 @@
 
         {#each menus as item}
             {#if item.type === 'dropdown'}
+                {@const activeChildHref = getActiveChildHref(item.children)}
                 <div>
                     <button
                         onclick={() => toggleMenu(item.title)}
                         class="group flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors
-                        {isParentActive(item.children) ? 'text-primary' : 'text-muted-foreground hover:bg-muted hover:text-primary'}
+                        {activeChildHref ? 'text-primary' : 'text-muted-foreground hover:bg-muted hover:text-primary'}
                         "
                     >
                         <div class="flex items-center gap-3">
@@ -115,24 +129,24 @@
                                 <span>{item.title}</span>
                             {/if}
                         </div>
-                        
+
                         {#if !layoutState.collapsed}
-                            <ChevronRight 
-                                size={14} 
-                                class="transition-transform duration-200 {openMenus[item.title] || isParentActive(item.children) ? 'rotate-90' : ''}" 
+                            <ChevronRight
+                                size={14}
+                                class="transition-transform duration-200 {openMenus[item.title] || activeChildHref ? 'rotate-90' : ''}"
                             />
                         {/if}
                     </button>
 
-                    {#if !layoutState.collapsed && (openMenus[item.title] || isParentActive(item.children))}
+                    {#if !layoutState.collapsed && (openMenus[item.title] || activeChildHref)}
                         <div transition:slide={{ duration: 200 }} class="ml-9 mt-1 flex flex-col space-y-1 border-l pl-2">
                             {#each item.children as sub}
                                 <a
                                     href={sub.href}
                                     onclick={handleLinkClick}
                                     class="block rounded-md px-3 py-1.5 text-sm transition-colors
-                                    {isActive(sub.href) 
-                                        ? 'bg-primary/10 text-primary font-semibold' 
+                                    {activeChildHref === sub.href
+                                        ? 'bg-primary/10 text-primary font-semibold'
                                         : 'text-muted-foreground hover:text-primary hover:bg-muted/50'}"
                                 >
                                     {sub.title}

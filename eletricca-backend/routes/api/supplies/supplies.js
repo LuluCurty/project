@@ -69,7 +69,7 @@ router.post('/', async (req, res) => {
     }
 })
 
-router.get('/', authorize('supplies', 'read'), async (req, res) => {
+router.get('/', async (req, res) => {
     try {
         // setup
         const { page = 1, limit = 20 } = req.query;
@@ -214,7 +214,7 @@ router.delete('/pricing/:id', async (req, res) => {
 
 const upload = multer({ dest: "uploads/" });
 
-router.post('/import', authorize("supplies", "create"), upload.single("file"), async (req, res) => {
+router.post('/import', upload.single("file"), async (req, res) => {
     console.log('Rota /import chamada');
     try {
         if (!req.file) {
@@ -285,7 +285,7 @@ router.post('/import', authorize("supplies", "create"), upload.single("file"), a
     }
 })
 
-router.get('/search', authorize('supplies', 'read'), async (req, res) => {
+router.get('/search', async (req, res) => {
     try {
         const q = req.query.q || '';
         const page = parseInt(req.query.page, 10) || 1;
@@ -327,7 +327,7 @@ router.get('/search', authorize('supplies', 'read'), async (req, res) => {
     }
 })
 
-router.get('/:id', authorize('supplies', 'read'), async (req, res) => {
+router.get('/:id', async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) {
         return res.status(400).json({ error: 'ID inválido (deve ser número inteiro)' });
@@ -374,7 +374,7 @@ router.get('/:id', authorize('supplies', 'read'), async (req, res) => {
     }
 });
 
-router.delete('/:id', authorize('supplies', 'delete'), async (req, res, next) => {
+router.delete('/:id', async (req, res, next) => {
     try {
         const id = parseInt(req.params.id, 10);
         const { rowCount } = await pool.query(`

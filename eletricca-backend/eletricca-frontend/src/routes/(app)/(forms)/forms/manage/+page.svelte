@@ -1,7 +1,7 @@
 <script lang="ts">
     import {
         Search, EllipsisVertical, Plus, FileText, Users, ChevronLeft, ChevronRight,
-        Loader2, Pencil, Trash, UserPlus, Eye, ToggleLeft, ToggleRight, ArrowLeft
+        Loader2, Pencil, Trash, UserPlus, Eye, ToggleLeft, ToggleRight, ArrowLeft, ClipboardList, BarChart3
     } from '@lucide/svelte';
     import { goto } from '$app/navigation';
     import { page } from '$app/state';
@@ -78,6 +78,12 @@
             </div>
         </div>
         <div class="flex w-full items-center gap-2 sm:w-auto">
+            <Button variant="outline" onclick={() => goto('/forms/manage/statistics')}>
+                <BarChart3 class="mr-2 size-4" /> Estatísticas
+            </Button>
+            <Button variant="outline" onclick={() => goto('/forms/manage/assignment')}>
+                <ClipboardList class="mr-2 size-4" /> Atribuições
+            </Button>
             <Button onclick={() => goto('/forms/manage/create')}>
                 <Plus class="mr-2 size-4" /> Novo Formulário
             </Button>
@@ -250,7 +256,7 @@
                                                     <UserPlus class="mr-2 size-4"/> Atribuir
                                                 </DropdownMenu.Item>
 
-                                                <DropdownMenu.Item onclick={() => goto(`/forms/${form.id}/responses`)}>
+                                                <DropdownMenu.Item onclick={() => goto(`/forms/manage/${form.id}/responses`)}>
                                                     <Eye class="mr-2 size-4"/> Ver Respostas
                                                 </DropdownMenu.Item>
 

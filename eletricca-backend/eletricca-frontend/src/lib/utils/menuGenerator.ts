@@ -34,7 +34,10 @@ const translations: Record<string, string> = {
     'new': 'Novo Cadastro',
     'history': 'Histórico',
     'suppliers': 'Fornecedores',
-    'categories': 'Categorias'
+    'categories': 'Categorias',
+    'view': 'Visualizar',
+    'edit': 'Editar',
+    'delete': 'Excluir'
 };
 
 // =========================================================
@@ -109,7 +112,10 @@ export function generateMenuFromRoutes() {
         // --- FILTROS ---
         if (segments.some(s =>
             blacklistedSegments.includes(s) ||
-            ['add', 'edit', 'new', 'create', 'update', 'delete', 'responses', 'response']
+            ['add', 'edit', 'new', 'create', 'update', 
+                'delete', 'responses', 'response', 'fill',
+                'view', 'assignment', 'statistics'
+            ]
             .includes(s) ||
             s.startsWith('[')
         )) {

@@ -110,7 +110,7 @@ export const actions: Actions = {
             }
 
             const newHash = await bcrypt.hash(newPassword, 10);
-            await client.query('UPDATE users SET password = $1 WHERE id = $2;', [newPassword, locals.user?.user_id]);
+            await client.query('UPDATE users SET password_hashed = $1 WHERE user_id = $2;', [newHash, locals.user?.user_id]);
 
             return {
                 type: 'password',
