@@ -13,20 +13,20 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
     try {
         const searchCondition = search
-            ? `AND (LOWER(t.title) LIKE $2 OR LOWER(t.description) LIKE $2)`
+            ? `AND (LOWER(t.title) LIKE $1 OR LOWER(t.description) LIKE $1)`
             : '';
         const searchParam = search ? `%${search.toLowerCase()}%` : null;
 
-        const baseParams = searchParam ? [user.user_id, searchParam] : [user.user_id];
+        const queryParams = searchParam ? [searchParam] : [];
 
         const [statsRes, tasksRes, countRes] = await Promise.all([
             pool.query(`
                 SELECT
-                    (SELECT COUNT(*) FROM tasks WHERE task_type = 'assigned' AND created_by = $1) as total,
-                    (SELECT COUNT(*) FROM tasks WHERE task_type = 'assigned' AND created_by = $1 AND status IN ('pending', 'in_progress')) as active,
-                    (SELECT COUNT(*) FROM tasks WHERE task_type = 'assigned' AND created_by = $1 AND status = 'completed') as completed,
-                    (SELECT COUNT(*) FROM task_assignments ta JOIN tasks t ON ta.task_id = t.id WHERE t.created_by = $1) as total_assignments
-            `, [user.user_id]),
+                    (SELECT COUNT(*) FROM tasks WHERE task_type = 'assigned') as total,
+                    (SELECT COUNT(*) FROM tasks WHERE task_type = 'assigned' AND status IN ('pending', 'in_progress')) as active,
+                    (SELECT COUNT(*) FROM tasks WHERE task_type = 'assigned' AND status = 'completed') as completed,
+                    (SELECT COUNT(*) FROM task_assignments) as total_assignments
+            `),
             pool.query(`
                 SELECT
                     t.id,
@@ -44,18 +44,16 @@ export const load: PageServerLoad = async ({ locals, url }) => {
                 LEFT JOIN task_categories tc ON t.category_id = tc.id
                 LEFT JOIN users u ON t.created_by = u.user_id
                 WHERE t.task_type = 'assigned'
-                  AND t.created_by = $1
                   ${searchCondition}
                 ORDER BY t.updated_at DESC
                 LIMIT ${limit} OFFSET ${offset}
-            `, baseParams),
+            `, queryParams),
             pool.query(`
                 SELECT COUNT(*) as total
                 FROM tasks t
                 WHERE t.task_type = 'assigned'
-                  AND t.created_by = $1
                   ${searchCondition}
-            `, baseParams)
+            `, queryParams)
         ]);
 
         const stats = {

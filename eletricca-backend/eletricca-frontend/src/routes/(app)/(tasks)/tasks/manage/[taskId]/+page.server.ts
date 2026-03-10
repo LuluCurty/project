@@ -19,6 +19,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
                     t.task_type,
                     t.category_id,
                     COALESCE(tc.name, '') as category_name,
+                    t.priority,
                     t.is_recurring,
                     t.recurrence_rule,
                     COALESCE(u.first_name || ' ' || u.last_name, '—') as created_by_name,
@@ -30,8 +31,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
                 LEFT JOIN users u ON t.created_by = u.user_id
                 WHERE t.id = $1
                   AND t.task_type = 'assigned'
-                  AND t.created_by = $2
-            `, [taskId, user.user_id]),
+            `, [taskId]),
             pool.query(`
                 SELECT id, title, description, step_order
                 FROM task_steps
@@ -75,6 +75,7 @@ export const actions: Actions = {
         const title = (formData.get('title') as string || '').trim();
         const description = (formData.get('description') as string || '').trim();
         const categoryId = formData.get('category_id') as string || null;
+        const priority = (formData.get('priority') as string || 'medium');
         const recurrenceRule = formData.get('recurrence_rule') as string || null;
         const stepsJson = formData.get('steps') as string || '[]';
 
@@ -93,14 +94,14 @@ export const actions: Actions = {
         try {
             await client.query('BEGIN');
 
-            // Verifica ownership
-            const ownerRes = await client.query(
-                `SELECT id FROM tasks WHERE id = $1 AND task_type = 'assigned' AND created_by = $2`,
-                [taskId, user.user_id]
+            // Verifica que a task existe
+            const taskCheck = await client.query(
+                `SELECT id FROM tasks WHERE id = $1 AND task_type = 'assigned'`,
+                [taskId]
             );
-            if (ownerRes.rows.length === 0) {
+            if (taskCheck.rows.length === 0) {
                 await client.query('ROLLBACK');
-                return fail(403, { error: 'Tarefa não encontrada.' });
+                return fail(404, { error: 'Tarefa não encontrada.' });
             }
 
             // Atualiza a task
@@ -109,14 +110,16 @@ export const actions: Actions = {
                     title = $1,
                     description = $2,
                     category_id = $3,
-                    is_recurring = $4,
-                    recurrence_rule = $5,
+                    priority = $4,
+                    is_recurring = $5,
+                    recurrence_rule = $6,
                     updated_at = NOW()
-                WHERE id = $6
+                WHERE id = $7
             `, [
                 title,
                 description || null,
                 categoryId ? Number(categoryId) : null,
+                priority,
                 !!recurrenceRule,
                 recurrenceRule || null,
                 taskId

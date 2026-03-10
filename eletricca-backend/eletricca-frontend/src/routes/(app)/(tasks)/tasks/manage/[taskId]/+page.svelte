@@ -21,6 +21,7 @@
     let title = $state(data.task.title);
     let description = $state(data.task.description || '');
     let categoryId = $state(String(data.task.category_id || ''));
+    let priority = $state(data.task.priority || 'medium');
     let recurrenceRule = $state(data.task.recurrence_rule || '');
 
     let steps = $state(data.task.steps.map((s: any) => ({
@@ -34,6 +35,11 @@
     // Re-sincroniza o estado local quando o load reexecuta após ação bem-sucedida
     $effect(() => {
         if (form?.success) {
+            title = data.task.title;
+            description = data.task.description || '';
+            categoryId = String(data.task.category_id || '');
+            priority = data.task.priority || 'medium';
+            recurrenceRule = data.task.recurrence_rule || '';
             steps = data.task.steps.map((s: any) => ({
                 id: s.id,
                 title: s.title,
@@ -84,6 +90,7 @@
     <input type="hidden" name="title" value={title} />
     <input type="hidden" name="description" value={description} />
     <input type="hidden" name="category_id" value={categoryId} />
+    <input type="hidden" name="priority" value={priority} />
     <input type="hidden" name="recurrence_rule" value={recurrenceRule} />
     <input type="hidden" name="steps" value={JSON.stringify(steps)} />
 
@@ -146,7 +153,21 @@
                     <Label>Descrição</Label>
                     <Textarea bind:value={description} rows={3} placeholder="Descreva o que precisa ser feito..." />
                 </div>
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div class="space-y-1.5">
+                        <Label>Prioridade</Label>
+                        <Select.Root type="single" value={priority} onValueChange={(v) => priority = v}>
+                            <Select.Trigger class="w-full">
+                                {priority === 'urgent' ? 'Urgente' : priority === 'high' ? 'Alta' : priority === 'medium' ? 'Média' : 'Baixa'}
+                            </Select.Trigger>
+                            <Select.Content>
+                                <Select.Item value="low">Baixa</Select.Item>
+                                <Select.Item value="medium">Média</Select.Item>
+                                <Select.Item value="high">Alta</Select.Item>
+                                <Select.Item value="urgent">Urgente</Select.Item>
+                            </Select.Content>
+                        </Select.Root>
+                    </div>
                     <div class="space-y-1.5">
                         <Label>Categoria</Label>
                         <Select.Root type="single" value={categoryId} onValueChange={(v) => categoryId = v}>
