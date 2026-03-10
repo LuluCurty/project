@@ -7,7 +7,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     if (!user) throw redirect(302, '/login');
 
     const search = url.searchParams.get('search') || '';
-    const page = Number(url.searchParams.get('page')) || 1;
+    const page = Math.max(1, Number(url.searchParams.get('page')) || 1);
     const limit = 12;
     const offset = (page - 1) * limit;
 
@@ -19,23 +19,18 @@ export const load: PageServerLoad = async ({ locals, url }) => {
                 fr.submitted_at,
                 fa.id as assignment_id,
                 fa.due_date,
-                fa.period_reference,
+                COALESCE(fa.period_reference, '') as period_reference,
                 fa.completed_at,
                 f.id as form_id,
                 f.title as form_title,
                 f.description as form_description,
-                u.first_name || ' ' || u.last_name as assigned_by_name,
-                (
-                    SELECT COUNT(*)
-                    FROM form_response_values frv
-                    WHERE frv.response_id = fr.id
-                ) as answers_count
+                COALESCE(u.first_name || ' ' || u.last_name, '—') as assigned_by_name
             FROM form_responses fr
-            JOIN form_assignments fa ON fr.assignment_id = fa.id
+            LEFT JOIN form_assignments fa ON fr.assignment_id = fa.id
             JOIN forms f ON fr.form_id = f.id
-            JOIN users u ON fa.assigned_by = u.user_id
+            LEFT JOIN users u ON fa.assigned_by = u.user_id
             WHERE fr.user_id = $1
-            AND (f.title ILIKE $2 OR f.description ILIKE $2 OR fa.period_reference ILIKE $2)
+            AND (f.title ILIKE $2 OR f.description ILIKE $2 OR COALESCE(fa.period_reference, '') ILIKE $2)
             ORDER BY fr.submitted_at DESC
             LIMIT $3 OFFSET $4
         `;
@@ -44,29 +39,27 @@ export const load: PageServerLoad = async ({ locals, url }) => {
         const countQuery = `
             SELECT COUNT(*) as total
             FROM form_responses fr
-            JOIN form_assignments fa ON fr.assignment_id = fa.id
+            LEFT JOIN form_assignments fa ON fr.assignment_id = fa.id
             JOIN forms f ON fr.form_id = f.id
             WHERE fr.user_id = $1
-            AND (f.title ILIKE $2 OR f.description ILIKE $2 OR fa.period_reference ILIKE $2)
+            AND (f.title ILIKE $2 OR f.description ILIKE $2 OR COALESCE(fa.period_reference, '') ILIKE $2)
         `;
 
-        // Estatísticas do usuário
-        const statsQuery = `
-            SELECT
-                (SELECT COUNT(*) FROM form_responses WHERE user_id = $1) as total_responses,
-                (SELECT COUNT(*) FROM form_assignments WHERE user_id = $1 AND is_completed = FALSE) as pending_forms,
-                (
-                    SELECT COUNT(DISTINCT form_id)
-                    FROM form_responses
-                    WHERE user_id = $1
-                ) as unique_forms
-            FROM (SELECT 1) as dummy
+        // Estatísticas do usuário (2 queries: uma para form_responses, outra para form_assignments)
+        const responseStatsQuery = `
+            SELECT COUNT(*) as total_responses, COUNT(DISTINCT form_id) as unique_forms
+            FROM form_responses WHERE user_id = $1
+        `;
+        const pendingStatsQuery = `
+            SELECT COUNT(*) as pending_forms
+            FROM form_assignments WHERE user_id = $1 AND is_completed = FALSE
         `;
 
-        const [responsesRes, countRes, statsRes] = await Promise.all([
+        const [responsesRes, countRes, responseStatsRes, pendingStatsRes] = await Promise.all([
             pool.query(responsesQuery, [user.user_id, `%${search}%`, limit, offset]),
             pool.query(countQuery, [user.user_id, `%${search}%`]),
-            pool.query(statsQuery, [user.user_id])
+            pool.query(responseStatsQuery, [user.user_id]),
+            pool.query(pendingStatsQuery, [user.user_id])
         ]);
 
         const totalItems = Number(countRes.rows[0].total);
@@ -80,9 +73,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
                 totalPages: Math.ceil(totalItems / limit)
             },
             stats: {
-                totalResponses: Number(statsRes.rows[0].total_responses),
-                pendingForms: Number(statsRes.rows[0].pending_forms),
-                uniqueForms: Number(statsRes.rows[0].unique_forms)
+                totalResponses: Number(responseStatsRes.rows[0].total_responses),
+                pendingForms: Number(pendingStatsRes.rows[0].pending_forms),
+                uniqueForms: Number(responseStatsRes.rows[0].unique_forms)
             },
             search
         };

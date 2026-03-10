@@ -17,7 +17,8 @@ export const load: PageServerLoad = async ({ locals, params}) => {
 
         const assignRes = await pool.query(`
                 SELECT
-                    fa.*, f.title, f.description, f.id as form_id
+                    fa.id, fa.form_id, fa.is_completed, fa.due_date, fa.period_reference,
+                    f.title, f.description
                 FROM form_assignments fa
                 JOIN forms f ON fa.form_id = f.id
                 WHERE fa.id = $1 AND fa.user_id = $2
@@ -35,7 +36,9 @@ export const load: PageServerLoad = async ({ locals, params}) => {
 
         // 2. buscar campos fields
         const fieldsRes = await pool.query(`
-            SELECT * FROM form_fields 
+            SELECT id, field_type, label, placeholder, options, is_required, field_order,
+                   condition_field_id, condition_operator, condition_value
+            FROM form_fields
             WHERE form_id = $1 AND is_deleted = FALSE
             ORDER BY field_order ASC
         ;`, [assignment.form_id]);
@@ -44,10 +47,11 @@ export const load: PageServerLoad = async ({ locals, params}) => {
             assignment,
             fields: fieldsRes.rows
         }
-    } catch (e) {
-        console.error(e as Error);
-        throw error(500, 'Erro ao carregar formulario');
-    } 
+    } catch (e: any) {
+        if (e.status || e.location) throw e; // Re-lançar error() e redirect() do SvelteKit
+        console.error('Erro ao carregar formulário:', e);
+        throw error(500, 'Erro ao carregar formulário');
+    }
 };
 
 export const actions: Actions = {
@@ -58,9 +62,13 @@ export const actions: Actions = {
         const assignmentId = Number(params.assignmentId);
         const formData = await request.formData();
         
-        // Recuperar o form_id escondido ou buscar no banco de novo (mais seguro buscar)
-        const assignCheck = await pool.query('SELECT form_id FROM form_assignments WHERE id=$1', [assignmentId]);
-        if(assignCheck.rowCount === 0) return fail(404);
+        // Verificar se a atribuição existe, pertence ao usuário e ainda não foi completada
+        const assignCheck = await pool.query(
+            'SELECT form_id, is_completed FROM form_assignments WHERE id = $1 AND user_id = $2',
+            [assignmentId, user.user_id]
+        );
+        if (assignCheck.rowCount === 0) return fail(404, { error: 'Atribuição não encontrada.' });
+        if (assignCheck.rows[0].is_completed) return fail(400, { error: 'Este formulário já foi respondido.' });
         const formId = assignCheck.rows[0].form_id;
 
         // Validação server-side: campos obrigatórios (respeitando lógica condicional)

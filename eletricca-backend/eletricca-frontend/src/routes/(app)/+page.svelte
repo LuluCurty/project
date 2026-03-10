@@ -1,132 +1,201 @@
 <script lang="ts">
 	import * as Table from '$lib/components/ui/table/index.js';
-	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
-	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import { Input } from '$lib/components/ui/input/';
+	import { Separator } from '$lib/components/ui/separator/';
+	import {
+		Phone,
+		Search,
+		ChartColumn as BarChart3,
+		Zap,
+		Construction,
+		CircleDot
+	} from '@lucide/svelte';
 
-	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import type { PageData } from './$types';
 
-	let isAuthenticated = $state(false);
+	let { data }: { data: PageData } = $props();
 
-	interface ApiResponse {
-		account: Extension[];
-		total_item: number;
-		total_page: number;
-		page: number;
-	}
-	interface Extension {
-		fullname: string;
-		extension: string;
-		addr: string;
-	}
+	// Busca de ramais
+	let searchQuery = $state('');
 
-	let extensions = $state<Extension[]>([]);
-	let apiResponse = $state<ApiResponse>();
-	async function getExtensions() {
-		try {
-			const res = await fetch(`/api/ucm/`, {
-				credentials: 'include'
-			});
+	let filteredExtensions = $derived(
+		data.extensions.filter((ext) => {
+			if (!searchQuery.trim()) return true;
+			const q = searchQuery.toLowerCase();
+			return (
+				ext.extension.toLowerCase().includes(q) ||
+				ext.fullname.toLowerCase().includes(q)
+			);
+		})
+	);
 
-			const { data } = await res.json();
-
-			if (data.status !== 0) {
-				throw new Error(data.message);
-			}
-
-			apiResponse = data.response;
-			if (apiResponse) {
-				extensions = apiResponse.account;
-			} else {
-				throw new Error('Data missing' + data.message);
-			}
-		} catch (e) {
-			console.error(e);
-		}
+	// Saudação baseada na hora
+	function getGreeting(): string {
+		const hour = new Date().getHours();
+		if (hour < 12) return 'Bom dia';
+		if (hour < 18) return 'Boa tarde';
+		return 'Boa noite';
 	}
 
-	async function authenticate() {
-		try {
-			const res = await fetch('/api/auth/check', {
-				credentials: 'include'
-			});
-
-			if (!res.ok) {
-				goto('/login');
-			}
-
-			const data = await res.json();
-			isAuthenticated = data.authenticated;
-
-			if (!isAuthenticated) {
-				goto('/login');
-			}
-
-			isAuthenticated = true;
-		} catch (e) {
-			console.error(e);
-		}
-		getExtensions();
+	function formatDate(): string {
+		return new Date().toLocaleDateString('pt-BR', {
+			weekday: 'long',
+			day: 'numeric',
+			month: 'long',
+			year: 'numeric'
+		});
 	}
 
-	onMount(authenticate);
+	const firstName = data.user?.first_name || 'Usuário';
 </script>
-<Tabs.Root value="ramais" class="w-full border-muted">
-	<Tabs.List
-		class="grid w-full grid-cols-3 rounded-lg border-b
-				border-primary/20 bg-muted/30 p-1 shadow-inner md:w-[500px]"
-	>
-		<Tabs.Trigger value="ramais">Ramais</Tabs.Trigger>
-		<Tabs.Trigger value="relatorios">Relatórios</Tabs.Trigger>
-		<Tabs.Trigger value="acesso-rapido">Acesso Rápido</Tabs.Trigger>
-	</Tabs.List>
 
-	<Tabs.Content value="ramais" class="mt-4 ">
-		<Card.Root class="border-none border-muted">
-			<Card.Header>
-				<Card.Title>Lista de Ramais</Card.Title>
-			</Card.Header>
+<div class="space-y-6">
+	<!-- Header -->
+	<div>
+		<h1 class="text-2xl font-bold tracking-tight text-primary sm:text-3xl">
+			{getGreeting()}, {firstName}
+		</h1>
+		<p class="mt-1 text-sm capitalize text-muted-foreground">
+			{formatDate()}
+		</p>
+	</div>
 
-			<Card.Content class="border-muted">
-				<div class="relative max-h-[500px] overflow-y-auto custom-scrollbar">
-					<Table.Root>
-						<Table.Caption>Dados dos ramais</Table.Caption>
-						<Table.Header class="border-b border-muted bg-card">
-							<Table.Row class="border-b border-muted">
-								<Table.Head class="w-[100px] text-primary">Ramal</Table.Head>
-								<Table.Head class="text-primary">Nome</Table.Head>
-								<Table.Head class="text-primary">Email</Table.Head>
-							</Table.Row>
-						</Table.Header>
-						<Table.Body>
-							{#each extensions as extension}
-								<Table.Row class="border-b border-muted transition-colors">
-									<Table.Cell class="font-semibold text-muted-foreground">{extension.extension}</Table.Cell>
-									<Table.Cell class="text-muted-foreground">{extension.fullname}</Table.Cell>
-									<Table.Cell class="text-sm text-muted-foreground">a@a</Table.Cell>
+	<!-- Grid principal -->
+	<div class="grid gap-6 lg:grid-cols-3">
+		<!-- Ramais (col-span-2) -->
+		<div class="lg:col-span-2">
+			<Card.Root>
+				<Card.Header>
+					<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+						<div class="flex items-center gap-2">
+							<Phone class="size-5 text-primary" />
+							<Card.Title class="text-lg">Ramais</Card.Title>
+							<Badge variant="secondary">{data.extensions.length}</Badge>
+						</div>
+						<div class="relative w-full sm:w-64">
+							<Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+							<Input
+								placeholder="Buscar ramal ou nome..."
+								bind:value={searchQuery}
+								class="h-9 pl-9"
+							/>
+						</div>
+					</div>
+				</Card.Header>
+				<Card.Content>
+					<div class="custom-scrollbar relative max-h-[500px] overflow-y-auto">
+						<Table.Root>
+							<Table.Header class="sticky top-0 z-10 border-b bg-card">
+								<Table.Row class="border-b border-muted">
+									<Table.Head class="w-24 text-primary">Ramal</Table.Head>
+									<Table.Head class="text-primary">Nome</Table.Head>
+									<Table.Head class="w-24 text-right text-primary">Status</Table.Head>
 								</Table.Row>
-							{/each}
-						</Table.Body>
-					</Table.Root>
-				</div>
-			</Card.Content>
-			<Card.Footer class="text-xs text-muted-foreground">
-				Ultima atualização: {new Date().toLocaleString()}
-			</Card.Footer>
-		</Card.Root>
-	</Tabs.Content>
+							</Table.Header>
+							<Table.Body>
+								{#each filteredExtensions as ext (ext.extension)}
+									{@const isOnline = ext.addr && ext.addr.trim() !== '' && ext.addr.trim() !== '-'}
+									<Table.Row class="border-b border-muted transition-colors hover:bg-muted/30">
+										<Table.Cell class="font-mono font-semibold text-foreground">
+											{ext.extension}
+										</Table.Cell>
+										<Table.Cell class="text-muted-foreground">
+											{ext.fullname || '—'}
+										</Table.Cell>
+										<Table.Cell class="text-right">
+											{#if isOnline}
+												<Badge variant="outline" class="gap-1 border-green-300 text-green-600">
+													<CircleDot class="size-3" />
+													Online
+												</Badge>
+											{:else}
+												<Badge variant="outline" class="gap-1 text-muted-foreground">
+													<CircleDot class="size-3" />
+													Offline
+												</Badge>
+											{/if}
+										</Table.Cell>
+									</Table.Row>
+								{:else}
+									<Table.Row>
+										<Table.Cell colspan={3} class="py-8 text-center text-muted-foreground">
+											{#if searchQuery}
+												Nenhum ramal encontrado para "{searchQuery}"
+											{:else}
+												Nenhum ramal disponível
+											{/if}
+										</Table.Cell>
+									</Table.Row>
+								{/each}
+							</Table.Body>
+						</Table.Root>
+					</div>
+				</Card.Content>
+				{#if filteredExtensions.length !== data.extensions.length}
+					<Card.Footer class="text-xs text-muted-foreground">
+						Mostrando {filteredExtensions.length} de {data.extensions.length} ramais
+					</Card.Footer>
+				{/if}
+			</Card.Root>
+		</div>
 
-	<Tabs.Content value="relatorios">Em criação</Tabs.Content>
+		<!-- Sidebar (col-span-1) -->
+		<div class="space-y-6">
+			<!-- Relatórios placeholder -->
+			<Card.Root>
+				<Card.Header>
+					<div class="flex items-center gap-2">
+						<BarChart3 class="size-5 text-primary" />
+						<Card.Title class="text-lg">Relatórios</Card.Title>
+					</div>
+				</Card.Header>
+				<Card.Content>
+					<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+						<Construction class="mb-3 size-10 text-muted-foreground/40" />
+						<p class="text-sm font-medium text-muted-foreground">Em breve</p>
+						<p class="mt-1 text-xs text-muted-foreground/70">
+							Relatórios e exportações estarão disponíveis aqui
+						</p>
+					</div>
+				</Card.Content>
+			</Card.Root>
 
-	<Tabs.Content value="acesso-rapido">Em criação 2</Tabs.Content>
-</Tabs.Root>
+			<!-- Acesso Rápido placeholder -->
+			<Card.Root>
+				<Card.Header>
+					<div class="flex items-center gap-2">
+						<Zap class="size-5 text-primary" />
+						<Card.Title class="text-lg">Acesso Rápido</Card.Title>
+					</div>
+				</Card.Header>
+				<Card.Content>
+					<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+						<Construction class="mb-3 size-10 text-muted-foreground/40" />
+						<p class="text-sm font-medium text-muted-foreground">Em breve</p>
+						<p class="mt-1 text-xs text-muted-foreground/70">
+							Atalhos e ações rápidas estarão disponíveis aqui
+						</p>
+					</div>
+				</Card.Content>
+			</Card.Root>
+		</div>
+	</div>
+</div>
 
 <style>
-    /* Estilização suave para scrollbar */
-    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.2); border-radius: 4px; }
-    .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.4); }
+	.custom-scrollbar::-webkit-scrollbar {
+		width: 4px;
+	}
+	.custom-scrollbar::-webkit-scrollbar-track {
+		background: transparent;
+	}
+	.custom-scrollbar::-webkit-scrollbar-thumb {
+		background: hsl(var(--muted-foreground) / 0.2);
+		border-radius: 4px;
+	}
+	.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+		background: hsl(var(--muted-foreground) / 0.4);
+	}
 </style>

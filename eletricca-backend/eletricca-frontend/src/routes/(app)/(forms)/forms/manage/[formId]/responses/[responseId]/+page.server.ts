@@ -30,12 +30,12 @@ export const load: PageServerLoad = async ({ locals, route, params }) => {
                 u.first_name,
                 u.last_name,
                 u.email,
-                assigner.first_name || ' ' || assigner.last_name as assigned_by_name
+                COALESCE(assigner.first_name || ' ' || assigner.last_name, '—') as assigned_by_name
             FROM form_responses fr
-            JOIN form_assignments fa ON fr.assignment_id = fa.id
+            LEFT JOIN form_assignments fa ON fr.assignment_id = fa.id
             JOIN forms f ON fr.form_id = f.id
             JOIN users u ON fr.user_id = u.user_id
-            JOIN users assigner ON fa.assigned_by = assigner.user_id
+            LEFT JOIN users assigner ON fa.assigned_by = assigner.user_id
             WHERE fr.id = $1 AND fr.form_id = $2
         `, [responseId, formId]);
 

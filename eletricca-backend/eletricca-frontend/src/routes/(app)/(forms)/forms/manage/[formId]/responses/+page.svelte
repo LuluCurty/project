@@ -13,8 +13,11 @@
 		Clock,
 		TrendingUp,
 		ListChecks,
-		Mail
+		Mail,
+		Trash2,
+		CircleAlert
 	} from 'lucide-svelte';
+	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
@@ -25,6 +28,7 @@
 	import * as Table from '$lib/components/ui/table';
 	import * as Pagination from '$lib/components/ui/pagination';
 	import * as Avatar from '$lib/components/ui/avatar';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 
 	import type { PageData } from './$types';
 
@@ -32,6 +36,17 @@
 
 	let searchValue = $state(data.search || '');
 	let searchTimeout: ReturnType<typeof setTimeout>;
+
+	let deleteDialogOpen = $state(false);
+	let responseToDelete = $state<{ id: number; userName: string } | null>(null);
+
+	function openDeleteDialog(response: any) {
+		responseToDelete = {
+			id: response.response_id,
+			userName: `${response.first_name} ${response.last_name}`
+		};
+		deleteDialogOpen = true;
+	}
 
 	function handleSearchInput(e: Event) {
 		const target = e.target as HTMLInputElement;
@@ -76,7 +91,7 @@
 				variant="ghost"
 				size="icon"
 				class="mt-0.5 shrink-0"
-				onclick={() => goto(`/forms/manage/${data.form.id}`)}
+				onclick={() => goto(`/forms/manage/`)}
 			>
 				<ArrowLeft class="size-5" />
 			</Button>
@@ -206,7 +221,7 @@
 								<Table.Head>Período</Table.Head>
 								<Table.Head>Enviado em</Table.Head>
 								<Table.Head>Atribuído por</Table.Head>
-								<Table.Head class="w-[100px]"></Table.Head>
+								<Table.Head class="w-[140px]"></Table.Head>
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
@@ -241,15 +256,35 @@
 										</div>
 									</Table.Cell>
 									<Table.Cell>
-										<span class="text-sm text-muted-foreground">
-											{response.assigned_by_name}
-										</span>
+										{#if response.assignment_id}
+											<span class="text-sm text-muted-foreground">
+												{response.assigned_by_name}
+											</span>
+										{:else}
+											<Badge variant="outline" class="border-amber-300 text-amber-600">
+												<CircleAlert class="mr-1 size-3" />
+												Atribuição removida
+											</Badge>
+										{/if}
 									</Table.Cell>
 									<Table.Cell>
-										<Button variant="ghost" size="sm">
-											<Eye class="mr-2 size-4" />
-											Ver
-										</Button>
+										<div class="flex items-center gap-1">
+											<Button variant="ghost" size="sm" onclick={() => goto(`/forms/manage/${data.form.id}/responses/${response.response_id}`)}>
+												<Eye class="mr-1 size-4" />
+												Ver
+											</Button>
+											<Button
+												variant="ghost"
+												size="icon"
+												class="size-8 text-destructive hover:text-destructive"
+												onclick={(e) => {
+													e.stopPropagation();
+													openDeleteDialog(response);
+												}}
+											>
+												<Trash2 class="size-4" />
+											</Button>
+										</div>
 									</Table.Cell>
 								</Table.Row>
 							{/each}
@@ -260,13 +295,13 @@
 				<!-- Mobile Cards -->
 				<div class="space-y-3 md:hidden">
 					{#each data.responses as response (response.response_id)}
-						<button
-							type="button"
-							class="w-full rounded-lg border bg-card p-4 text-left transition-all hover:border-primary/50 hover:shadow-sm"
-							onclick={() => goto(`/forms/manage/${data.form.id}/responses/${response.response_id}`)}
-						>
+						<div class="rounded-lg border bg-card p-4 transition-all hover:border-primary/50 hover:shadow-sm">
 							<div class="flex items-start justify-between gap-3">
-								<div class="flex items-center gap-3">
+								<button
+									type="button"
+									class="flex flex-1 items-center gap-3 text-left"
+									onclick={() => goto(`/forms/manage/${data.form.id}/responses/${response.response_id}`)}
+								>
 									<Avatar.Root class="size-10">
 										<Avatar.Fallback class="bg-primary/10 text-primary">
 											{getInitials(response.first_name, response.last_name)}
@@ -276,11 +311,28 @@
 										<p class="font-medium">{response.first_name} {response.last_name}</p>
 										<p class="text-xs text-muted-foreground">{response.email}</p>
 									</div>
+								</button>
+								<div class="flex items-center gap-2">
+									{#if !response.assignment_id}
+										<Badge variant="outline" class="shrink-0 border-amber-300 text-amber-600">
+											<CircleAlert class="mr-1 size-3" />
+											Órfã
+										</Badge>
+									{:else}
+										<Badge class="shrink-0 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+											<CircleCheck class="mr-1 size-3" />
+											Respondido
+										</Badge>
+									{/if}
+									<Button
+										variant="ghost"
+										size="icon"
+										class="size-8 text-destructive hover:text-destructive"
+										onclick={() => openDeleteDialog(response)}
+									>
+										<Trash2 class="size-4" />
+									</Button>
 								</div>
-								<Badge class="shrink-0 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-									<CircleCheck class="mr-1 size-3" />
-									Respondido
-								</Badge>
 							</div>
 
 							<div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
@@ -294,7 +346,7 @@
 									{formatDateTime(response.submitted_at)}
 								</div>
 							</div>
-						</button>
+						</div>
 					{/each}
 				</div>
 
@@ -357,3 +409,34 @@
 		</Card.Content>
 	</Card.Root>
 </div>
+
+<!-- Dialog: Excluir Resposta -->
+<AlertDialog.Root bind:open={deleteDialogOpen}>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>Excluir resposta?</AlertDialog.Title>
+			<AlertDialog.Description>
+				Você está prestes a excluir a resposta de <strong>{responseToDelete?.userName}</strong>.
+				Esta ação não pode ser desfeita.
+			</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<AlertDialog.Cancel>Cancelar</AlertDialog.Cancel>
+			<form
+				action="?/delete"
+				method="POST"
+				use:enhance={() => {
+					return async ({ result, update }) => {
+						if (result.type === 'success') {
+							deleteDialogOpen = false;
+							await update();
+						}
+					};
+				}}
+			>
+				<input type="hidden" name="responseId" value={responseToDelete?.id} />
+				<Button type="submit" variant="destructive">Excluir</Button>
+			</form>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>

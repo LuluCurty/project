@@ -1,7 +1,7 @@
-import { error } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
 import { guardAction } from '$lib/server/auth';
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals, route, params, url }) => {
     guardAction(route.id, locals.user, 'view');
@@ -26,6 +26,7 @@ export const load: PageServerLoad = async ({ locals, route, params, url }) => {
         }
 
         // 2. Buscar respostas com dados do usuário
+        // LEFT JOIN em assignments para mostrar respostas órfãs (atribuição deletada)
         const responsesQuery = `
             SELECT
                 fr.id as response_id,
@@ -38,22 +39,22 @@ export const load: PageServerLoad = async ({ locals, route, params, url }) => {
                 u.first_name,
                 u.last_name,
                 u.email,
-                assigner.first_name || ' ' || assigner.last_name as assigned_by_name,
+                COALESCE(assigner.first_name || ' ' || assigner.last_name, '—') as assigned_by_name,
                 (
                     SELECT COUNT(*)
                     FROM form_response_values frv
                     WHERE frv.response_id = fr.id
                 ) as answers_count
             FROM form_responses fr
-            JOIN form_assignments fa ON fr.assignment_id = fa.id
+            LEFT JOIN form_assignments fa ON fr.assignment_id = fa.id
             JOIN users u ON fr.user_id = u.user_id
-            JOIN users assigner ON fa.assigned_by = assigner.user_id
+            LEFT JOIN users assigner ON fa.assigned_by = assigner.user_id
             WHERE fr.form_id = $1
             AND (
                 u.first_name ILIKE $2
                 OR u.last_name ILIKE $2
                 OR u.email ILIKE $2
-                OR fa.period_reference ILIKE $2
+                OR COALESCE(fa.period_reference, '') ILIKE $2
             )
             ORDER BY fr.submitted_at DESC
             LIMIT $3 OFFSET $4
@@ -63,14 +64,14 @@ export const load: PageServerLoad = async ({ locals, route, params, url }) => {
         const countQuery = `
             SELECT COUNT(*) as total
             FROM form_responses fr
-            JOIN form_assignments fa ON fr.assignment_id = fa.id
+            LEFT JOIN form_assignments fa ON fr.assignment_id = fa.id
             JOIN users u ON fr.user_id = u.user_id
             WHERE fr.form_id = $1
             AND (
                 u.first_name ILIKE $2
                 OR u.last_name ILIKE $2
                 OR u.email ILIKE $2
-                OR fa.period_reference ILIKE $2
+                OR COALESCE(fa.period_reference, '') ILIKE $2
             )
         `;
 
@@ -117,5 +118,40 @@ export const load: PageServerLoad = async ({ locals, route, params, url }) => {
         if (e.status) throw e;
         console.error('Erro ao carregar respostas:', e);
         throw error(500, 'Erro ao carregar respostas');
+    }
+};
+
+export const actions: Actions = {
+    delete: async ({ request, locals, route }) => {
+        guardAction(route.id, locals.user, 'manage');
+
+        const data = await request.formData();
+        const responseId = Number(data.get('responseId'));
+
+        if (!responseId) return fail(400, { error: 'ID inválido' });
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // 1. Deletar arquivos da resposta
+            await client.query('DELETE FROM form_files WHERE response_id = $1', [responseId]);
+
+            // 2. Deletar valores da resposta
+            await client.query('DELETE FROM form_response_values WHERE response_id = $1', [responseId]);
+
+            // 3. Deletar a resposta
+            await client.query('DELETE FROM form_responses WHERE id = $1', [responseId]);
+
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            console.error(e);
+            return fail(500, { error: 'Erro ao excluir resposta' });
+        } finally {
+            client.release();
+        }
+
+        return { success: true };
     }
 };

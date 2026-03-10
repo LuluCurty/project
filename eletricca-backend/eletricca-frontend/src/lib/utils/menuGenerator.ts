@@ -1,7 +1,8 @@
 import {
     House, Users, FileUser, Container, Settings,
     Folder, Calculator, FileText, LayoutDashboard,
-    Briefcase, TableProperties, MessageCircleMore, Form // Exemplo de mais ícones
+    Briefcase, TableProperties, MessageCircleMore, Form ,
+    ListTodo// Exemplo de mais ícones
 } from '@lucide/svelte';
 
 // =========================================================
@@ -27,6 +28,7 @@ const translations: Record<string, string> = {
     'assigned': 'Atribuido',
     'assignment': 'Atribuição',
     'assignments': 'Atribuições',
+    'tasks': 'Tarefas',
     
 
     // Sub-rotas comuns
@@ -59,6 +61,7 @@ const iconMap: Record<string, any> = {
     'settings': Settings,
     'chat': MessageCircleMore,
     'formulários': Form,
+    'tarefas': ListTodo,
 };
 
 interface Menu {

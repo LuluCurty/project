@@ -1,8 +1,8 @@
 <script lang="ts">
     import {
-        Search, ArrowLeft, ChevronLeft, ChevronRight, Loader2,
-        Trash, Clock, CalendarClock, CheckCircle, AlertTriangle,
-        Users, ClipboardList, EllipsisVertical, CalendarDays, UserPlus, Filter
+        Search, ArrowLeft, ChevronLeft, ChevronRight, LoaderCircle as Loader2,
+        Trash, Clock, CalendarClock, CircleCheckBig as CheckCircle, TriangleAlert as AlertTriangle,
+        Users, ClipboardList, EllipsisVertical, CalendarDays, UserPlus, Funnel as Filter, Pencil
     } from '@lucide/svelte';
     import { goto } from '$app/navigation';
     import { page } from '$app/state';
@@ -317,6 +317,9 @@
                                                 {/if}
 
                                                 {#if !assignment.is_completed}
+                                                    <DropdownMenu.Item onclick={() => goto(`/forms/manage/assignment/edit/${assignment.id}`)}>
+                                                        <Pencil class="mr-2 size-4" /> Editar Atribuição
+                                                    </DropdownMenu.Item>
                                                     <DropdownMenu.Item onclick={() => openDueDateDialog(assignment)}>
                                                         <CalendarDays class="mr-2 size-4" />
                                                         {assignment.due_date ? 'Alterar Prazo' : 'Definir Prazo'}

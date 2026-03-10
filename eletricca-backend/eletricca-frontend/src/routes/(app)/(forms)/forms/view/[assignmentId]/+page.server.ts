@@ -56,15 +56,13 @@ export const load: PageServerLoad = async ({ locals, params }) => {
                 ff.condition_field_id,
                 ff.condition_operator,
                 ff.condition_value,
-                ff.is_deleted,
-                ff.created_at,
                 STRING_AGG(frv.value, ',' ORDER BY frv.id) as answer_value
             FROM form_fields ff
             LEFT JOIN form_response_values frv ON frv.field_id = ff.id AND frv.response_id = $1
             WHERE ff.form_id = $2 AND ff.is_deleted = FALSE
             GROUP BY ff.id, ff.form_id, ff.field_type, ff.label, ff.placeholder, ff.options,
                      ff.is_required, ff.field_order, ff.condition_field_id, ff.condition_operator,
-                     ff.condition_value, ff.is_deleted, ff.created_at
+                     ff.condition_value
             ORDER BY ff.field_order ASC
         `, [assignment.response_id, assignment.form_id]);
 
@@ -98,7 +96,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
         };
 
     } catch (e: any) {
-        if (e.status) throw e; // Re-throw SvelteKit errors
+        if (e.status || e.location) throw e; // Re-throw SvelteKit errors (HttpError e Redirect)
         console.error('Erro ao carregar resposta:', e);
         throw error(500, 'Erro ao carregar resposta');
     }

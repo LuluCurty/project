@@ -6,7 +6,9 @@ CREATE TABLE IF NOT EXISTS users (
     user_role           user_role_type NOT NULL DEFAULT 'clients',
     first_name          VARCHAR(30) NOT NULL,
     last_name           VARCHAR(30) NOT NULL,
-    creation_date       TIMESTAMP DEFAULT NOW()
+    creation_date       TIMESTAMP DEFAULT NOW(),
+    auth_source         VARCHAR(10),
+    role_id             INT REFERENCES roles(id)
 );
 
 CREATE TABLE IF NOT EXISTS services (
@@ -225,7 +227,7 @@ CREATE TABLE IF NOT EXISTS form_files(
 );
 
 -- =============================
--- INDEXES
+-- FORMS INDEXES
 -- =============================
 CREATE INDEX idx_form_fields_form ON form_fields(form_id);
 CREATE INDEX idx_assignments_user ON form_assignments(user_id);
@@ -234,8 +236,140 @@ CREATE INDEX idx_responses_form ON form_responses(form_id);
 CREATE INDEX idx_responses_user ON form_responses(user_id);
 CREATE INDEX idx_values_response ON form_response_values(response_id);
 CREATE INDEX idx_files_response ON form_files(response_id);
+CREATE INDEX idx_form_assignments_user_status ON form_assignments (user_id, is_completed);
+CREATE INDEX idx_form_responses_user_id ON form_responses (user_id);
 
+-- =============================
+-- TASK CATEGORIES
+-- =============================
+CREATE TABLE IF NOT EXISTS task_categories (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    created_at  TIMESTAMP DEFAULT NOW()
+);
 
+-- =============================
+-- TASKS (definição)
+-- =============================
+CREATE TABLE IF NOT EXISTS tasks (
+    id              SERIAL PRIMARY KEY,
+    title           VARCHAR(255) NOT NULL,
+    description     TEXT,
+    task_type       VARCHAR(20) NOT NULL DEFAULT 'personal'
+                    CHECK (task_type IN ('personal', 'assigned')),
+    category_id     INT REFERENCES task_categories(id) ON DELETE SET NULL,
+    created_by      INT NOT NULL REFERENCES users(user_id),
+    -- Campos usados APENAS por personal tasks
+    status          VARCHAR(20) DEFAULT 'pending'
+                    CHECK (status IN ('pending', 'in_progress', 'completed', 'cancelled')),
+    priority        VARCHAR(10) DEFAULT 'medium'
+                    CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+    due_date        TIMESTAMP,
+    completed_at    TIMESTAMP,
+    -- Recorrência (apenas assigned)
+    is_recurring        BOOLEAN DEFAULT FALSE,
+    recurrence_rule     VARCHAR(20)
+                        CHECK (recurrence_rule IN ('daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly')),
+    recurrence_end_date TIMESTAMP,
+    parent_task_id      INT REFERENCES tasks(id) ON DELETE SET NULL,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    updated_at      TIMESTAMP DEFAULT NOW()
+);
+
+-- =============================
+-- TASK STEPS (template, max 5 por task)
+-- =============================
+CREATE TABLE IF NOT EXISTS task_steps (
+    id          SERIAL PRIMARY KEY,
+    task_id     INT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    title       VARCHAR(255) NOT NULL,
+    description TEXT,
+    step_order  INT NOT NULL CHECK (step_order BETWEEN 1 AND 5),
+    -- Para personal tasks (sem assignment), progresso direto aqui
+    is_completed    BOOLEAN DEFAULT FALSE,
+    completed_at    TIMESTAMP,
+    created_at  TIMESTAMP DEFAULT NOW(),
+    UNIQUE (task_id, step_order)
+);
+
+-- =============================
+-- TASK ASSIGNMENTS (N usuários por task)
+-- =============================
+CREATE TABLE IF NOT EXISTS task_assignments (
+    id              SERIAL PRIMARY KEY,
+    task_id         INT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    user_id         INT NOT NULL REFERENCES users(user_id),
+    assigned_by     INT NOT NULL REFERENCES users(user_id),
+    status          VARCHAR(20) NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending', 'in_progress', 'completed', 'cancelled')),
+    priority        VARCHAR(10) NOT NULL DEFAULT 'medium'
+                    CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+    due_date        TIMESTAMP,
+    assigned_at     TIMESTAMP DEFAULT NOW(),
+    completed_at    TIMESTAMP,
+    UNIQUE (task_id, user_id)
+);
+
+-- =============================
+-- TASK STEP PROGRESS (progresso por assignment)
+-- =============================
+CREATE TABLE IF NOT EXISTS task_step_progress (
+    id              SERIAL PRIMARY KEY,
+    assignment_id   INT NOT NULL REFERENCES task_assignments(id) ON DELETE CASCADE,
+    step_id         INT NOT NULL REFERENCES task_steps(id) ON DELETE CASCADE,
+    is_completed    BOOLEAN DEFAULT FALSE,
+    completed_at    TIMESTAMP,
+    UNIQUE (assignment_id, step_id)
+);
+
+-- =============================
+-- TASK COMMENTS
+-- =============================
+CREATE TABLE IF NOT EXISTS task_comments (
+    id          SERIAL PRIMARY KEY,
+    task_id     INT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    user_id     INT NOT NULL REFERENCES users(user_id),
+    content     TEXT NOT NULL,
+    created_at  TIMESTAMP DEFAULT NOW()
+);
+
+-- =============================
+-- NOTIFICATIONS
+-- =============================
+CREATE TABLE IF NOT EXISTS notifications (
+    id              SERIAL PRIMARY KEY,
+    user_id         INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    title           VARCHAR(255) NOT NULL,
+    message         TEXT,
+    type            VARCHAR(30) NOT NULL DEFAULT 'info'
+                    CHECK (type IN ('info', 'task_assigned', 'task_completed', 'task_comment', 'system')),
+    reference_type  VARCHAR(30),    -- 'task', 'form', etc.
+    reference_id    INT,            -- ID do objeto referenciado
+    is_read         BOOLEAN DEFAULT FALSE,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+
+-- =============================
+-- TASKS INDEXES
+-- =============================
+CREATE INDEX idx_tasks_created_by ON tasks(created_by);
+CREATE INDEX idx_tasks_type ON tasks(task_type);
+CREATE INDEX idx_tasks_category ON tasks(category_id) WHERE category_id IS NOT NULL;
+CREATE INDEX idx_tasks_parent ON tasks(parent_task_id) WHERE parent_task_id IS NOT NULL;
+CREATE INDEX idx_task_steps_task ON task_steps(task_id);
+CREATE INDEX idx_task_assignments_task ON task_assignments(task_id);
+CREATE INDEX idx_task_assignments_user ON task_assignments(user_id);
+CREATE INDEX idx_task_assignments_status ON task_assignments(user_id, status);
+CREATE INDEX idx_task_step_progress_assignment ON task_step_progress(assignment_id);
+CREATE INDEX idx_task_comments_task ON task_comments(task_id);
+CREATE INDEX idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = FALSE;
+CREATE INDEX idx_notifications_user ON notifications(user_id);
+
+/* CREATE DATABASE eletricca;
+CREATE USER eletricca_user WITH PASSWORD "eletrO@8002";
+GRANT ALL PRIVILEGES ON DATABASE eletricca TO eletricca_user;
+ALTER DATABASE eletricca OWNER TO eletricca_user;  */
 
 
 INSERT INTO roles(name, description) VALUES 
@@ -253,7 +387,3 @@ INSERT INTO permissions (slug, description, module) VALUES
 
 INSERT INTO role_permissions (role_id, permissions_id) SELECT 1, id FROM permissions;
 
-/* CREATE DATABASE eletricca;
-CREATE USER eletricca_user WITH PASSWORD "eletrO@8002";
-GRANT ALL PRIVILEGES ON DATABASE eletricca TO eletricca_user;
-ALTER DATABASE eletricca OWNER TO eletricca_user;  */

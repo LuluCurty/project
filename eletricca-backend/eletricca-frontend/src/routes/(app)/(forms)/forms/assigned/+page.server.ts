@@ -7,16 +7,35 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     if (!user) throw redirect(302, '/login');
 
     // Filtro da URL: 'pending' (padrão) ou 'completed'
-    const statusFilter = url.searchParams.get('status') || 'pending';
+    let status = url.searchParams.get('status') || 'pending';
+    if (status !== 'pending' && status !== 'completed') {
+        status = 'pending';
+    }
     
+    const statusFilter = status;
     // Paginação simples
-    const page = Number(url.searchParams.get('page')) || 1;
+    const page = Math.max(1, Number(url.searchParams.get('page')) || 1);
     const limit = 12;
     const offset = (page - 1) * limit;
 
     try {
+        const conditions = ['fa.user_id = $1'];
+        const params: (string | number)[] = [user.user_id];
+
+        if (statusFilter === 'pending') {
+            conditions.push('fa.is_completed = FALSE');
+        } else if (statusFilter === 'completed') {
+            conditions.push('fa.is_completed = TRUE');
+        }
+
+        const whereClause = conditions.join(' AND ');
+
+        const orderBy = statusFilter === 'completed'
+            ? 'fa.completed_at DESC NULLS LAST'
+            : 'fa.due_date ASC NULLS LAST, fa.assigned_at DESC';
+
         const query = `
-            SELECT 
+            SELECT
                 fa.id as assignment_id,
                 fa.due_date,
                 fa.period_reference,
@@ -29,26 +48,20 @@ export const load: PageServerLoad = async ({ locals, url }) => {
             FROM form_assignments fa
             JOIN forms f ON fa.form_id = f.id
             JOIN users u ON fa.assigned_by = u.user_id
-            WHERE fa.user_id = $1
-            AND ($2 = 'all' OR ($2 = 'pending' AND fa.is_completed = FALSE) OR ($2 = 'completed' AND fa.is_completed = TRUE))
-            ORDER BY 
-                -- Se pendente, ordena por data de entrega (mais urgente primeiro)
-                -- Se concluído, ordena por data de conclusão (mais recente primeiro)
-                CASE WHEN fa.is_completed THEN fa.completed_at END DESC,
-                CASE WHEN NOT fa.is_completed THEN fa.due_date END ASC
-            LIMIT $3 OFFSET $4
+            WHERE ${whereClause}
+            ORDER BY ${orderBy}
+            LIMIT $${params.length + 1} OFFSET $${params.length + 2}
         `;
 
         const countQuery = `
-            SELECT COUNT(*) as total 
-            FROM form_assignments 
-            WHERE user_id = $1
-            AND ($2 = 'all' OR ($2 = 'pending' AND is_completed = FALSE) OR ($2 = 'completed' AND is_completed = TRUE))
+            SELECT COUNT(*) as total
+            FROM form_assignments fa
+            WHERE ${whereClause}
         `;
 
         const [listRes, countRes] = await Promise.all([
-            pool.query(query, [user.user_id, statusFilter, limit, offset]),
-            pool.query(countQuery, [user.user_id, statusFilter])
+            pool.query(query, [...params, limit, offset]),
+            pool.query(countQuery, params)
         ]);
 
         return {
@@ -64,6 +77,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
     } catch (e) {
         console.error(e);
-        return { assignments: [], pagination: { totalItems: 0, limit: 1, totalPages: 1 }, filter: 'pending' };
+        return { assignments: [], pagination: { totalItems: 0, page, limit: 1, totalPages: 1 }, filter: 'pending' };
     }
 };

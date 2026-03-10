@@ -1,8 +1,8 @@
-import 'dotenv/config.js';
+import 'dotenv/config';
 import jwt from 'jsonwebtoken';
 
 
-const jwtSecret = process.env.JWT_SECRET || 'dev_secret';
+const jwtSecret = process.env.JWT_SECRET;
 
 function generateToken(user, rememberMe) {
     const payload = {

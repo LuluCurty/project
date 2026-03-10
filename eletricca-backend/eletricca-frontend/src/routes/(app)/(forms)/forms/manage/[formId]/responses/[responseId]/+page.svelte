@@ -184,15 +184,27 @@
 								<p class="font-medium">{formatDateTime(response.submitted_at)}</p>
 							</div>
 						</div>
-						<div class="flex items-center gap-2">
-							<div class="rounded-lg bg-blue-500/10 p-2">
-								<User class="size-4 text-blue-600" />
+						{#if response.assignment_id}
+							<div class="flex items-center gap-2">
+								<div class="rounded-lg bg-blue-500/10 p-2">
+									<User class="size-4 text-blue-600" />
+								</div>
+								<div>
+									<p class="text-xs text-muted-foreground">Atribuído por</p>
+									<p class="font-medium">{response.assigned_by_name}</p>
+								</div>
 							</div>
-							<div>
-								<p class="text-xs text-muted-foreground">Atribuído por</p>
-								<p class="font-medium">{response.assigned_by_name}</p>
+						{:else}
+							<div class="flex items-center gap-2">
+								<div class="rounded-lg bg-amber-500/10 p-2">
+									<Clock class="size-4 text-amber-600" />
+								</div>
+								<div>
+									<p class="text-xs text-muted-foreground">Atribuição</p>
+									<p class="font-medium text-amber-600">Removida</p>
+								</div>
 							</div>
-						</div>
+						{/if}
 					</div>
 				</div>
 			</Card.Content>
