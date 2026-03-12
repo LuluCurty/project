@@ -274,7 +274,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     recurrence_end_date TIMESTAMP,
     parent_task_id      INT REFERENCES tasks(id) ON DELETE SET NULL,
     created_at      TIMESTAMP DEFAULT NOW(),
-    updated_at      TIMESTAMP DEFAULT NOW()
+    updated_at      TIMESTAMP DEFAULT NOW(),
+    deleted_at      TIMESTAMP DEFAULT NULL
 );
 
 -- =============================
@@ -306,8 +307,10 @@ CREATE TABLE IF NOT EXISTS task_assignments (
     priority        VARCHAR(10) NOT NULL DEFAULT 'medium'
                     CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
     due_date        TIMESTAMP,
+    available_from  TIMESTAMP,
     assigned_at     TIMESTAMP DEFAULT NOW(),
     completed_at    TIMESTAMP,
+    deleted_at      TIMESTAMP DEFAULT NULL,
     UNIQUE (task_id, user_id)
 );
 
@@ -349,6 +352,25 @@ CREATE TABLE IF NOT EXISTS notifications (
     is_read         BOOLEAN DEFAULT FALSE,
     created_at      TIMESTAMP DEFAULT NOW()
 );
+
+-- =============================
+-- TASK ASSIGNMENT HISTORY
+-- Records each completion cycle when a manager resets a completed assignment
+-- =============================
+CREATE TABLE IF NOT EXISTS task_assignment_history (
+    id              SERIAL PRIMARY KEY,
+    assignment_id   INT NOT NULL REFERENCES task_assignments(id) ON DELETE CASCADE,
+    cycle           INT NOT NULL,               -- 1st completion, 2nd, etc.
+    assigned_at     TIMESTAMP NOT NULL,
+    completed_at    TIMESTAMP NOT NULL,
+    reset_by        INT REFERENCES users(user_id),
+    reset_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+    -- JSONB snapshot of which steps were completed and when
+    -- [{step_id, title, step_order, completed_at}]
+    steps_snapshot  JSONB NOT NULL DEFAULT '[]',
+    UNIQUE (assignment_id, cycle)
+);
+CREATE INDEX idx_task_assignment_history_assignment ON task_assignment_history(assignment_id);
 
 -- =============================
 -- TASKS INDEXES

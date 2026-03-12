@@ -183,6 +183,19 @@ Claude will help me create new tables so I can organize my data
     is_read         BOOLEAN DEFAULT FALSE,
     created_at      TIMESTAMP DEFAULT NOW()
 );
+- TABLE task_assignment_history (
+    id              SERIAL PRIMARY KEY,
+    assignment_id   INT NOT NULL REFERENCES task_assignments(id) ON DELETE CASCADE,
+    cycle           INT NOT NULL,               -- 1st completion, 2nd, etc.
+    assigned_at     TIMESTAMP NOT NULL,
+    completed_at    TIMESTAMP NOT NULL,
+    reset_by        INT REFERENCES users(user_id),
+    reset_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+    -- JSONB snapshot of which steps were completed and when
+    -- [{step_id, title, step_order, completed_at}]
+    steps_snapshot  JSONB NOT NULL DEFAULT '[]',
+    UNIQUE (assignment_id, cycle)
+);
 - INDEXES
 - INDEX idx_tasks_created_by ON tasks(created_by);
 - INDEX idx_tasks_type ON tasks(task_type);
@@ -201,3 +214,12 @@ Claude will help me create new tables so I can organize my data
 task → task_steps (template dos passos)
 task → task_assignments (N usuários)
 task_assignment → task_step_progress (progresso individual por step)
+
+
+# Manage
+- all managers can view, add, update or delete tasks that should be here (like assigned tasks)
+
+# Assignments 
+- one user can have multiple tasks assigned to him
+- one user can have the same tasks assigned two or more times to him with different priorities
+- one user can have the same tasks assigned two or more times to him with different due dates

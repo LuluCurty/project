@@ -31,6 +31,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
                 LEFT JOIN users u ON t.created_by = u.user_id
                 WHERE t.id = $1
                   AND t.task_type = 'assigned'
+                  AND t.deleted_at IS NULL
             `, [taskId]),
             pool.query(`
                 SELECT id, title, description, step_order
@@ -96,7 +97,7 @@ export const actions: Actions = {
 
             // Verifica que a task existe
             const taskCheck = await client.query(
-                `SELECT id FROM tasks WHERE id = $1 AND task_type = 'assigned'`,
+                `SELECT id FROM tasks WHERE id = $1 AND task_type = 'assigned' AND deleted_at IS NULL`,
                 [taskId]
             );
             if (taskCheck.rows.length === 0) {

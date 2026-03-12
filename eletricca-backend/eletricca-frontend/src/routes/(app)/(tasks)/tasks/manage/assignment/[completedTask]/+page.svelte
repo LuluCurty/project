@@ -2,9 +2,10 @@
     import {
         ArrowLeft, Calendar, Tag, User, Mail,
         CircleCheck as CheckCircle2, Clock, CircleAlert as AlertCircle,
-        ClipboardList
+        ClipboardList, History, RefreshCw, Repeat
     } from '@lucide/svelte';
     import { goto } from '$app/navigation';
+    import { enhance } from '$app/forms';
 
     import * as Card from '$lib/components/ui/card';
     import { Button } from '$lib/components/ui/button';
@@ -17,6 +18,20 @@
 
     let assignment = $derived(data.assignment);
     let steps = $derived(data.steps);
+    let history = $derived(data.history ?? []);
+    let submittingReset = $state(false);
+
+    function recurrenceLabel(rule: string | null) {
+        switch (rule) {
+            case 'daily':     return 'Diária';
+            case 'weekly':    return 'Semanal';
+            case 'biweekly':  return 'Quinzenal';
+            case 'monthly':   return 'Mensal';
+            case 'quarterly': return 'Trimestral';
+            case 'yearly':    return 'Anual';
+            default: return rule ?? '';
+        }
+    }
 
     let completedCount = $derived(steps.filter((s: any) => s.is_completed).length);
     let progressPct = $derived(steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0);
@@ -78,6 +93,11 @@
                 <Badge class={priorityClass(assignment.priority)}>
                     {priorityLabel(assignment.priority)}
                 </Badge>
+                {#if assignment.is_recurring}
+                    <Badge class="bg-purple-100 text-purple-700 border-none text-xs">
+                        <Repeat class="mr-1 size-3" />{recurrenceLabel(assignment.recurrence_rule)}
+                    </Badge>
+                {/if}
                 {#if assignment.status === 'completed'}
                     <Badge class="bg-green-100 text-green-700 border-none">
                         <CheckCircle2 class="mr-1 size-3" /> Concluída
@@ -143,7 +163,7 @@
                 <div class="flex items-center gap-2 text-muted-foreground">
                     <ClipboardList class="size-4 shrink-0" />
                     <span>
-                        Atribuído: <span class="font-medium text-foreground">{formatDate(assignment.assigned_at)}</span>
+                        Atribuído: <span class="font-medium text-foreground">{formatDateTime(assignment.assigned_at)}</span>
                     </span>
                 </div>
             </div>
@@ -153,6 +173,20 @@
                     <CheckCircle2 class="size-4 shrink-0" />
                     Concluída em <span class="font-medium">{formatDateTime(assignment.completed_at)}</span>
                 </div>
+            {/if}
+
+            {#if assignment.is_recurring && assignment.status === 'completed'}
+                <form method="POST" action="/tasks/manage/assignment?/resetAssignment"
+                      use:enhance={() => {
+                          submittingReset = true;
+                          return async ({ update }) => { submittingReset = false; await update(); goto('/tasks/manage/assignment'); };
+                      }}>
+                    <input type="hidden" name="assignmentId" value={assignment.assignment_id} />
+                    <Button type="submit" class="w-full" disabled={submittingReset}>
+                        <RefreshCw class="mr-2 size-4 {submittingReset ? 'animate-spin' : ''}" />
+                        {submittingReset ? 'Reiniciando...' : 'Reiniciar Ciclo'}
+                    </Button>
+                </form>
             {/if}
 
             {#if steps.length > 0}
@@ -223,6 +257,64 @@
             <Card.Content class="flex flex-col items-center justify-center py-10 text-center">
                 <ClipboardList class="size-10 text-muted-foreground/40 mb-3" />
                 <p class="text-sm text-muted-foreground">Esta tarefa não tem etapas definidas.</p>
+            </Card.Content>
+        </Card.Root>
+    {/if}
+
+    <!-- Histórico de ciclos anteriores -->
+    {#if history.length > 0}
+        <Card.Root>
+            <Card.Header class="pb-2">
+                <Card.Title class="text-base flex items-center gap-2">
+                    <History class="size-4" />
+                    Histórico de Ciclos Anteriores
+                </Card.Title>
+                <Card.Description>Cada vez que a tarefa foi concluída e reatribuída</Card.Description>
+            </Card.Header>
+            <Card.Content class="p-0">
+                <div class="divide-y">
+                    {#each history as h (h.id)}
+                        <div class="px-5 py-4 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <Badge class="bg-purple-100 text-purple-700 border-none text-xs">
+                                        <RefreshCw class="size-2.5 mr-1" />
+                                        Ciclo {h.cycle}
+                                    </Badge>
+                                </div>
+                                <div class="text-xs text-muted-foreground text-right">
+                                    <span>Reatribuído por <span class="font-medium text-foreground">{h.reset_by_name ?? '—'}</span></span>
+                                    <p class="mt-0.5">{formatDateTime(h.reset_at)}</p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                                <div class="flex items-center gap-1.5">
+                                    <Calendar class="size-3 shrink-0" />
+                                    Atribuído: <span class="font-medium text-foreground">{formatDateTime(h.assigned_at)}</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <CheckCircle2 class="size-3 shrink-0 text-green-600" />
+                                    Concluído: <span class="font-medium text-green-700">{formatDateTime(h.completed_at)}</span>
+                                </div>
+                            </div>
+
+                            {#if h.steps_snapshot && h.steps_snapshot.length > 0}
+                                <div class="mt-1 space-y-1">
+                                    {#each h.steps_snapshot as s}
+                                        <div class="flex items-center gap-2 text-xs rounded-sm bg-muted/40 px-2.5 py-1.5">
+                                            <CheckCircle2 class="size-3 shrink-0 text-green-600" />
+                                            <span class="flex-1 min-w-0 truncate">{s.title}</span>
+                                            <span class="shrink-0 text-muted-foreground">{formatDateTime(s.completed_at)}</span>
+                                        </div>
+                                    {/each}
+                                </div>
+                            {:else}
+                                <p class="text-xs text-muted-foreground italic">Sem etapas registradas neste ciclo.</p>
+                            {/if}
+                        </div>
+                    {/each}
+                </div>
             </Card.Content>
         </Card.Root>
     {/if}

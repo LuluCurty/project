@@ -1,8 +1,8 @@
 <script lang="ts">
     import {
         Search, EllipsisVertical, Plus, ClipboardList, Users, ChevronLeft, ChevronRight,
-        Loader2, Pencil, Trash, UserPlus, Eye, ArrowLeft, BarChart3, ListChecks,
-        CircleCheck as CheckCircle2, Clock, CircleAlert as AlertCircle
+        Pencil, Trash, UserPlus, ArrowLeft, ChartBar, ListChecks, Archive, ArchiveRestore,
+        CircleCheck as CheckCircle2, Clock, TriangleAlert
     } from '@lucide/svelte';
     import { goto } from '$app/navigation';
     import { page } from '$app/state';
@@ -18,9 +18,9 @@
     import { buttonVariants } from '$lib/components/ui/button/index.js';
     import * as AlertDialog from '$lib/components/ui/alert-dialog';
 
-    import type { PageData } from './$types';
+    import type { PageData, ActionData } from './$types';
 
-    let { data }: { data: PageData } = $props();
+    let { data, form }: { data: PageData; form: ActionData } = $props();
 
     let tasks = $derived(data.tasks);
     let stats = $derived(data.stats);
@@ -51,8 +51,9 @@
 
     function formatDate(dateString: Date | string) {
         if (!dateString) return '-';
-        return new Date(dateString).toLocaleDateString('pt-br', {
-            day: '2-digit', month: '2-digit', year: 'numeric'
+        return new Date(dateString).toLocaleString('pt-BR', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
         });
     }
 
@@ -80,6 +81,16 @@
         taskToDelete = task;
         deleteDialogOpen = true;
     }
+
+    // Archived section state
+    let showArchived = $state(false);
+    let hardDeleteDialogOpen = $state(false);
+    let taskToHardDelete = $state<{ id: number; title: string } | null>(null);
+
+    function openHardDeleteDialog(task: { id: number; title: string }) {
+        taskToHardDelete = task;
+        hardDeleteDialogOpen = true;
+    }
 </script>
 
 <div class="space-y-4">
@@ -96,6 +107,9 @@
         <div class="flex w-full items-center gap-2 sm:w-auto">
             <Button variant="outline" onclick={() => goto('/tasks/manage/assignment')}>
                 <ListChecks class="mr-2 size-4" /> Atribuições
+            </Button>
+            <Button variant="outline" onclick={() => goto('/tasks/manage/stats')}>
+                <ChartBar class="mr-2 size-4" /> Estatísticas
             </Button>
             <Button onclick={() => goto('/tasks/manage/create')}>
                 <Plus class="mr-2 size-4" /> Nova Tarefa
@@ -333,25 +347,161 @@
             <AlertDialog.Title>Excluir tarefa?</AlertDialog.Title>
             <AlertDialog.Description>
                 Você está prestes a excluir a tarefa <strong>"{taskToDelete?.title}"</strong>.
-                Esta ação não pode ser desfeita. Todas as atribuições e progresso serão perdidos.
+                Esta ação não pode ser desfeita.
             </AlertDialog.Description>
         </AlertDialog.Header>
+        {#if form?.error}
+            <div class="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {form.error}
+            </div>
+        {/if}
         <AlertDialog.Footer>
             <AlertDialog.Cancel>Cancelar</AlertDialog.Cancel>
             <form
                 method="POST"
                 action="?/deleteTask"
                 use:enhance={() => {
-                    return async ({ update }) => {
-                        deleteDialogOpen = false;
-                        taskToDelete = null;
-                        await update();
+                    return async ({ result, update }) => {
+                        await update({ reset: false });
+                        if (result.type === 'success') {
+                            deleteDialogOpen = false;
+                            taskToDelete = null;
+                        }
                     };
                 }}
             >
                 <input type="hidden" name="taskId" value={taskToDelete?.id || ''} />
                 <Button type="submit" variant="destructive">
                     Excluir
+                </Button>
+            </form>
+        </AlertDialog.Footer>
+    </AlertDialog.Content>
+</AlertDialog.Root>
+
+<!-- Archived Tasks Section -->
+<div class="mt-6">
+    <button
+        type="button"
+        class="flex w-full items-center justify-between rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground hover:bg-muted/30 transition-colors"
+        onclick={() => showArchived = !showArchived}
+    >
+        <div class="flex items-center gap-2">
+            <Archive class="size-4" />
+            <span class="font-medium">Tarefas Arquivadas</span>
+            {#if data.deletedTasks.length > 0}
+                <span class="rounded-full bg-muted px-2 py-0.5 text-xs">{data.deletedTasks.length}</span>
+            {/if}
+        </div>
+        <span class="text-xs">{showArchived ? 'Ocultar' : 'Mostrar'}</span>
+    </button>
+
+    {#if showArchived}
+        <Card.Root class="mt-2 border-dashed">
+            <Card.Content class="pt-4">
+                {#if data.deletedTasks.length === 0}
+                    <p class="py-6 text-center text-sm text-muted-foreground">Nenhuma tarefa arquivada</p>
+                {:else}
+                    <div class="rounded-md border">
+                        <Table.Root>
+                            <Table.Header>
+                                <Table.Row class="bg-muted/30">
+                                    <Table.Head class="w-[50px]">ID</Table.Head>
+                                    <Table.Head>Título</Table.Head>
+                                    <Table.Head class="hidden md:table-cell">Criado por</Table.Head>
+                                    <Table.Head class="hidden sm:table-cell">Categoria</Table.Head>
+                                    <Table.Head class="hidden sm:table-cell">Atribuições</Table.Head>
+                                    <Table.Head class="hidden md:table-cell">Arquivado em</Table.Head>
+                                    <Table.Head class="text-right">Ações</Table.Head>
+                                </Table.Row>
+                            </Table.Header>
+                            <Table.Body>
+                                {#each data.deletedTasks as task (task.id)}
+                                    <Table.Row class="opacity-60 hover:opacity-100 transition-opacity">
+                                        <Table.Cell class="text-muted-foreground">#{task.id}</Table.Cell>
+                                        <Table.Cell>
+                                            <span class="font-medium line-through text-muted-foreground">{task.title}</span>
+                                        </Table.Cell>
+                                        <Table.Cell class="hidden md:table-cell text-muted-foreground text-sm">
+                                            {task.created_by_name}
+                                        </Table.Cell>
+                                        <Table.Cell class="hidden sm:table-cell text-muted-foreground text-sm">
+                                            {task.category_name || '-'}
+                                        </Table.Cell>
+                                        <Table.Cell class="hidden sm:table-cell">
+                                            <Badge variant="outline" class="text-xs border-muted">{task.assignment_count}</Badge>
+                                        </Table.Cell>
+                                        <Table.Cell class="hidden md:table-cell text-muted-foreground text-sm">
+                                            {formatDate(task.deleted_at)}
+                                        </Table.Cell>
+                                        <Table.Cell class="text-right">
+                                            <div class="flex items-center justify-end gap-1">
+                                                <form method="POST" action="?/restoreTask" use:enhance={() => async ({ update }) => { await update(); }}>
+                                                    <input type="hidden" name="taskId" value={task.id} />
+                                                    <Button type="submit" variant="ghost" size="sm" class="h-7 text-xs gap-1.5">
+                                                        <ArchiveRestore class="size-3.5" /> Restaurar
+                                                    </Button>
+                                                </form>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    class="h-7 text-xs gap-1.5 text-destructive hover:text-destructive"
+                                                    onclick={() => openHardDeleteDialog({ id: task.id, title: task.title })}
+                                                >
+                                                    <Trash class="size-3.5" /> Excluir
+                                                </Button>
+                                            </div>
+                                        </Table.Cell>
+                                    </Table.Row>
+                                {/each}
+                            </Table.Body>
+                        </Table.Root>
+                    </div>
+                    <p class="mt-2 text-xs text-muted-foreground flex items-center gap-1.5">
+                        <TriangleAlert class="size-3.5 shrink-0" />
+                        Excluir permanentemente remove todos os dados relacionados (etapas, atribuições, histórico).
+                    </p>
+                {/if}
+            </Card.Content>
+        </Card.Root>
+    {/if}
+</div>
+
+<!-- Hard Delete Confirmation Dialog -->
+<AlertDialog.Root bind:open={hardDeleteDialogOpen}>
+    <AlertDialog.Content>
+        <AlertDialog.Header>
+            <AlertDialog.Title>Excluir permanentemente?</AlertDialog.Title>
+            <AlertDialog.Description>
+                Você está prestes a excluir <strong>"{taskToHardDelete?.title}"</strong> permanentemente.
+                Todos os dados relacionados — etapas, atribuições e histórico de progresso — serão apagados para sempre.
+                Esta ação é irreversível.
+            </AlertDialog.Description>
+        </AlertDialog.Header>
+        {#if hardDeleteDialogOpen && (form as any)?.error}
+            <div class="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {form?.error}
+            </div>
+        {/if}
+        <AlertDialog.Footer>
+            <AlertDialog.Cancel>Cancelar</AlertDialog.Cancel>
+            <form
+                method="POST"
+                action="?/hardDeleteTask"
+                use:enhance={() => {
+                    return async ({ result, update }) => {
+                        await update({ reset: false });
+                        if (result.type === 'success') {
+                            hardDeleteDialogOpen = false;
+                            taskToHardDelete = null;
+                        }
+                    };
+                }}
+            >
+                <input type="hidden" name="taskId" value={taskToHardDelete?.id || ''} />
+                <Button type="submit" variant="destructive">
+                    Excluir Permanentemente
                 </Button>
             </form>
         </AlertDialog.Footer>

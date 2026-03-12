@@ -19,8 +19,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
             SELECT
                 (SELECT COUNT(*) FROM tasks WHERE task_type = 'personal' AND created_by = $1 AND status IN ('pending', 'in_progress')) as personal_active,
                 (SELECT COUNT(*) FROM tasks WHERE task_type = 'personal' AND created_by = $1 AND status = 'completed') as personal_completed,
-                (SELECT COUNT(*) FROM task_assignments WHERE user_id = $1 AND status IN ('pending', 'in_progress')) as assigned_pending,
-                (SELECT COUNT(*) FROM task_assignments WHERE user_id = $1 AND status = 'completed') as assigned_completed
+                (SELECT COUNT(*) FROM task_assignments WHERE user_id = $1 AND status IN ('pending', 'in_progress') AND deleted_at IS NULL) as assigned_pending,
+                (SELECT COUNT(*) FROM task_assignments WHERE user_id = $1 AND status = 'completed' AND deleted_at IS NULL) as assigned_completed
         `, [user.user_id]);
 
         const stats = {
@@ -106,6 +106,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
                 LEFT JOIN task_categories tc ON t.category_id = tc.id
                 LEFT JOIN users u ON ta.assigned_by = u.user_id
                 WHERE ta.user_id = $1
+                  AND ta.deleted_at IS NULL
                   ${statusCondition}
                 ORDER BY
                     CASE ta.priority
@@ -121,11 +122,47 @@ export const load: PageServerLoad = async ({ locals, url }) => {
                 SELECT COUNT(*) as total
                 FROM task_assignments ta
                 WHERE ta.user_id = $1
+                  AND ta.deleted_at IS NULL
                   ${statusCondition}
             `, [user.user_id])
         ]);
 
         const totalItems = Number(countRes.rows[0].total);
+
+        // Load history for completed assignments on this page
+        const assignmentIds = tasksRes.rows.map((r: any) => r.assignment_id);
+        let historyByAssignment: Record<number, any[]> = {};
+
+        if (assignmentIds.length > 0) {
+            const historyRes = await pool.query(`
+                SELECT
+                    h.assignment_id,
+                    h.cycle,
+                    h.assigned_at,
+                    h.completed_at,
+                    h.steps_snapshot
+                FROM task_assignment_history h
+                WHERE h.assignment_id = ANY($1)
+                ORDER BY h.assignment_id, h.cycle DESC
+            `, [assignmentIds]);
+
+            for (const h of historyRes.rows) {
+                if (!historyByAssignment[h.assignment_id]) historyByAssignment[h.assignment_id] = [];
+                historyByAssignment[h.assignment_id].push({
+                    ...h,
+                    assigned_at: h.assigned_at ? h.assigned_at.toISOString() : null,
+                    completed_at: h.completed_at ? h.completed_at.toISOString() : null
+                });
+            }
+        }
+
+        const assignedTasks = tasksRes.rows.map((r: any) => ({
+            ...r,
+            due_date: r.due_date ? r.due_date.toISOString() : null,
+            assigned_at: r.assigned_at ? r.assigned_at.toISOString() : null,
+            completed_at: r.completed_at ? r.completed_at.toISOString() : null,
+            history: historyByAssignment[r.assignment_id] ?? []
+        }));
 
         return {
             tab,
@@ -133,7 +170,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
             stats,
             categories: categoriesRes.rows,
             personalTasks: [],
-            assignedTasks: tasksRes.rows,
+            assignedTasks,
             pagination: {
                 page,
                 limit,

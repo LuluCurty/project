@@ -1,7 +1,7 @@
 <script lang="ts">
     import {
-        ArrowLeft, Search, Users, Save,
-        ChevronLeft, ChevronRight
+        ArrowLeft, Search, UserPlus, Save, Trash2,
+        ChevronLeft, ChevronRight, Users, RefreshCw
     } from '@lucide/svelte';
     import { goto } from '$app/navigation';
     import { page } from '$app/state';
@@ -22,18 +22,53 @@
 
     let { data, form }: { data: PageData; form: ActionData } = $props();
 
-    // Inicializa com TODOS os usuários já atribuídos (não só os da página atual)
-    let selectedUsers = $state<Set<number>>(new Set(data.assignedUserIds));
-    let priority = $state('medium');
-    let dueDate = $state('');
-    let submitting = $state(false);
+    type EditEntry = { priority: string; dueDate: string; availableFrom: string };
 
-    // Após salvar com sucesso, sincroniza seleção com o novo estado do DB
+    function buildEditMap(assignments: typeof data.assignments): Record<number, EditEntry> {
+        const m: Record<number, EditEntry> = {};
+        for (const a of assignments) {
+            m[a.id] = {
+                priority: a.priority,
+                dueDate: a.due_date ? (a.due_date as string).slice(0, 10) : '',
+                availableFrom: a.available_from ? (a.available_from as string).slice(0, 10) : ''
+            };
+        }
+        return m;
+    }
+
+    let editMap = $state(buildEditMap(data.assignments));
+    let selectedNewUsers = $state<Set<number>>(new Set());
+    let newUserConfig = $state<Record<number, EditEntry>>({});
+
     $effect(() => {
         if (form?.success) {
-            selectedUsers = new Set(data.assignedUserIds);
+            editMap = buildEditMap(data.assignments);
+            selectedNewUsers = new Set();
+            newUserConfig = {};
         }
     });
+
+    let updatesJson = $derived(
+        JSON.stringify(
+            data.assignments.map((a: any) => ({
+                id: a.id,
+                priority: editMap[a.id]?.priority ?? a.priority,
+                dueDate: editMap[a.id]?.dueDate ?? '',
+                availableFrom: editMap[a.id]?.availableFrom ?? ''
+            }))
+        )
+    );
+
+    let addJson = $derived(
+        JSON.stringify(
+            [...selectedNewUsers].map(userId => ({
+                userId,
+                priority: newUserConfig[userId]?.priority ?? 'medium',
+                dueDate: newUserConfig[userId]?.dueDate ?? '',
+                availableFrom: newUserConfig[userId]?.availableFrom ?? ''
+            }))
+        )
+    );
 
     let searchTimeout: ReturnType<typeof setTimeout>;
 
@@ -54,225 +89,448 @@
         goto(url.toString(), { keepFocus: true });
     }
 
-    function toggleUser(userId: number) {
-        const next = new Set(selectedUsers);
-        if (next.has(userId)) next.delete(userId);
-        else next.add(userId);
-        selectedUsers = next;
+    function toggleNewUser(userId: number) {
+        const nextSet = new Set(selectedNewUsers);
+        const nextConfig = { ...newUserConfig };
+        if (nextSet.has(userId)) {
+            nextSet.delete(userId);
+            delete nextConfig[userId];
+        } else {
+            nextSet.add(userId);
+            nextConfig[userId] = { priority: 'medium', dueDate: '', availableFrom: '' };
+        }
+        selectedNewUsers = nextSet;
+        newUserConfig = nextConfig;
     }
 
     function toggleAll() {
         const allIds = data.users.map((u: any) => u.user_id);
-        const allSelected = allIds.every((id: number) => selectedUsers.has(id));
-        const next = new Set(selectedUsers);
-        if (allSelected) allIds.forEach((id: number) => next.delete(id));
-        else allIds.forEach((id: number) => next.add(id));
-        selectedUsers = next;
+        const allSelected = allIds.every((id: number) => selectedNewUsers.has(id));
+        const nextSet = new Set(selectedNewUsers);
+        const nextConfig = { ...newUserConfig };
+        if (allSelected) {
+            allIds.forEach((id: number) => { nextSet.delete(id); delete nextConfig[id]; });
+        } else {
+            allIds.forEach((id: number) => {
+                if (!nextSet.has(id)) { nextSet.add(id); nextConfig[id] = { priority: 'medium', dueDate: '', availableFrom: '' }; }
+            });
+        }
+        selectedNewUsers = nextSet;
+        newUserConfig = nextConfig;
     }
 
     function priorityLabel(p: string) {
-        switch (p) {
-            case 'urgent': return 'Urgente';
-            case 'high': return 'Alta';
-            case 'medium': return 'Média';
-            case 'low': return 'Baixa';
-            default: return p;
-        }
+        return p === 'urgent' ? 'Urgente' : p === 'high' ? 'Alta' : p === 'medium' ? 'Média' : 'Baixa';
     }
 
+    function statusLabel(s: string) {
+        return s === 'completed' ? 'Concluído' : s === 'in_progress' ? 'Em Andamento' : s === 'cancelled' ? 'Cancelado' : 'Pendente';
+    }
+
+    let submittingUpdate = $state(false);
+    let submittingAdd = $state(false);
+
     let allVisibleSelected = $derived(
-        data.users.length > 0 && data.users.every((u: any) => selectedUsers.has(u.user_id))
+        data.users.length > 0 && data.users.every((u: any) => selectedNewUsers.has(u.user_id))
     );
 </script>
 
-<form
-    method="POST"
-    action="?/saveAssignments"
-    use:enhance={() => {
-        submitting = true;
-        return async ({ update }) => {
-            submitting = false;
-            await update();
-        };
-    }}
->
-    <!-- Hidden inputs -->
-    <input type="hidden" name="userIds" value={JSON.stringify([...selectedUsers])} />
-    <input type="hidden" name="priority" value={priority} />
-    <input type="hidden" name="due_date" value={dueDate} />
+{#each data.assignments as a (a.id)}
+    <form id="remove-{a.id}" method="POST" action="?/removeAssignment"
+          use:enhance={() => async ({ update }) => { await update(); }}>
+        <input type="hidden" name="assignmentId" value={a.id} />
+    </form>
+    <form id="reset-{a.id}" method="POST" action="?/resetAssignment"
+          use:enhance={() => async ({ update }) => { await update(); }}>
+        <input type="hidden" name="assignmentId" value={a.id} />
+    </form>
+{/each}
 
-    <div class="max-w-4xl mx-auto space-y-6 pb-20">
-        <!-- Header -->
-        <div class="flex items-center justify-between gap-4">
-            <div class="flex items-center gap-4">
-                <Button type="button" variant="ghost" size="icon" onclick={() => goto(`/tasks/manage/${data.task.id}`)}>
-                    <ArrowLeft class="size-5" />
-                </Button>
-                <div>
-                    <h2 class="text-2xl font-bold tracking-tight text-primary">Atribuir Tarefa</h2>
-                    <p class="text-muted-foreground">{data.task.title}</p>
-                </div>
-            </div>
-            <Button type="submit" disabled={submitting}>
-                <Save class="mr-2 size-4" /> Salvar
-            </Button>
+<div class="max-w-4xl mx-auto space-y-6 pb-20">
+    <div class="flex items-center gap-4">
+        <Button type="button" variant="ghost" size="icon" onclick={() => goto(`/tasks/manage/${data.task.id}`)}>
+            <ArrowLeft class="size-5" />
+        </Button>
+        <div>
+            <h2 class="text-2xl font-bold tracking-tight text-primary">Atribuições</h2>
+            <p class="text-muted-foreground">{data.task.title}</p>
         </div>
+    </div>
 
-        {#if form?.error}
-            <Alert.Root variant="destructive">
-                <Alert.Description>{form.error}</Alert.Description>
-            </Alert.Root>
-        {/if}
+    {#if form?.error}
+        <Alert.Root variant="destructive">
+            <Alert.Description>{form.error}</Alert.Description>
+        </Alert.Root>
+    {/if}
 
-        {#if form?.success}
-            <Alert.Root class="border-green-200 bg-green-50 text-green-800">
-                <Alert.Description>
-                    {form.count === 0
-                        ? 'Todas as atribuições foram removidas.'
-                        : `${form.count} usuário(s) atribuído(s) com sucesso!`}
-                </Alert.Description>
-            </Alert.Root>
-        {/if}
+    {#if form?.success}
+        <Alert.Root class="border-green-200 bg-green-50 text-green-800">
+            <Alert.Description>
+                {#if form.action === 'add'}
+                    {form.count} usuário(s) atribuído(s) com sucesso!
+                {:else if form.action === 'remove'}
+                    Atribuição removida. Histórico preservado no sistema.
+                {:else if form.action === 'reset'}
+                    Tarefa reatribuída. O progresso anterior foi limpo.
+                {:else}
+                    Alterações salvas com sucesso!
+                {/if}
+            </Alert.Description>
+        </Alert.Root>
+    {/if}
 
-        <div class="grid gap-6 lg:grid-cols-[280px_1fr]">
-            <!-- Config sidebar -->
-            <div class="space-y-4">
-                <Card.Root>
-                    <Card.Header class="pb-3">
-                        <Card.Title class="text-base">Configuração</Card.Title>
-                    </Card.Header>
-                    <Card.Content class="space-y-4">
-                        <div class="space-y-1.5">
-                            <Label>Prioridade</Label>
-                            <Select.Root type="single" value={priority} onValueChange={(v) => priority = v}>
-                                <Select.Trigger class="w-full">
-                                    {priorityLabel(priority)}
-                                </Select.Trigger>
-                                <Select.Content>
-                                    <Select.Item value="low">Baixa</Select.Item>
-                                    <Select.Item value="medium">Média</Select.Item>
-                                    <Select.Item value="high">Alta</Select.Item>
-                                    <Select.Item value="urgent">Urgente</Select.Item>
-                                </Select.Content>
-                            </Select.Root>
-                        </div>
-                        <div class="space-y-1.5">
-                            <Label>Prazo</Label>
-                            <Input type="date" bind:value={dueDate} />
-                        </div>
-                        <div class="rounded-md bg-muted/50 px-3 py-2 text-sm">
-                            <div class="flex items-center gap-2">
-                                <Users class="size-4 text-muted-foreground" />
-                                <span><strong>{selectedUsers.size}</strong> usuário(s) selecionado(s)</span>
-                            </div>
-                        </div>
-                    </Card.Content>
-                </Card.Root>
-            </div>
-
-            <!-- User table -->
-            <Card.Root>
-                <Card.Header class="pb-3">
-                    <Card.Title class="text-base">Selecionar Usuários</Card.Title>
-                    <div class="relative w-full max-w-sm mt-2">
-                        <Search class="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            type="search"
-                            placeholder="Buscar usuário..."
-                            class="w-full pl-9"
-                            oninput={handleSearchInput}
-                            defaultValue={page.url.searchParams.get('search') || ''}
-                        />
+    <!-- Section 1: Current Assignments -->
+    <form method="POST" action="?/updateAssignments"
+          use:enhance={() => {
+              submittingUpdate = true;
+              return async ({ update }) => { submittingUpdate = false; await update(); };
+          }}>
+        <input type="hidden" name="updates" value={updatesJson} />
+        <Card.Root>
+            <Card.Header class="pb-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <Card.Title class="text-base flex items-center gap-2">
+                            Atribuições Ativas
+                            {#if data.assignments.length > 0}
+                                <Badge variant="secondary">{data.assignments.length}</Badge>
+                            {/if}
+                        </Card.Title>
+                        <Card.Description>Edite prioridade e prazo de cada usuário individualmente.</Card.Description>
                     </div>
-                </Card.Header>
-
-                <Card.Content>
-                    <!-- Desktop table -->
-                    <div class="rounded-md border hidden sm:block">
+                    {#if data.assignments.length > 0}
+                        <Button type="submit" size="sm" disabled={submittingUpdate}>
+                            <Save class="mr-1.5 size-3.5" /> Salvar Alterações
+                        </Button>
+                    {/if}
+                </div>
+            </Card.Header>
+            <Card.Content>
+                {#if data.assignments.length === 0}
+                    <div class="flex flex-col items-center justify-center py-10 rounded-md border border-dashed text-center">
+                        <Users class="size-8 text-muted-foreground/50 mb-2" />
+                        <p class="text-sm text-muted-foreground">Nenhuma atribuição ativa</p>
+                        <p class="text-xs text-muted-foreground/70 mt-1">Use a seção abaixo para adicionar usuários</p>
+                    </div>
+                {:else}
+                    <div class="rounded-md border hidden sm:block overflow-x-auto">
                         <Table.Root>
                             <Table.Header>
                                 <Table.Row class="bg-muted/50">
-                                    <Table.Head class="w-[50px]">
-                                        <button type="button" class="flex items-center cursor-pointer" onclick={toggleAll}>
-                                            <Checkbox checked={allVisibleSelected} />
+                                    <Table.Head>Usuário</Table.Head>
+                                    <Table.Head class="w-[120px]">Status</Table.Head>
+                                    <Table.Head class="w-[140px]">Prioridade</Table.Head>
+                                    <Table.Head class="w-40">Disponível em</Table.Head>
+                                    <Table.Head class="w-40">Prazo</Table.Head>
+                                    <Table.Head class="w-[60px]"></Table.Head>
+                                </Table.Row>
+                            </Table.Header>
+                            <Table.Body>
+                                {#each data.assignments as a (a.id)}
+                                    <Table.Row>
+                                        <Table.Cell>
+                                            <p class="font-medium text-sm">{a.first_name} {a.last_name}</p>
+                                            <p class="text-xs text-muted-foreground">{a.email}</p>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Badge
+                                                variant={a.status === 'in_progress' ? 'secondary' : 'outline'}
+                                                class={a.status === 'completed' ? 'bg-green-100 text-green-700 border-none' : ''}
+                                            >{statusLabel(a.status)}</Badge>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Select.Root type="single"
+                                                value={editMap[a.id]?.priority ?? a.priority}
+                                                onValueChange={(v) => { editMap = { ...editMap, [a.id]: { ...editMap[a.id], priority: v } }; }}>
+                                                <Select.Trigger class="h-8 w-full text-xs">
+                                                    {priorityLabel(editMap[a.id]?.priority ?? a.priority)}
+                                                </Select.Trigger>
+                                                <Select.Content>
+                                                    <Select.Item value="low">Baixa</Select.Item>
+                                                    <Select.Item value="medium">Média</Select.Item>
+                                                    <Select.Item value="high">Alta</Select.Item>
+                                                    <Select.Item value="urgent">Urgente</Select.Item>
+                                                </Select.Content>
+                                            </Select.Root>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Input type="date" class="h-8 text-xs"
+                                                   value={editMap[a.id]?.availableFrom ?? ''}
+                                                   oninput={(e) => { editMap = { ...editMap, [a.id]: { ...editMap[a.id], availableFrom: (e.target as HTMLInputElement).value } }; }} />
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Input type="date" class="h-8 text-xs"
+                                                   value={editMap[a.id]?.dueDate ?? ''}
+                                                   oninput={(e) => { editMap = { ...editMap, [a.id]: { ...editMap[a.id], dueDate: (e.target as HTMLInputElement).value } }; }} />
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <div class="flex items-center gap-0.5">
+                                                {#if a.status === 'completed'}
+                                                    <button type="submit" form="reset-{a.id}"
+                                                            class="inline-flex items-center justify-center size-7 rounded text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                                            title="Reatribuir (limpa progresso e volta para pendente)">
+                                                        <RefreshCw class="size-3.5" />
+                                                    </button>
+                                                {/if}
+                                                <button type="submit" form="remove-{a.id}"
+                                                        class="inline-flex items-center justify-center size-7 rounded text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+                                                        title="Remover atribuição (histórico preservado)">
+                                                    <Trash2 class="size-3.5" />
+                                                </button>
+                                            </div>
+                                        </Table.Cell>
+                                    </Table.Row>
+                                {/each}
+                            </Table.Body>
+                        </Table.Root>
+                    </div>
+                    <div class="space-y-3 sm:hidden">
+                        {#each data.assignments as a (a.id)}
+                            <div class="rounded-md border p-3 space-y-3">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div>
+                                        <p class="font-medium text-sm">{a.first_name} {a.last_name}</p>
+                                        <p class="text-xs text-muted-foreground">{a.email}</p>
+                                    </div>
+                                    <div class="flex items-center gap-1 shrink-0">
+                                        <Badge variant={a.status === 'in_progress' ? 'secondary' : 'outline'}
+                                               class="text-xs {a.status === 'completed' ? 'bg-green-100 text-green-700 border-none' : ''}">
+                                            {statusLabel(a.status)}
+                                        </Badge>
+                                        {#if a.status === 'completed'}
+                                            <button type="submit" form="reset-{a.id}"
+                                                    class="inline-flex items-center justify-center size-7 rounded text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                                    title="Reatribuir">
+                                                <RefreshCw class="size-3.5" />
+                                            </button>
+                                        {/if}
+                                        <button type="submit" form="remove-{a.id}"
+                                                class="inline-flex items-center justify-center size-7 rounded text-muted-foreground hover:text-red-600 transition-colors">
+                                            <Trash2 class="size-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="space-y-1">
+                                        <Label class="text-xs">Prioridade</Label>
+                                        <Select.Root type="single"
+                                            value={editMap[a.id]?.priority ?? a.priority}
+                                            onValueChange={(v) => { editMap = { ...editMap, [a.id]: { ...editMap[a.id], priority: v } }; }}>
+                                            <Select.Trigger class="h-8 w-full text-xs">
+                                                {priorityLabel(editMap[a.id]?.priority ?? a.priority)}
+                                            </Select.Trigger>
+                                            <Select.Content>
+                                                <Select.Item value="low">Baixa</Select.Item>
+                                                <Select.Item value="medium">Média</Select.Item>
+                                                <Select.Item value="high">Alta</Select.Item>
+                                                <Select.Item value="urgent">Urgente</Select.Item>
+                                            </Select.Content>
+                                        </Select.Root>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <Label class="text-xs">Disponível em</Label>
+                                        <Input type="date" class="h-8 text-xs"
+                                               value={editMap[a.id]?.availableFrom ?? ''}
+                                               oninput={(e) => { editMap = { ...editMap, [a.id]: { ...editMap[a.id], availableFrom: (e.target as HTMLInputElement).value } }; }} />
+                                    </div>
+                                    <div class="space-y-1 col-span-2">
+                                        <Label class="text-xs">Prazo</Label>
+                                        <Input type="date" class="h-8 text-xs"
+                                               value={editMap[a.id]?.dueDate ?? ''}
+                                               oninput={(e) => { editMap = { ...editMap, [a.id]: { ...editMap[a.id], dueDate: (e.target as HTMLInputElement).value } }; }} />
+                                    </div>
+                                </div>
+                            </div>
+                        {/each}
+                    </div>
+                    <p class="mt-3 text-xs text-muted-foreground">
+                        Remover uma atribuição não apaga o histórico — ele fica arquivado para consulta futura.
+                    </p>
+                {/if}
+            </Card.Content>
+        </Card.Root>
+    </form>
+
+    <!-- Section 2: Add New Users -->
+    <form method="POST" action="?/addAssignments"
+          use:enhance={() => {
+              submittingAdd = true;
+              return async ({ update }) => { submittingAdd = false; await update(); };
+          }}>
+        <input type="hidden" name="newAssignments" value={addJson} />
+        <Card.Root>
+            <Card.Header class="pb-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <Card.Title class="text-base flex items-center gap-2">
+                            Adicionar Usuários
+                            {#if selectedNewUsers.size > 0}
+                                <Badge variant="secondary">{selectedNewUsers.size} selecionado(s)</Badge>
+                            {/if}
+                        </Card.Title>
+                        <Card.Description>Configure prioridade e prazo individualmente antes de atribuir.</Card.Description>
+                    </div>
+                    <Button type="submit" size="sm" disabled={submittingAdd || selectedNewUsers.size === 0}>
+                        <UserPlus class="mr-1.5 size-3.5" /> Atribuir Selecionados
+                    </Button>
+                </div>
+                <div class="relative w-full max-w-sm mt-2">
+                    <Search class="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input type="search" placeholder="Buscar usuário..." class="w-full pl-9"
+                           oninput={handleSearchInput}
+                           defaultValue={page.url.searchParams.get('search') || ''} />
+                </div>
+            </Card.Header>
+            <Card.Content>
+                {#if data.users.length === 0}
+                    <div class="flex flex-col items-center justify-center py-8 rounded-md border border-dashed text-center">
+                        <p class="text-sm text-muted-foreground">
+                            {page.url.searchParams.get('search')
+                                ? 'Nenhum usuário encontrado'
+                                : 'Todos os usuários já estão atribuídos a esta tarefa'}
+                        </p>
+                    </div>
+                {:else}
+                    <div class="rounded-md border hidden sm:block overflow-x-auto">
+                        <Table.Root>
+                            <Table.Header>
+                                <Table.Row class="bg-muted/50">
+                                    <Table.Head class="w-11">
+                                        <button type="button" class="flex items-center" onclick={toggleAll}>
+                                            <Checkbox checked={allVisibleSelected} tabindex={-1} />
                                         </button>
                                     </Table.Head>
                                     <Table.Head>Nome</Table.Head>
                                     <Table.Head class="hidden md:table-cell">Email</Table.Head>
                                     <Table.Head>Cargo</Table.Head>
-                                    <Table.Head class="text-center">Status</Table.Head>
+                                    <Table.Head class="w-[140px]">Prioridade</Table.Head>
+                                    <Table.Head class="w-40">Disponível em</Table.Head>
+                                    <Table.Head class="w-40">Prazo</Table.Head>
                                 </Table.Row>
                             </Table.Header>
                             <Table.Body>
-                                {#if data.users.length === 0}
-                                    <Table.Row>
-                                        <Table.Cell colspan={5} class="h-20 text-center text-muted-foreground">
-                                            Nenhum usuário encontrado
+                                {#each data.users as u (u.user_id)}
+                                    {@const isSelected = selectedNewUsers.has(u.user_id)}
+                                    <Table.Row
+                                        class="cursor-pointer {isSelected ? 'bg-primary/5' : 'hover:bg-muted/50'}"
+                                        onclick={() => toggleNewUser(u.user_id)}>
+                                        <Table.Cell>
+                                            <Checkbox checked={isSelected} tabindex={-1} />
+                                        </Table.Cell>
+                                        <Table.Cell class="font-medium text-sm">{u.first_name} {u.last_name}</Table.Cell>
+                                        <Table.Cell class="text-muted-foreground text-sm hidden md:table-cell">{u.email}</Table.Cell>
+                                        <Table.Cell>
+                                            <Badge variant="outline" class="text-xs">{u.role_name}</Badge>
+                                        </Table.Cell>
+                                        <Table.Cell onclick={(e) => e.stopPropagation()}>
+                                            {#if isSelected}
+                                                <Select.Root type="single"
+                                                    value={newUserConfig[u.user_id]?.priority ?? 'medium'}
+                                                    onValueChange={(v) => { newUserConfig = { ...newUserConfig, [u.user_id]: { ...newUserConfig[u.user_id], priority: v } }; }}>
+                                                    <Select.Trigger class="h-8 w-full text-xs">
+                                                        {priorityLabel(newUserConfig[u.user_id]?.priority ?? 'medium')}
+                                                    </Select.Trigger>
+                                                    <Select.Content>
+                                                        <Select.Item value="low">Baixa</Select.Item>
+                                                        <Select.Item value="medium">Média</Select.Item>
+                                                        <Select.Item value="high">Alta</Select.Item>
+                                                        <Select.Item value="urgent">Urgente</Select.Item>
+                                                    </Select.Content>
+                                                </Select.Root>
+                                            {:else}
+                                                <span class="text-xs text-muted-foreground">—</span>
+                                            {/if}
+                                        </Table.Cell>
+                                        <Table.Cell onclick={(e) => e.stopPropagation()}>
+                                            {#if isSelected}
+                                                <Input type="date" class="h-8 text-xs"
+                                                       value={newUserConfig[u.user_id]?.availableFrom ?? ''}
+                                                       oninput={(e) => {
+                                                           const val = (e.target as HTMLInputElement).value;
+                                                           newUserConfig = { ...newUserConfig, [u.user_id]: { ...newUserConfig[u.user_id], availableFrom: val } };
+                                                       }} />
+                                            {:else}
+                                                <span class="text-xs text-muted-foreground">—</span>
+                                            {/if}
+                                        </Table.Cell>
+                                        <Table.Cell onclick={(e) => e.stopPropagation()}>
+                                            {#if isSelected}
+                                                <Input type="date" class="h-8 text-xs"
+                                                       value={newUserConfig[u.user_id]?.dueDate ?? ''}
+                                                       oninput={(e) => {
+                                                           const val = (e.target as HTMLInputElement).value;
+                                                           newUserConfig = { ...newUserConfig, [u.user_id]: { ...newUserConfig[u.user_id], dueDate: val } };
+                                                       }} />
+                                            {:else}
+                                                <span class="text-xs text-muted-foreground">—</span>
+                                            {/if}
                                         </Table.Cell>
                                     </Table.Row>
-                                {:else}
-                                    {#each data.users as u (u.user_id)}
-                                        {@const isSelected = selectedUsers.has(u.user_id)}
-                                        <Table.Row
-                                            class="hover:bg-muted/50 cursor-pointer {isSelected ? 'bg-primary/5' : ''}"
-                                            onclick={() => toggleUser(u.user_id)}
-                                        >
-                                            <Table.Cell>
-                                                <Checkbox checked={isSelected} tabindex={-1} />
-                                            </Table.Cell>
-                                            <Table.Cell class="font-medium">
-                                                {u.first_name} {u.last_name}
-                                            </Table.Cell>
-                                            <Table.Cell class="text-muted-foreground hidden md:table-cell">
-                                                {u.email}
-                                            </Table.Cell>
-                                            <Table.Cell>
-                                                <Badge variant="outline">{u.role_name}</Badge>
-                                            </Table.Cell>
-                                            <Table.Cell class="text-center">
-                                                {#if u.is_assigned}
-                                                    <Badge class="bg-green-100 text-green-700 border-none">Atribuído</Badge>
-                                                {/if}
-                                            </Table.Cell>
-                                        </Table.Row>
-                                    {/each}
-                                {/if}
+                                {/each}
                             </Table.Body>
                         </Table.Root>
                     </div>
-
-                    <!-- Mobile cards -->
                     <div class="space-y-2 sm:hidden">
                         {#each data.users as u (u.user_id)}
-                            {@const isSelected = selectedUsers.has(u.user_id)}
-                            <button
-                                type="button"
-                                class="flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors {isSelected ? 'bg-primary/5 border-primary/30' : 'hover:bg-muted/50'}"
-                                onclick={() => toggleUser(u.user_id)}
-                            >
-                                <Checkbox checked={isSelected} tabindex={-1} />
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-medium">{u.first_name} {u.last_name}</p>
-                                    <p class="text-xs text-muted-foreground truncate">{u.email}</p>
-                                </div>
-                                <Badge variant="outline" class="text-xs shrink-0">{u.role_name}</Badge>
-                                {#if u.is_assigned}
-                                    <Badge class="bg-green-100 text-green-700 border-none text-xs shrink-0">Atribuído</Badge>
+                            {@const isSelected = selectedNewUsers.has(u.user_id)}
+                            <div class="rounded-md border p-3 space-y-2 {isSelected ? 'border-primary/30 bg-primary/5' : ''}">
+                                <button type="button" class="flex w-full items-center gap-3 text-left"
+                                        onclick={() => toggleNewUser(u.user_id)}>
+                                    <Checkbox checked={isSelected} tabindex={-1} />
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium">{u.first_name} {u.last_name}</p>
+                                        <p class="text-xs text-muted-foreground truncate">{u.email}</p>
+                                    </div>
+                                    <Badge variant="outline" class="text-xs shrink-0">{u.role_name}</Badge>
+                                </button>
+                                {#if isSelected}
+                                    <div class="grid grid-cols-2 gap-2 pt-1">
+                                        <div class="space-y-1">
+                                            <Label class="text-xs">Prioridade</Label>
+                                            <Select.Root type="single"
+                                                value={newUserConfig[u.user_id]?.priority ?? 'medium'}
+                                                onValueChange={(v) => { newUserConfig = { ...newUserConfig, [u.user_id]: { ...newUserConfig[u.user_id], priority: v } }; }}>
+                                                <Select.Trigger class="h-8 w-full text-xs">
+                                                    {priorityLabel(newUserConfig[u.user_id]?.priority ?? 'medium')}
+                                                </Select.Trigger>
+                                                <Select.Content>
+                                                    <Select.Item value="low">Baixa</Select.Item>
+                                                    <Select.Item value="medium">Média</Select.Item>
+                                                    <Select.Item value="high">Alta</Select.Item>
+                                                    <Select.Item value="urgent">Urgente</Select.Item>
+                                                </Select.Content>
+                                            </Select.Root>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <Label class="text-xs">Disponível em</Label>
+                                            <Input type="date" class="h-8 text-xs"
+                                                   value={newUserConfig[u.user_id]?.availableFrom ?? ''}
+                                                   oninput={(e) => {
+                                                       const val = (e.target as HTMLInputElement).value;
+                                                       newUserConfig = { ...newUserConfig, [u.user_id]: { ...newUserConfig[u.user_id], availableFrom: val } };
+                                                   }} />
+                                        </div>
+                                        <div class="space-y-1 col-span-2">
+                                            <Label class="text-xs">Prazo</Label>
+                                            <Input type="date" class="h-8 text-xs"
+                                                   value={newUserConfig[u.user_id]?.dueDate ?? ''}
+                                                   oninput={(e) => {
+                                                       const val = (e.target as HTMLInputElement).value;
+                                                       newUserConfig = { ...newUserConfig, [u.user_id]: { ...newUserConfig[u.user_id], dueDate: val } };
+                                                   }} />
+                                        </div>
+                                    </div>
                                 {/if}
-                            </button>
+                            </div>
                         {/each}
                     </div>
-
                     {#if data.pagination.totalItems > data.pagination.limit}
                         <div class="mt-4 flex justify-center">
                             <Pagination.Root count={data.pagination.totalItems} perPage={data.pagination.limit} page={data.pagination.page}>
-                                {#snippet children({ pages, currentPage })}
+                                {#snippet children({ currentPage })}
                                     <Pagination.Content>
                                         <Pagination.Item>
-                                            <Pagination.PrevButton
-                                                onclick={() => handlePageChange((currentPage - 1).toString())}
-                                                disabled={currentPage <= 1}
-                                            >
+                                            <Pagination.PrevButton onclick={() => handlePageChange((currentPage - 1).toString())} disabled={currentPage <= 1}>
                                                 <ChevronLeft class="size-4" />
                                                 <span class="hidden sm:block">Anterior</span>
                                             </Pagination.PrevButton>
@@ -281,10 +539,7 @@
                                             {currentPage} / {data.pagination.totalPages}
                                         </span>
                                         <Pagination.Item>
-                                            <Pagination.NextButton
-                                                onclick={() => handlePageChange((currentPage + 1).toString())}
-                                                disabled={currentPage >= data.pagination.totalPages}
-                                            >
+                                            <Pagination.NextButton onclick={() => handlePageChange((currentPage + 1).toString())} disabled={currentPage >= data.pagination.totalPages}>
                                                 <span class="hidden sm:block">Próximo</span>
                                                 <ChevronRight class="size-4" />
                                             </Pagination.NextButton>
@@ -294,20 +549,8 @@
                             </Pagination.Root>
                         </div>
                     {/if}
-                </Card.Content>
-            </Card.Root>
-        </div>
-
-        <!-- Mobile footer fixo -->
-        <div class="fixed bottom-0 left-0 right-0 border-t bg-background p-4 sm:hidden">
-            <div class="flex items-center justify-between gap-4">
-                <span class="text-sm text-muted-foreground">
-                    <strong>{selectedUsers.size}</strong> selecionado(s)
-                </span>
-                <Button type="submit" disabled={submitting}>
-                    <Save class="mr-2 size-4" /> Salvar
-                </Button>
-            </div>
-        </div>
-    </div>
-</form>
+                {/if}
+            </Card.Content>
+        </Card.Root>
+    </form>
+</div>

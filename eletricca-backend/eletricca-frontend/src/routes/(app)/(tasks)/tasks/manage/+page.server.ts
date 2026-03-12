@@ -19,13 +19,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
         const queryParams = searchParam ? [searchParam] : [];
 
-        const [statsRes, tasksRes, countRes] = await Promise.all([
+        const [statsRes, tasksRes, countRes, deletedTasksRes] = await Promise.all([
             pool.query(`
                 SELECT
-                    (SELECT COUNT(*) FROM tasks WHERE task_type = 'assigned') as total,
-                    (SELECT COUNT(*) FROM tasks WHERE task_type = 'assigned' AND status IN ('pending', 'in_progress')) as active,
-                    (SELECT COUNT(*) FROM tasks WHERE task_type = 'assigned' AND status = 'completed') as completed,
-                    (SELECT COUNT(*) FROM task_assignments) as total_assignments
+                    (SELECT COUNT(*) FROM tasks WHERE task_type = 'assigned' AND deleted_at IS NULL) as total,
+                    (SELECT COUNT(*) FROM tasks WHERE task_type = 'assigned' AND deleted_at IS NULL AND status IN ('pending', 'in_progress')) as active,
+                    (SELECT COUNT(*) FROM tasks WHERE task_type = 'assigned' AND deleted_at IS NULL AND status = 'completed') as completed,
+                    (SELECT COUNT(*) FROM task_assignments ta JOIN tasks t ON ta.task_id = t.id WHERE t.deleted_at IS NULL) as total_assignments
             `),
             pool.query(`
                 SELECT
@@ -44,6 +44,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
                 LEFT JOIN task_categories tc ON t.category_id = tc.id
                 LEFT JOIN users u ON t.created_by = u.user_id
                 WHERE t.task_type = 'assigned'
+                  AND t.deleted_at IS NULL
                   ${searchCondition}
                 ORDER BY t.updated_at DESC
                 LIMIT ${limit} OFFSET ${offset}
@@ -52,8 +53,27 @@ export const load: PageServerLoad = async ({ locals, url }) => {
                 SELECT COUNT(*) as total
                 FROM tasks t
                 WHERE t.task_type = 'assigned'
+                  AND t.deleted_at IS NULL
                   ${searchCondition}
-            `, queryParams)
+            `, queryParams),
+
+            // Archived (soft-deleted) tasks — separate query, no search/pagination
+            pool.query(`
+                SELECT
+                    t.id,
+                    t.title,
+                    t.priority,
+                    COALESCE(tc.name, '') as category_name,
+                    COALESCE(u.first_name || ' ' || u.last_name, '—') as created_by_name,
+                    t.deleted_at,
+                    (SELECT COUNT(*) FROM task_assignments WHERE task_id = t.id) as assignment_count
+                FROM tasks t
+                LEFT JOIN task_categories tc ON t.category_id = tc.id
+                LEFT JOIN users u ON t.created_by = u.user_id
+                WHERE t.task_type = 'assigned'
+                  AND t.deleted_at IS NOT NULL
+                ORDER BY t.deleted_at DESC
+            `)
         ]);
 
         const stats = {
@@ -73,9 +93,16 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
         const totalItems = Number(countRes.rows[0].total);
 
+        const deletedTasks = deletedTasksRes.rows.map((row: any) => ({ //this one will have separeted permissions
+            ...row,
+            assignment_count: Number(row.assignment_count),
+            deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null
+        }));
+
         return {
             tasks,
             stats,
+            deletedTasks,
             pagination: {
                 page,
                 limit,
@@ -89,6 +116,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
         return {
             tasks: [],
             stats: { total: 0, active: 0, completed: 0, totalAssignments: 0 },
+            deletedTasks: [],
             pagination: { page: 1, limit: 10, totalItems: 0, totalPages: 1 }
         };
     }
@@ -106,12 +134,12 @@ export const actions: Actions = {
 
         try {
             const res = await pool.query(
-                `DELETE FROM tasks WHERE id = $1 AND task_type = 'assigned' AND created_by = $2 RETURNING id`,
-                [taskId, user.user_id]
+                `UPDATE tasks SET deleted_at = NOW() WHERE id = $1 AND task_type = 'assigned' AND deleted_at IS NULL RETURNING id`,
+                [taskId]
             );
 
             if (res.rows.length === 0) {
-                return fail(403, { error: 'Tarefa não encontrada.' });
+                return fail(404, { error: 'Tarefa não encontrada.' });
             }
 
             return { success: true };
@@ -119,6 +147,55 @@ export const actions: Actions = {
             if (e.status || e.location) throw e;
             console.error('Erro ao excluir task:', e);
             return fail(500, { error: 'Erro ao excluir tarefa.' });
+        }
+    },
+
+    // Restore a soft-deleted task back to active
+    restoreTask: async ({ request, locals }) => {
+        const user = locals.user;
+        if (!user) throw redirect(302, '/login');
+
+        const formData = await request.formData();
+        const taskId = Number(formData.get('taskId'));
+
+        if (!taskId) return fail(400, { error: 'ID inválido.' });
+
+        try {
+            const res = await pool.query(
+                `UPDATE tasks SET deleted_at = NULL WHERE id = $1 AND task_type = 'assigned' AND deleted_at IS NOT NULL RETURNING id`,
+                [taskId]
+            );
+            if (res.rows.length === 0) return fail(404, { error: 'Tarefa não encontrada no arquivo.' });
+            return { success: true, action: 'restore' };
+        } catch (e: any) {
+            if (e.status || e.location) throw e;
+            console.error('Erro ao restaurar task:', e);
+            return fail(500, { error: 'Erro ao restaurar tarefa.' });
+        }
+    },
+
+    // Permanent (hard) delete — only works on already soft-deleted tasks
+    hardDeleteTask: async ({ request, locals }) => {
+        const user = locals.user;
+        if (!user) throw redirect(302, '/login');
+
+        const formData = await request.formData();
+        const taskId = Number(formData.get('taskId'));
+
+        if (!taskId) return fail(400, { error: 'ID inválido.' });
+
+        try {
+            // Cascades: task_steps, task_assignments, task_step_progress, task_comments
+            const res = await pool.query(
+                `DELETE FROM tasks WHERE id = $1 AND task_type = 'assigned' AND deleted_at IS NOT NULL RETURNING id`,
+                [taskId]
+            );
+            if (res.rows.length === 0) return fail(404, { error: 'Tarefa não encontrada no arquivo.' });
+            return { success: true, action: 'hardDelete' };
+        } catch (e: any) {
+            if (e.status || e.location) throw e;
+            console.error('Erro ao excluir permanentemente:', e);
+            return fail(500, { error: 'Erro ao excluir tarefa permanentemente.' });
         }
     }
 };

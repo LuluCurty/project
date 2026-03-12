@@ -1,7 +1,7 @@
 <script lang="ts">
     import {
         ArrowLeft, Calendar, Tag, User, CircleCheck as CheckCircle2,
-        Clock, CircleAlert as AlertCircle
+        Clock, CircleAlert as AlertCircle, Lock
     } from '@lucide/svelte';
     import { goto } from '$app/navigation';
     import { enhance } from '$app/forms';
@@ -52,6 +52,11 @@
     }
 
     let overdue = $derived(isOverdue(assignment.due_date, assignment.status));
+    let isLocked = $derived(
+        assignment.status !== 'completed' &&
+        !!assignment.available_from &&
+        new Date(assignment.available_from) > new Date()
+    );
 </script>
 
 <div class="max-w-2xl mx-auto space-y-6 pb-16">
@@ -119,6 +124,21 @@
                 </div>
             </div>
 
+            {#if assignment.available_from}
+                <div class="flex items-center gap-2 text-sm {isLocked ? 'text-amber-700' : 'text-muted-foreground'}">
+                    <Lock class="size-4 shrink-0 {isLocked ? 'text-amber-600' : 'text-green-600'}" />
+                    <span>
+                        Disponível em:
+                        <span class="font-medium {isLocked ? 'text-amber-700' : 'text-foreground'}">
+                            {formatDate(assignment.available_from)}
+                        </span>
+                        {#if !isLocked}
+                            <span class="text-green-600 ml-1">✓ Liberado</span>
+                        {/if}
+                    </span>
+                </div>
+            {/if}
+
             {#if steps.length > 0}
                 <Separator />
                 <div class="space-y-1.5">
@@ -137,12 +157,20 @@
         </Card.Content>
     </Card.Root>
 
+    <!-- Locked banner -->
+    {#if isLocked}
+        <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center gap-2">
+            <Lock class="size-4 shrink-0" />
+            Esta tarefa estará disponível a partir de <span class="font-medium ml-1">{formatDate(assignment.available_from)}</span>.
+        </div>
+    {/if}
+
     <!-- Steps -->
     {#if steps.length > 0}
         <Card.Root>
             <Card.Header class="pb-2">
                 <Card.Title class="text-base">Etapas</Card.Title>
-                <Card.Description>Clique em uma etapa para marcar como concluída</Card.Description>
+                <Card.Description>{isLocked ? 'Disponível apenas após a data de liberação' : 'Clique em uma etapa para marcar como concluída'}</Card.Description>
             </Card.Header>
             <Card.Content class="p-0">
                 <div class="divide-y">
@@ -152,9 +180,10 @@
                             <input type="hidden" name="stepId" value={step.id} />
                             <button
                                 type="submit"
-                                class="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/50 cursor-pointer
+                                class="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors
+                                       {isLocked || assignment.status === 'completed' ? 'cursor-not-allowed opacity-60' : 'hover:bg-muted/50 cursor-pointer'}
                                        {step.is_completed ? 'bg-green-50/50' : ''}"
-                                disabled={assignment.status === 'completed'}
+                                disabled={assignment.status === 'completed' || isLocked}
                             >
                                 <div class="shrink-0 size-4 rounded border-2 flex items-center justify-center
                                             {step.is_completed

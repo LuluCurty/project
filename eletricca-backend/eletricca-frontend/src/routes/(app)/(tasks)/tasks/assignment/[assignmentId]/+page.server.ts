@@ -18,6 +18,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
                     ta.status,
                     ta.priority,
                     ta.due_date,
+                    ta.available_from,
                     ta.assigned_at,
                     ta.completed_at,
                     t.title,
@@ -30,6 +31,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
                 LEFT JOIN users ab ON ta.assigned_by = ab.user_id
                 WHERE ta.id = $1
                   AND ta.user_id = $2
+                  AND ta.deleted_at IS NULL
             `, [assignmentId, user.user_id]),
 
             // Busca steps do template com o progresso individual deste assignment
@@ -58,6 +60,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
         const assignment = {
             ...row,
             due_date: row.due_date ? row.due_date.toISOString() : null,
+            available_from: row.available_from ? row.available_from.toISOString() : null,
             assigned_at: row.assigned_at ? row.assigned_at.toISOString() : null,
             completed_at: row.completed_at ? row.completed_at.toISOString() : null
         };
@@ -89,11 +92,16 @@ export const actions: Actions = {
         try {
             // Verifica que o assignment pertence ao usuário
             const ownerCheck = await pool.query(
-                `SELECT ta.id, ta.task_id FROM task_assignments ta
-                 WHERE ta.id = $1 AND ta.user_id = $2`,
+                `SELECT ta.id, ta.task_id, ta.available_from FROM task_assignments ta
+                 WHERE ta.id = $1 AND ta.user_id = $2 AND ta.deleted_at IS NULL`,
                 [assignmentId, user.user_id]
             );
             if (ownerCheck.rows.length === 0) return fail(403, { error: 'Atribuição não encontrada.' });
+
+            const availableFrom = ownerCheck.rows[0].available_from;
+            if (availableFrom && new Date(availableFrom) > new Date()) {
+                return fail(403, { error: 'Esta tarefa ainda não está disponível.' });
+            }
 
             const taskId = ownerCheck.rows[0].task_id;
 

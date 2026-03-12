@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
     if (!assignmentId) throw redirect(302, '/tasks/manage/assignment');
 
     try {
-        const [assignmentRes, stepsRes] = await Promise.all([
+        const [assignmentRes, stepsRes, historyRes] = await Promise.all([
             pool.query(`
                 SELECT
                     ta.id as assignment_id,
@@ -22,6 +22,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
                     ta.completed_at,
                     t.title,
                     t.description,
+                    t.is_recurring,
+                    t.recurrence_rule,
                     COALESCE(tc.name, '') as category_name,
                     u.first_name || ' ' || u.last_name as user_name,
                     u.email as user_email,
@@ -51,6 +53,21 @@ export const load: PageServerLoad = async ({ locals, params }) => {
                     SELECT task_id FROM task_assignments WHERE id = $1
                 )
                 ORDER BY ts.step_order
+            `, [assignmentId]),
+
+            pool.query(`
+                SELECT
+                    h.id,
+                    h.cycle,
+                    h.assigned_at,
+                    h.completed_at,
+                    h.reset_at,
+                    h.steps_snapshot,
+                    u.first_name || ' ' || u.last_name as reset_by_name
+                FROM task_assignment_history h
+                LEFT JOIN users u ON h.reset_by = u.user_id
+                WHERE h.assignment_id = $1
+                ORDER BY h.cycle DESC
             `, [assignmentId])
         ]);
 
@@ -69,7 +86,14 @@ export const load: PageServerLoad = async ({ locals, params }) => {
             completed_at: s.completed_at ? s.completed_at.toISOString() : null
         }));
 
-        return { assignment, steps };
+        const history = historyRes.rows.map((h: any) => ({
+            ...h,
+            assigned_at: h.assigned_at ? h.assigned_at.toISOString() : null,
+            completed_at: h.completed_at ? h.completed_at.toISOString() : null,
+            reset_at: h.reset_at ? h.reset_at.toISOString() : null
+        }));
+
+        return { assignment, steps, history };
     } catch (e: any) {
         if (e.status || e.location) throw e;
         console.error('Erro ao carregar detalhe da atribuição:', e);

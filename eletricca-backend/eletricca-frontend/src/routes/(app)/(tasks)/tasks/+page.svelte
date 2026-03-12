@@ -3,7 +3,7 @@
         ListTodo, ClipboardList, Clock, CircleCheck as CheckCircle2,
         Plus, Calendar, ArrowRight, Tag,
         ChevronLeft, ChevronRight,
-        ListChecks, Target, Trash2
+        ListChecks, Target, Trash2, History, ChevronDown
     } from '@lucide/svelte';
     import { goto } from '$app/navigation';
     import { page } from '$app/state';
@@ -132,6 +132,23 @@
         if (isOverdue(dueDate)) return '';
         if (status === 'in_progress') return 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-none';
         return 'bg-blue-50 text-blue-700 hover:bg-blue-50 border-none';
+    }
+
+    function formatDateTime(date: string | null) {
+        if (!date) return '—';
+        return new Date(date).toLocaleString('pt-BR', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+    }
+
+    // Track which assignment cards have history expanded
+    let expandedHistory = $state<Set<number>>(new Set());
+    function toggleHistory(assignmentId: number) {
+        const next = new Set(expandedHistory);
+        if (next.has(assignmentId)) next.delete(assignmentId);
+        else next.add(assignmentId);
+        expandedHistory = next;
     }
 </script>
 
@@ -448,6 +465,50 @@
                                 </div>
                             </div>
                         </Card.Content>
+
+                        <!-- History section (any task with past cycles) -->
+                        {#if task.history?.length > 0}
+                            <div class="border-t mx-0">
+                                <button
+                                    class="flex w-full items-center justify-between px-6 py-2.5 text-xs text-muted-foreground hover:bg-muted/40 transition-colors"
+                                    onclick={(e) => { e.stopPropagation(); toggleHistory(task.assignment_id); }}
+                                >
+                                    <span class="flex items-center gap-1.5">
+                                        <History class="size-3" />
+                                        {task.history.length} {task.history.length === 1 ? 'ciclo anterior' : 'ciclos anteriores'}
+                                    </span>
+                                    <ChevronDown class="size-3.5 transition-transform {expandedHistory.has(task.assignment_id) ? 'rotate-180' : ''}" />
+                                </button>
+
+                                {#if expandedHistory.has(task.assignment_id)}
+                                    <div class="border-t divide-y bg-muted/20">
+                                        {#each task.history as h (h.cycle)}
+                                            <div class="px-6 py-3 space-y-1.5">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="text-xs font-medium text-purple-700 bg-purple-100 rounded px-1.5 py-0.5">
+                                                        Ciclo {h.cycle}
+                                                    </span>
+                                                    <span class="text-xs text-green-700 font-medium">
+                                                        Concluído: {formatDateTime(h.completed_at)}
+                                                    </span>
+                                                </div>
+                                                {#if h.steps_snapshot?.length > 0}
+                                                    <div class="space-y-1">
+                                                        {#each h.steps_snapshot as s}
+                                                            <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                                <CheckCircle2 class="size-3 shrink-0 text-green-500" />
+                                                                <span class="flex-1 truncate">{s.title}</span>
+                                                                <span class="shrink-0">{formatDateTime(s.completed_at)}</span>
+                                                            </div>
+                                                        {/each}
+                                                    </div>
+                                                {/if}
+                                            </div>
+                                        {/each}
+                                    </div>
+                                {/if}
+                            </div>
+                        {/if}
 
                         <Card.Footer class="pt-2">
                             <Button
