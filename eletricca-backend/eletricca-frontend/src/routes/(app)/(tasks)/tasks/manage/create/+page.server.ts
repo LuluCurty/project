@@ -29,7 +29,7 @@ export const actions: Actions = {
             return fail(400, { error: 'O título é obrigatório.' });
         }
 
-        let steps: { title: string; description: string }[] = [];
+        let steps: { title: string; description: string; step_type: string; allowed_file_types: string[] }[] = [];
         try {
             steps = JSON.parse(stepsJson);
         } catch {
@@ -38,6 +38,13 @@ export const actions: Actions = {
 
         if (steps.length === 0) {
             return fail(400, { error: 'Adicione pelo menos uma etapa à tarefa.' });
+        }
+
+        const fileUploadStepWithNoTypes = steps.find(
+            s => s.step_type === 'file_upload' && (!s.allowed_file_types || s.allowed_file_types.length === 0)
+        );
+        if (fileUploadStepWithNoTypes) {
+            return fail(400, { error: `A etapa "${fileUploadStepWithNoTypes.title}" requer pelo menos um tipo de arquivo selecionado.` });
         }
 
         const client = await pool.connect();
@@ -64,9 +71,16 @@ export const actions: Actions = {
                 const step = steps[i];
                 if (!step.title?.trim()) continue;
                 await client.query(
-                    `INSERT INTO task_steps (task_id, title, description, step_order)
-                     VALUES ($1, $2, $3, $4)`,
-                    [taskId, step.title.trim(), step.description?.trim() || null, i + 1]
+                    `INSERT INTO task_steps (task_id, title, description, step_order, step_type, allowed_file_types)
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [
+                        taskId,
+                        step.title.trim(),
+                        step.description?.trim() || null,
+                        i + 1,
+                        step.step_type || 'check',
+                        step.step_type === 'file_upload' ? step.allowed_file_types : null
+                    ]
                 );
             }
 

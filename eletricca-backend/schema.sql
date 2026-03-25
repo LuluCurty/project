@@ -287,6 +287,11 @@ CREATE TABLE IF NOT EXISTS task_steps (
     title       VARCHAR(255) NOT NULL,
     description TEXT,
     step_order  INT NOT NULL CHECK (step_order BETWEEN 1 AND 5),
+    step_type   VARCHAR(20) NOT NULL DEFAULT 'check'
+                CHECK (step_type IN ('check', 'file_upload', 'text')),
+    -- tipos permitidos quando step_type = 'file_upload'
+    -- ex: ['image','excel','word','powerpoint','audio','video']
+    allowed_file_types  TEXT[] DEFAULT NULL,
     -- Para personal tasks (sem assignment), progresso direto aqui
     is_completed    BOOLEAN DEFAULT FALSE,
     completed_at    TIMESTAMP,
@@ -323,6 +328,7 @@ CREATE TABLE IF NOT EXISTS task_step_progress (
     step_id         INT NOT NULL REFERENCES task_steps(id) ON DELETE CASCADE,
     is_completed    BOOLEAN DEFAULT FALSE,
     completed_at    TIMESTAMP,
+    file_id         INT REFERENCES files(id) ON DELETE SET NULL,
     UNIQUE (assignment_id, step_id)
 );
 
@@ -335,22 +341,6 @@ CREATE TABLE IF NOT EXISTS task_comments (
     user_id     INT NOT NULL REFERENCES users(user_id),
     content     TEXT NOT NULL,
     created_at  TIMESTAMP DEFAULT NOW()
-);
-
--- =============================
--- NOTIFICATIONS
--- =============================
-CREATE TABLE IF NOT EXISTS notifications (
-    id              SERIAL PRIMARY KEY,
-    user_id         INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    title           VARCHAR(255) NOT NULL,
-    message         TEXT,
-    type            VARCHAR(30) NOT NULL DEFAULT 'info'
-                    CHECK (type IN ('info', 'task_assigned', 'task_completed', 'task_comment', 'system')),
-    reference_type  VARCHAR(30),    -- 'task', 'form', etc.
-    reference_id    INT,            -- ID do objeto referenciado
-    is_read         BOOLEAN DEFAULT FALSE,
-    created_at      TIMESTAMP DEFAULT NOW()
 );
 
 -- =============================
@@ -387,6 +377,41 @@ CREATE INDEX idx_task_step_progress_assignment ON task_step_progress(assignment_
 CREATE INDEX idx_task_comments_task ON task_comments(task_id);
 CREATE INDEX idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = FALSE;
 CREATE INDEX idx_notifications_user ON notifications(user_id);
+
+-- =============================
+-- NOTIFICATIONS
+-- =============================
+CREATE TABLE IF NOT EXISTS notifications (
+    id              SERIAL PRIMARY KEY,
+    user_id         INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    title           VARCHAR(255) NOT NULL,
+    message         TEXT,
+    type            VARCHAR(30) NOT NULL DEFAULT 'info',  -- info, task_assigned, task_completed, task_comment, form_assigned, system, ...
+    reference_type  VARCHAR(30),    -- 'task', 'form', etc.
+    reference_id    INT,            -- ID do objeto referenciado
+    is_read         BOOLEAN DEFAULT FALSE,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+
+-- =============================
+-- FILES
+-- =============================
+CREATE TABLE files (
+    id             SERIAL PRIMARY KEY,
+    object_key     VARCHAR(500) NOT NULL UNIQUE,  -- caminho no bucket
+    bucket         VARCHAR(100) NOT NULL DEFAULT 'project',
+    original_name  VARCHAR(255) NOT NULL,          -- nome que o usuário vê
+    mime_type      VARCHAR(100) NOT NULL,
+    file_size      BIGINT NOT NULL,                -- bytes
+    uploaded_by    INT NOT NULL REFERENCES users(user_id),
+    reference_type VARCHAR(50),   -- 'task_assignment', 'form_response', 'chat_message'
+    reference_id   INT,
+    created_at     TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_files_reference ON files(reference_type, reference_id);
+
+
 
 /* CREATE DATABASE eletricca;
 CREATE USER eletricca_user WITH PASSWORD "eletrO@8002";

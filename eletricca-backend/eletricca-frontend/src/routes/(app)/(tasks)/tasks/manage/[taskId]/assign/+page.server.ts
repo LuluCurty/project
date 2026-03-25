@@ -1,5 +1,6 @@
 import { redirect, fail } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
+import { createNotificationBulk } from '$lib/server/notifications';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
@@ -190,6 +191,21 @@ export const actions: Actions = {
             }
 
             await client.query('COMMIT');
+
+            // Busca título da tarefa para a notificação
+            const taskTitleRes = await pool.query(`SELECT title FROM tasks WHERE id = $1`, [taskId]);
+            const taskTitle = taskTitleRes.rows[0]?.title ?? 'Tarefa';
+
+            // Notifica apenas os usuários efetivamente atribuídos (novos ou reativados)
+            const notifiedUserIds = newAssignments.map(a => a.userId);
+            await createNotificationBulk(notifiedUserIds, {
+                title: 'Nova tarefa atribuída',
+                message: taskTitle,
+                type: 'task_assigned',
+                referenceType: 'task_assignment',
+                referenceId: taskId
+            });
+
             return { success: true, action: 'add', count: newAssignments.length };
         } catch (e) {
             await client.query('ROLLBACK');

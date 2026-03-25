@@ -17,11 +17,11 @@ export const load: PageServerLoad = async ({ locals, route, url }) => {
         // Filtro de status
         let statusFilter = '';
         if (status === 'pending') {
-            statusFilter = 'AND fa.is_completed = FALSE AND (fa.due_date IS NULL OR fa.due_date >= NOW())';
+            statusFilter = 'AND fa.is_completed = FALSE AND (fa.due_date IS NULL OR fa.due_date::date >= CURRENT_DATE)';
         } else if (status === 'completed') {
             statusFilter = 'AND fa.is_completed = TRUE';
         } else if (status === 'overdue') {
-            statusFilter = 'AND fa.is_completed = FALSE AND fa.due_date < NOW()';
+            statusFilter = 'AND fa.is_completed = FALSE AND fa.due_date::date < CURRENT_DATE';
         }
 
         // Filtro por formulário (parametrizado para evitar SQL injection)
@@ -57,7 +57,7 @@ export const load: PageServerLoad = async ({ locals, route, url }) => {
             ${statusFilter}
             ${formFilter}
             ORDER BY
-                CASE WHEN fa.is_completed = FALSE AND fa.due_date < NOW() THEN 0 ELSE 1 END,
+                CASE WHEN fa.is_completed = FALSE AND fa.due_date::date < CURRENT_DATE THEN 0 ELSE 1 END,
                 fa.assigned_at DESC
             LIMIT $2 OFFSET $3
         `;
@@ -83,7 +83,7 @@ export const load: PageServerLoad = async ({ locals, route, url }) => {
         const statsQuery = `
             SELECT
                 COUNT(*) as total,
-                SUM(CASE WHEN is_completed = FALSE AND (due_date IS NULL OR due_date >= NOW()) THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN is_completed = FALSE AND (due_date IS NULL OR due_date::date >= CURRENT_DATE) THEN 1 ELSE 0 END) as pending,
                 SUM(CASE WHEN is_completed = TRUE THEN 1 ELSE 0 END) as completed,
                 SUM(CASE WHEN is_completed = FALSE AND due_date < NOW() THEN 1 ELSE 0 END) as overdue
             FROM form_assignments

@@ -36,8 +36,8 @@ export const load: PageServerLoad = async ({ url }) => {
             SELECT
                 COUNT(*) as total,
                 SUM(CASE WHEN is_completed = TRUE THEN 1 ELSE 0 END) as completed,
-                SUM(CASE WHEN is_completed = FALSE AND (due_date IS NULL OR due_date >= NOW()) THEN 1 ELSE 0 END) as pending,
-                SUM(CASE WHEN is_completed = FALSE AND due_date < NOW() THEN 1 ELSE 0 END) as overdue
+                SUM(CASE WHEN is_completed = FALSE AND (due_date IS NULL OR due_date::date >= CURRENT_DATE) THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN is_completed = FALSE AND due_date::date < CURRENT_DATE THEN 1 ELSE 0 END) as overdue
             FROM form_assignments
         `;
 

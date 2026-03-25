@@ -2,7 +2,7 @@
     import {
         ArrowLeft, Calendar, Tag, User, Mail,
         CircleCheck as CheckCircle2, Clock, CircleAlert as AlertCircle,
-        ClipboardList, History, RefreshCw, Repeat
+        ClipboardList, History, RefreshCw, Repeat, FileText, Upload
     } from '@lucide/svelte';
     import { goto } from '$app/navigation';
     import { enhance } from '$app/forms';
@@ -218,9 +218,9 @@
             <Card.Content class="p-0">
                 <div class="divide-y">
                     {#each steps as step (step.id)}
-                        <div class="flex items-center gap-4 px-5 py-4
+                        <div class="flex items-start gap-4 px-5 py-4
                                     {step.is_completed ? 'bg-green-50/50' : ''}">
-                            <div class="shrink-0 size-4 rounded border-2 flex items-center justify-center
+                            <div class="shrink-0 size-4 rounded border-2 flex items-center justify-center mt-0.5
                                         {step.is_completed
                                             ? 'bg-green-600 border-green-600'
                                             : 'border-muted-foreground/30'}">
@@ -229,12 +229,32 @@
                                 {/if}
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-sm font-medium leading-none
-                                           {step.is_completed ? 'line-through text-muted-foreground' : ''}">
-                                    {step.title}
-                                </p>
+                                <div class="flex items-center gap-2">
+                                    <p class="text-sm font-medium leading-none
+                                               {step.is_completed ? 'line-through text-muted-foreground' : ''}">
+                                        {step.title}
+                                    </p>
+                                    {#if step.step_type === 'file_upload'}
+                                        <span class="inline-flex items-center gap-1 text-xs text-muted-foreground border rounded-full px-1.5 py-0.5 shrink-0">
+                                            <Upload class="size-2.5" /> arquivo
+                                        </span>
+                                    {/if}
+                                </div>
                                 {#if step.description}
                                     <p class="mt-1 text-xs text-muted-foreground truncate">{step.description}</p>
+                                {/if}
+                                {#if step.step_type === 'file_upload' && step.is_completed && step.file_name}
+                                    <div class="mt-2 flex items-center gap-1.5">
+                                        <FileText class="size-3.5 text-green-600 shrink-0" />
+                                        {#if step.file_url}
+                                            <a href={step.file_url} target="_blank" rel="noopener noreferrer"
+                                                class="text-xs text-green-700 underline truncate hover:text-green-900">
+                                                {step.file_name}
+                                            </a>
+                                        {:else}
+                                            <span class="text-xs text-muted-foreground truncate">{step.file_name}</span>
+                                        {/if}
+                                    </div>
                                 {/if}
                             </div>
                             <div class="shrink-0 text-right">
@@ -305,6 +325,18 @@
                                         <div class="flex items-center gap-2 text-xs rounded-sm bg-muted/40 px-2.5 py-1.5">
                                             <CheckCircle2 class="size-3 shrink-0 text-green-600" />
                                             <span class="flex-1 min-w-0 truncate">{s.title}</span>
+                                            {#if s.file_name}
+                                                {#if s.file_url}
+                                                    <a href={s.file_url} target="_blank" rel="noopener noreferrer"
+                                                        class="shrink-0 inline-flex items-center gap-1 text-blue-600 underline hover:text-blue-800">
+                                                        <FileText class="size-3" />{s.file_name}
+                                                    </a>
+                                                {:else}
+                                                    <span class="shrink-0 inline-flex items-center gap-1 text-muted-foreground">
+                                                        <FileText class="size-3" />{s.file_name}
+                                                    </span>
+                                                {/if}
+                                            {/if}
                                             <span class="shrink-0 text-muted-foreground">{formatDateTime(s.completed_at)}</span>
                                         </div>
                                     {/each}

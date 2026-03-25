@@ -1,7 +1,7 @@
 <script lang="ts">
     import {
         ArrowLeft, Calendar, Tag, User, CircleCheck as CheckCircle2,
-        Clock, CircleAlert as AlertCircle, Lock
+        Clock, CircleAlert as AlertCircle, Lock, Upload, FileText, Loader
     } from '@lucide/svelte';
     import { goto } from '$app/navigation';
     import { enhance } from '$app/forms';
@@ -13,6 +13,18 @@
 
     import type { PageData } from './$types';
 
+    const ACCEPT_MAP: Record<string, string> = {
+        image:      'image/*',
+        excel:      '.xlsx,.xls',
+        word:       '.docx,.doc',
+        powerpoint: '.pptx,.ppt',
+        audio:      'audio/*',
+        video:      'video/*'
+    };
+    function getAccept(types: string[]) {
+        return types.map(t => ACCEPT_MAP[t] ?? '').filter(Boolean).join(',');
+    }
+
     let { data }: { data: PageData } = $props();
 
     let assignment = $derived(data.assignment);
@@ -20,6 +32,9 @@
 
     let completedCount = $derived(steps.filter((s: any) => s.is_completed).length);
     let progressPct = $derived(steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0);
+
+    let uploadingStep = $state<number | null>(null);
+    let selectedFiles = $state<Record<number, File | null>>({});
 
     function isOverdue(iso: string | null, status: string) {
         if (status === 'completed' || !iso) return false;
@@ -170,48 +185,133 @@
         <Card.Root>
             <Card.Header class="pb-2">
                 <Card.Title class="text-base">Etapas</Card.Title>
-                <Card.Description>{isLocked ? 'Disponível apenas após a data de liberação' : 'Clique em uma etapa para marcar como concluída'}</Card.Description>
+                <Card.Description>
+                    {#if isLocked}
+                        Disponível apenas após a data de liberação
+                    {:else}
+                        Marque as etapas ou envie os arquivos solicitados
+                    {/if}
+                </Card.Description>
             </Card.Header>
             <Card.Content class="p-0">
                 <div class="divide-y">
                     {#each steps as step (step.id)}
-                        {@const formId = `toggle-step-${step.id}`}
-                        <form id={formId} method="POST" action="?/toggleStep" use:enhance>
-                            <input type="hidden" name="stepId" value={step.id} />
-                            <button
-                                type="submit"
-                                class="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors
-                                       {isLocked || assignment.status === 'completed' ? 'cursor-not-allowed opacity-60' : 'hover:bg-muted/50 cursor-pointer'}
-                                       {step.is_completed ? 'bg-green-50/50' : ''}"
-                                disabled={assignment.status === 'completed' || isLocked}
-                            >
-                                <div class="shrink-0 size-4 rounded border-2 flex items-center justify-center
-                                            {step.is_completed
-                                                ? 'bg-green-600 border-green-600'
-                                                : 'border-muted-foreground/50'}">
-                                    {#if step.is_completed}
-                                        <CheckCircle2 class="size-3 text-white" />
-                                    {/if}
+
+                        {#if step.step_type === 'file_upload'}
+                            <!-- Step de envio de arquivo -->
+                            <div class="px-5 py-4 space-y-3 {step.is_completed ? 'bg-green-50/50' : ''}">
+                                <div class="flex items-start gap-4">
+                                    <div class="shrink-0 size-4 rounded border-2 flex items-center justify-center mt-0.5
+                                                {step.is_completed ? 'bg-green-600 border-green-600' : 'border-muted-foreground/50'}">
+                                        {#if step.is_completed}
+                                            <CheckCircle2 class="size-3 text-white" />
+                                        {/if}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2">
+                                            <p class="text-sm font-medium leading-none {step.is_completed ? 'line-through text-muted-foreground' : ''}">
+                                                {step.title}
+                                            </p>
+                                            <span class="inline-flex items-center gap-1 text-xs text-muted-foreground border rounded-full px-1.5 py-0.5">
+                                                <Upload class="size-2.5" /> arquivo
+                                            </span>
+                                        </div>
+                                        {#if step.description}
+                                            <p class="mt-1 text-xs text-muted-foreground">{step.description}</p>
+                                        {/if}
+                                        {#if step.is_completed && step.file_name}
+                                            <div class="mt-2 flex items-center gap-2">
+                                                <FileText class="size-3.5 text-green-600 shrink-0" />
+                                                {#if step.file_url}
+                                                    <a href={step.file_url} target="_blank" rel="noopener noreferrer"
+                                                        class="text-xs text-green-700 underline truncate">
+                                                        {step.file_name}
+                                                    </a>
+                                                {:else}
+                                                    <span class="text-xs text-muted-foreground truncate">{step.file_name}</span>
+                                                {/if}
+                                                <span class="text-xs text-muted-foreground shrink-0">{formatDate(step.completed_at)}</span>
+                                            </div>
+                                        {/if}
+                                    </div>
                                 </div>
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-medium leading-none
-                                               {step.is_completed ? 'line-through text-muted-foreground' : ''}">
-                                        {step.title}
-                                    </p>
-                                    {#if step.description}
-                                        <p class="mt-1 text-xs text-muted-foreground truncate">{step.description}</p>
-                                    {/if}
-                                </div>
-                                <div class="shrink-0 text-right">
-                                    <span class="text-xs font-medium text-muted-foreground">
-                                        {step.step_order}
-                                    </span>
-                                    {#if step.is_completed && step.completed_at}
-                                        <p class="text-xs text-green-600 mt-0.5">{formatDate(step.completed_at)}</p>
-                                    {/if}
-                                </div>
-                            </button>
-                        </form>
+
+                                {#if !isLocked && assignment.status !== 'completed'}
+                                    <form
+                                        method="POST"
+                                        action="?/uploadFile"
+                                        enctype="multipart/form-data"
+                                        use:enhance={() => {
+                                            uploadingStep = step.id;
+                                            return async ({ update }) => {
+                                                await update();
+                                                uploadingStep = null;
+                                                selectedFiles = { ...selectedFiles, [step.id]: null };
+                                            };
+                                        }}
+                                        class="ml-8 flex items-center gap-2 flex-wrap"
+                                    >
+                                        <input type="hidden" name="stepId" value={step.id} />
+                                        <input
+                                            type="file"
+                                            name="file"
+                                            accept={getAccept(step.allowed_file_types ?? [])}
+                                            class="text-xs text-muted-foreground file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-muted file:text-xs file:cursor-pointer cursor-pointer"
+                                            onchange={(e) => {
+                                                selectedFiles = { ...selectedFiles, [step.id]: (e.target as HTMLInputElement).files?.[0] ?? null };
+                                            }}
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={uploadingStep === step.id || !selectedFiles[step.id]}
+                                            class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground disabled:opacity-50 shrink-0"
+                                        >
+                                            {#if uploadingStep === step.id}
+                                                <Loader class="size-3 animate-spin" /> Enviando...
+                                            {:else}
+                                                <Upload class="size-3" /> {step.is_completed ? 'Substituir' : 'Enviar'}
+                                            {/if}
+                                        </button>
+                                    </form>
+                                {/if}
+                            </div>
+
+                        {:else}
+                            <!-- Step de marcar (check) -->
+                            <form method="POST" action="?/toggleStep" use:enhance>
+                                <input type="hidden" name="stepId" value={step.id} />
+                                <button
+                                    type="submit"
+                                    class="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors
+                                           {isLocked || assignment.status === 'completed' ? 'cursor-not-allowed opacity-60' : 'hover:bg-muted/50 cursor-pointer'}
+                                           {step.is_completed ? 'bg-green-50/50' : ''}"
+                                    disabled={assignment.status === 'completed' || isLocked}
+                                >
+                                    <div class="shrink-0 size-4 rounded border-2 flex items-center justify-center
+                                                {step.is_completed ? 'bg-green-600 border-green-600' : 'border-muted-foreground/50'}">
+                                        {#if step.is_completed}
+                                            <CheckCircle2 class="size-3 text-white" />
+                                        {/if}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium leading-none
+                                                   {step.is_completed ? 'line-through text-muted-foreground' : ''}">
+                                            {step.title}
+                                        </p>
+                                        {#if step.description}
+                                            <p class="mt-1 text-xs text-muted-foreground truncate">{step.description}</p>
+                                        {/if}
+                                    </div>
+                                    <div class="shrink-0 text-right">
+                                        <span class="text-xs font-medium text-muted-foreground">{step.step_order}</span>
+                                        {#if step.is_completed && step.completed_at}
+                                            <p class="text-xs text-green-600 mt-0.5">{formatDate(step.completed_at)}</p>
+                                        {/if}
+                                    </div>
+                                </button>
+                            </form>
+                        {/if}
+
                     {/each}
                 </div>
             </Card.Content>

@@ -52,6 +52,8 @@
 		"vite-plugin-devtools-json": "^1.0.0"
 	},
 	"dependencies": {
+		"@aws-sdk/client-s3": "^3.1011.0",
+		"@aws-sdk/s3-request-presigner": "^3.1011.0",
 		"bcrypt": "^6.0.0",
 		"fs": "^0.0.1-security",
 		"jsonwebtoken": "^9.0.3",

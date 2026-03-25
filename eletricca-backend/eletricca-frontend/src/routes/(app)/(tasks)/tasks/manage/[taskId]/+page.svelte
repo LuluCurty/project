@@ -1,6 +1,6 @@
 <script lang="ts">
     import {
-        ArrowLeft, Plus, Trash2, Save, UserPlus, Users
+        ArrowLeft, Plus, Trash2, Save, UserPlus, Users, CheckSquare, Upload
     } from '@lucide/svelte';
     import { goto } from '$app/navigation';
     import { enhance } from '$app/forms';
@@ -14,9 +14,35 @@
     import * as Select from '$lib/components/ui/select';
     import * as Alert from '$lib/components/ui/alert';
 
-    import type { PageData, ActionData } from './$types';
+    import type { ActionData } from './$types';
 
-    let { data, form }: { data: PageData; form: ActionData } = $props();
+    type TaskStep = {
+        id: number;
+        title: string;
+        description: string;
+        step_order: number;
+        step_type: 'check' | 'file_upload';
+        allowed_file_types: string[];
+    };
+
+    type Task = {
+        id: number;
+        title: string;
+        description: string | null;
+        task_type: string;
+        category_id: number | null;
+        category_name: string;
+        priority: string;
+        is_recurring: boolean;
+        recurrence_rule: string | null;
+        created_by_name: string;
+        created_at: string | null;
+        updated_at: string | null;
+        assignment_count: number;
+        steps: TaskStep[];
+    };
+
+    let { data, form }: { data: { task: Task; categories: { id: number; name: string }[] }; form: ActionData } = $props();
 
     let title = $state(data.task.title);
     let description = $state(data.task.description || '');
@@ -24,11 +50,29 @@
     let priority = $state(data.task.priority || 'medium');
     let recurrenceRule = $state(data.task.recurrence_rule || '');
 
-    let steps = $state(data.task.steps.map((s: any) => ({
-        id: s.id,
-        title: s.title,
-        description: s.description || ''
-    })));
+    type FileCategory = 'image' | 'excel' | 'word' | 'powerpoint' | 'audio' | 'video';
+    type StepType = 'check' | 'file_upload';
+
+    const FILE_CATEGORIES: { value: FileCategory; label: string }[] = [
+        { value: 'image',       label: 'Foto / Imagem' },
+        { value: 'excel',       label: 'Excel' },
+        { value: 'word',        label: 'Word' },
+        { value: 'powerpoint',  label: 'PowerPoint' },
+        { value: 'audio',       label: 'Áudio' },
+        { value: 'video',       label: 'Vídeo' }
+    ];
+
+    function mapStep(s: TaskStep) {
+        return {
+            id: s.id,
+            title: s.title,
+            description: s.description || '',
+            step_type: (s.step_type || 'check') as StepType,
+            allowed_file_types: (s.allowed_file_types || []) as FileCategory[]
+        };
+    }
+
+    let steps = $state(data.task.steps.map(mapStep));
     let newStepTitle = $state('');
     let submitting = $state(false);
 
@@ -40,11 +84,7 @@
             categoryId = String(data.task.category_id || '');
             priority = data.task.priority || 'medium';
             recurrenceRule = data.task.recurrence_rule || '';
-            steps = data.task.steps.map((s: any) => ({
-                id: s.id,
-                title: s.title,
-                description: s.description || ''
-            }));
+            steps = data.task.steps.map(mapStep);
         }
     });
 
@@ -53,13 +93,28 @@
         steps = [...steps, {
             id: Date.now(),
             title: newStepTitle.trim(),
-            description: ''
+            description: '',
+            step_type: 'check',
+            allowed_file_types: []
         }];
         newStepTitle = '';
     }
 
     function removeStep(id: number) {
-        steps = steps.filter((s: any) => s.id !== id);
+        steps = steps.filter(s => s.id !== id);
+    }
+
+    function toggleFileType(stepId: number, type: FileCategory) {
+        steps = steps.map(s => {
+            if (s.id !== stepId) return s;
+            const has = s.allowed_file_types.includes(type);
+            return {
+                ...s,
+                allowed_file_types: has
+                    ? s.allowed_file_types.filter(t => t !== type)
+                    : [...s.allowed_file_types, type]
+            };
+        });
     }
 
     function recurrenceLabel(rule: string) {
@@ -238,6 +293,45 @@
                                         placeholder="Descrição (opcional)"
                                         class="h-8 text-xs"
                                     />
+
+                                    <!-- Tipo da etapa -->
+                                    <div class="flex gap-2 pt-0.5">
+                                        <button
+                                            type="button"
+                                            onclick={() => steps = steps.map(s => s.id === step.id ? { ...s, step_type: 'check', allowed_file_types: [] } : s)}
+                                            class="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors {step.step_type === 'check' ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-muted'}"
+                                        >
+                                            <CheckSquare class="size-3" /> Marcar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onclick={() => steps = steps.map(s => s.id === step.id ? { ...s, step_type: 'file_upload' } : s)}
+                                            class="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors {step.step_type === 'file_upload' ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-muted'}"
+                                        >
+                                            <Upload class="size-3" /> Enviar arquivo
+                                        </button>
+                                    </div>
+
+                                    <!-- Tipos de arquivo permitidos -->
+                                    {#if step.step_type === 'file_upload'}
+                                        <div class="pt-1 space-y-1.5">
+                                            <p class="text-xs text-muted-foreground font-medium">Tipos permitidos:</p>
+                                            <div class="flex flex-wrap gap-1.5">
+                                                {#each FILE_CATEGORIES as cat}
+                                                    <button
+                                                        type="button"
+                                                        onclick={() => toggleFileType(step.id, cat.value)}
+                                                        class="px-2 py-0.5 rounded-full text-xs border transition-colors {step.allowed_file_types.includes(cat.value) ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-muted'}"
+                                                    >
+                                                        {cat.label}
+                                                    </button>
+                                                {/each}
+                                            </div>
+                                            {#if step.allowed_file_types.length === 0}
+                                                <p class="text-xs text-amber-500">Selecione pelo menos um tipo de arquivo.</p>
+                                            {/if}
+                                        </div>
+                                    {/if}
                                 </div>
                                 <Button type="button" variant="ghost" size="icon" class="size-7 text-muted-foreground hover:text-red-600 shrink-0" onclick={() => removeStep(step.id)}>
                                     <Trash2 class="size-3.5" />

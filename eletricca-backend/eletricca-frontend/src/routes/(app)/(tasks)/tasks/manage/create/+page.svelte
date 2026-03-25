@@ -1,6 +1,6 @@
 <script lang="ts">
     import {
-        ArrowLeft, Plus, Trash2, Save
+        ArrowLeft, Plus, Trash2, Save, CheckSquare, Upload
     } from '@lucide/svelte';
     import { goto } from '$app/navigation';
     import { enhance } from '$app/forms';
@@ -23,7 +23,25 @@
     let categoryId = $state<string>('');
     let recurrenceRule = $state<string>('');
 
-    let steps = $state<{ id: number; title: string; description: string }[]>([]);
+    type FileCategory = 'image' | 'excel' | 'word' | 'powerpoint' | 'audio' | 'video';
+    type StepType = 'check' | 'file_upload';
+
+    const FILE_CATEGORIES: { value: FileCategory; label: string }[] = [
+        { value: 'image',       label: 'Foto / Imagem' },
+        { value: 'excel',       label: 'Excel' },
+        { value: 'word',        label: 'Word' },
+        { value: 'powerpoint',  label: 'PowerPoint' },
+        { value: 'audio',       label: 'Áudio' },
+        { value: 'video',       label: 'Vídeo' }
+    ];
+
+    let steps = $state<{
+        id: number;
+        title: string;
+        description: string;
+        step_type: StepType;
+        allowed_file_types: FileCategory[];
+    }[]>([]);
     let newStepTitle = $state('');
     let submitting = $state(false);
 
@@ -32,9 +50,24 @@
         steps = [...steps, {
             id: Date.now(),
             title: newStepTitle.trim(),
-            description: ''
+            description: '',
+            step_type: 'check',
+            allowed_file_types: []
         }];
         newStepTitle = '';
+    }
+
+    function toggleFileType(stepId: number, type: FileCategory) {
+        steps = steps.map(s => {
+            if (s.id !== stepId) return s;
+            const has = s.allowed_file_types.includes(type);
+            return {
+                ...s,
+                allowed_file_types: has
+                    ? s.allowed_file_types.filter(t => t !== type)
+                    : [...s.allowed_file_types, type]
+            };
+        });
     }
 
     function removeStep(id: number) {
@@ -184,6 +217,45 @@
                                         placeholder="Descrição (opcional)"
                                         class="h-8 text-xs"
                                     />
+
+                                    <!-- Tipo da etapa -->
+                                    <div class="flex gap-2 pt-0.5">
+                                        <button
+                                            type="button"
+                                            onclick={() => steps = steps.map(s => s.id === step.id ? { ...s, step_type: 'check', allowed_file_types: [] } : s)}
+                                            class="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors {step.step_type === 'check' ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-muted'}"
+                                        >
+                                            <CheckSquare class="size-3" /> Marcar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onclick={() => steps = steps.map(s => s.id === step.id ? { ...s, step_type: 'file_upload' } : s)}
+                                            class="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors {step.step_type === 'file_upload' ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-muted'}"
+                                        >
+                                            <Upload class="size-3" /> Enviar arquivo
+                                        </button>
+                                    </div>
+
+                                    <!-- Tipos de arquivo permitidos -->
+                                    {#if step.step_type === 'file_upload'}
+                                        <div class="pt-1 space-y-1.5">
+                                            <p class="text-xs text-muted-foreground font-medium">Tipos permitidos:</p>
+                                            <div class="flex flex-wrap gap-1.5">
+                                                {#each FILE_CATEGORIES as cat}
+                                                    <button
+                                                        type="button"
+                                                        onclick={() => toggleFileType(step.id, cat.value)}
+                                                        class="px-2 py-0.5 rounded-full text-xs border transition-colors {step.allowed_file_types.includes(cat.value) ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-muted'}"
+                                                    >
+                                                        {cat.label}
+                                                    </button>
+                                                {/each}
+                                            </div>
+                                            {#if step.allowed_file_types.length === 0}
+                                                <p class="text-xs text-amber-500">Selecione pelo menos um tipo de arquivo.</p>
+                                            {/if}
+                                        </div>
+                                    {/if}
                                 </div>
                                 <Button type="button" variant="ghost" size="icon" class="size-7 text-muted-foreground hover:text-red-600 shrink-0" onclick={() => removeStep(step.id)}>
                                     <Trash2 class="size-3.5" />

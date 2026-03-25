@@ -34,7 +34,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
                   AND t.deleted_at IS NULL
             `, [taskId]),
             pool.query(`
-                SELECT id, title, description, step_order
+                SELECT id, title, description, step_order, step_type, allowed_file_types
                 FROM task_steps
                 WHERE task_id = $1
                 ORDER BY step_order
@@ -54,7 +54,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
                 id: s.id,
                 title: s.title,
                 description: s.description || '',
-                step_order: s.step_order
+                step_order: s.step_order,
+                step_type: s.step_type || 'check',
+                allowed_file_types: s.allowed_file_types || []
             }))
         };
 
@@ -82,7 +84,7 @@ export const actions: Actions = {
 
         if (!title) return fail(400, { error: 'O título é obrigatório.' });
 
-        let steps: { id: number; title: string; description: string }[] = [];
+        let steps: { id: number; title: string; description: string; step_type: string; allowed_file_types: string[] }[] = [];
         try {
             steps = JSON.parse(stepsJson);
         } catch {
@@ -90,6 +92,13 @@ export const actions: Actions = {
         }
 
         if (steps.length === 0) return fail(400, { error: 'Adicione pelo menos uma etapa.' });
+
+        const fileUploadStepWithNoTypes = steps.find(
+            s => s.step_type === 'file_upload' && (!s.allowed_file_types || s.allowed_file_types.length === 0)
+        );
+        if (fileUploadStepWithNoTypes) {
+            return fail(400, { error: `A etapa "${fileUploadStepWithNoTypes.title}" requer pelo menos um tipo de arquivo selecionado.` });
+        }
 
         const client = await pool.connect();
         try {
@@ -144,18 +153,22 @@ export const actions: Actions = {
             for (let i = 0; i < steps.length; i++) {
                 const step = steps[i];
                 if (!step.title?.trim()) continue;
+                const stepType = step.step_type || 'check';
+                const allowedTypes = stepType === 'file_upload' ? step.allowed_file_types : null;
+
                 if (step.id < REAL_ID_THRESHOLD) {
                     // Atualiza existente
                     await client.query(`
-                        UPDATE task_steps SET title = $1, description = $2, step_order = $3
-                        WHERE id = $4 AND task_id = $5
-                    `, [step.title.trim(), step.description?.trim() || null, i + 1, step.id, taskId]);
+                        UPDATE task_steps SET title = $1, description = $2, step_order = $3,
+                            step_type = $4, allowed_file_types = $5
+                        WHERE id = $6 AND task_id = $7
+                    `, [step.title.trim(), step.description?.trim() || null, i + 1, stepType, allowedTypes, step.id, taskId]);
                 } else {
                     // Insere novo
                     await client.query(`
-                        INSERT INTO task_steps (task_id, title, description, step_order)
-                        VALUES ($1, $2, $3, $4)
-                    `, [taskId, step.title.trim(), step.description?.trim() || null, i + 1]);
+                        INSERT INTO task_steps (task_id, title, description, step_order, step_type, allowed_file_types)
+                        VALUES ($1, $2, $3, $4, $5, $6)
+                    `, [taskId, step.title.trim(), step.description?.trim() || null, i + 1, stepType, allowedTypes]);
                 }
             }
 

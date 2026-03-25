@@ -27,7 +27,7 @@
 	<Aside/>
 
 	<div class="flex min-w-0 flex-1 flex-col transition-all duration-300">
-		<Header announcement={data.announcement}/>
+		<Header announcement={data.announcement} unreadCount={data.unreadCount} initialNotifications={data.notifications} />
 		<main class="flex-1 p-4 md:p-6 overflow-x-hidden">
 			<Tooltip.Provider>
 				{@render children?.()}

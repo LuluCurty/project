@@ -117,7 +117,7 @@ export function generateMenuFromRoutes() {
             blacklistedSegments.includes(s) ||
             ['add', 'edit', 'new', 'create', 'update', 
                 'delete', 'responses', 'response', 'fill',
-                'view', 'assignment', 'statistics'
+                'view', 'assignment', 'statistics', 'notifications'
             ]
             .includes(s) ||
             s.startsWith('[')

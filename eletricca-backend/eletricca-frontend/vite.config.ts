@@ -12,7 +12,7 @@ export default defineConfig({
 	plugins: [tailwindcss(), sveltekit(), devtoolsJson()],
 	server: {
 		proxy: {
-			'/api': {
+			'/api/': {
 				target: 'https://localhost:54445',
 				secure: false,
 				changeOrigin: true

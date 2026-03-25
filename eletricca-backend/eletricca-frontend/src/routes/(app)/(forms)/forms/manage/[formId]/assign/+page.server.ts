@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
 import { guardAction } from '$lib/server/auth';
+import { createNotification } from '$lib/server/notifications';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals, route, params, url }) => {
@@ -85,31 +86,29 @@ export const actions: Actions = {
         }
 
         const client = await pool.connect();
+        let insertedAssignments: { id: number; user_id: number }[] = [];
         try {
             await client.query('BEGIN');
 
-            // BULK INSERT: Vamos inserir um por um dentro da transação.
-            // Para milhares de usuários, faríamos um "unnest" no SQL, 
-            // mas para < 100 usuários, um loop é seguro e legível.
-            
             const query = `
-                INSERT INTO form_assignments 
+                INSERT INTO form_assignments
                 (form_id, user_id, assigned_by, due_date, period_reference)
                 VALUES ($1, $2, $3, $4, $5)
+                RETURNING id, user_id
             `;
 
             const assignerId = locals.user!.user_id;
             const validDate = dueDate ? new Date(dueDate) : null;
 
-            // Executa todas as promises em paralelo para ser rápido
-            const promises = userIds.map(userId => 
-                client.query(query, [formId, userId, assignerId, validDate, periodReference])
+            const results = await Promise.all(
+                userIds.map(userId =>
+                    client.query(query, [formId, userId, assignerId, validDate, periodReference])
+                )
             );
 
-            await Promise.all(promises);
+            insertedAssignments = results.map(r => r.rows[0]);
 
             await client.query('COMMIT');
-
         } catch (e) {
             await client.query('ROLLBACK');
             console.error(e);
@@ -118,7 +117,21 @@ export const actions: Actions = {
             client.release();
         }
 
-        // Redireciona de volta para o gerenciamento do form ou exibe sucesso
+        // Notificações após COMMIT + release do client
+        const formTitleRes = await pool.query('SELECT title FROM forms WHERE id = $1', [formId]);
+        const formTitle = formTitleRes.rows[0]?.title ?? '';
+
+        await Promise.all(
+            insertedAssignments.map(a => createNotification({
+                userId: a.user_id,
+                title: 'Novo formulário atribuído',
+                message: formTitle,
+                type: 'form_assigned',
+                referenceType: 'form_assignment',
+                referenceId: a.id
+            }))
+        );
+
         throw redirect(303, `/forms/manage`);
     }
 };

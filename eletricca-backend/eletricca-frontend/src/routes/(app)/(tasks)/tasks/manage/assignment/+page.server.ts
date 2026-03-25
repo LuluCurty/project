@@ -1,5 +1,8 @@
 import { redirect, fail } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
+import { createNotification } from '$lib/server/notifications';
+import { s3 } from '$lib/server/storage';
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -24,7 +27,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
         const statusCondition =
             statusFilter === 'pending'   ? `AND ta.status != 'completed'` :
             statusFilter === 'completed' ? `AND ta.status = 'completed'` :
-            statusFilter === 'overdue'   ? `AND ta.due_date < NOW() AND ta.status != 'completed'` :
+            statusFilter === 'overdue'   ? `AND ta.due_date::date < CURRENT_DATE AND ta.status != 'completed'` :
             '';
 
         const queryParams = searchParam ? [searchParam] : [];
@@ -36,7 +39,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
                     COUNT(*) as total,
                     COUNT(*) FILTER (WHERE ta.status != 'completed') as pending,
                     COUNT(*) FILTER (WHERE ta.status = 'completed') as completed,
-                    COUNT(*) FILTER (WHERE ta.due_date < NOW() AND ta.status != 'completed') as overdue
+                    COUNT(*) FILTER (WHERE ta.due_date::date < CURRENT_DATE AND ta.status != 'completed') as overdue
                 FROM task_assignments ta
                 JOIN tasks t ON ta.task_id = t.id
                 WHERE t.task_type = 'assigned'
@@ -234,12 +237,30 @@ export const actions: Actions = {
         if (!assignmentId) return fail(400, { error: 'ID inválido.' });
 
         try {
+            // Busca arquivos associados antes de deletar (cascade vai limpar task_step_progress)
+            const filesRes = await pool.query(`
+                SELECT f.object_key, f.bucket
+                FROM files f
+                JOIN task_step_progress tsp ON tsp.file_id = f.id
+                WHERE tsp.assignment_id = $1
+            `, [assignmentId]);
+
             // Cascades: task_step_progress via FK ON DELETE CASCADE
             const res = await pool.query(
                 `DELETE FROM task_assignments WHERE id = $1 AND deleted_at IS NOT NULL RETURNING id`,
                 [assignmentId]
             );
             if (res.rows.length === 0) return fail(404, { error: 'Atribuição não encontrada no arquivo.' });
+
+            // Cria delete markers no VersityGW (versioning ativo — não apaga bytes, só marca como deletado)
+            if (filesRes.rows.length > 0) {
+                await Promise.allSettled(
+                    filesRes.rows.map((f: any) =>
+                        s3.send(new DeleteObjectCommand({ Bucket: f.bucket, Key: f.object_key }))
+                    )
+                );
+            }
+
             return { success: true, action: 'hardDelete' };
         } catch (e: any) {
             if (e.status || e.location) throw e;
@@ -291,18 +312,24 @@ export const actions: Actions = {
 
             // 3. Build steps snapshot from current progress
             const stepsRes = await client.query(`
-                SELECT ts.id as step_id, ts.title, ts.step_order, tsp.completed_at
+                SELECT ts.id as step_id, ts.title, ts.step_order, tsp.completed_at,
+                       f.id as file_id, f.original_name as file_name, f.object_key as file_key, f.bucket
                 FROM task_step_progress tsp
                 JOIN task_steps ts ON tsp.step_id = ts.id
+                LEFT JOIN files f ON f.id = tsp.file_id
                 WHERE tsp.assignment_id = $1
                 ORDER BY ts.step_order
             `, [assignmentId]);
 
             const stepsSnapshot = stepsRes.rows.map((s: any) => ({
-                step_id: s.step_id,
-                title: s.title,
+                step_id:    s.step_id,
+                title:      s.title,
                 step_order: s.step_order,
-                completed_at: s.completed_at ? s.completed_at.toISOString() : null
+                completed_at: s.completed_at ? s.completed_at.toISOString() : null,
+                file_id:    s.file_id   ?? null,
+                file_name:  s.file_name ?? null,
+                file_key:   s.file_key  ?? null,
+                bucket:     s.bucket    ?? null
             }));
 
             // 4. Archive current cycle to history
@@ -348,6 +375,27 @@ export const actions: Actions = {
             `, [nextDueDate, nextAvailableFrom, assignmentId]);
 
             await client.query('COMMIT');
+
+            // Notifica o usuário que a tarefa foi reiniciada
+            const infoRes = await pool.query(`
+                SELECT t.title, ta.user_id
+                FROM task_assignments ta
+                JOIN tasks t ON ta.task_id = t.id
+                WHERE ta.id = $1
+            `, [assignmentId]);
+
+            if (infoRes.rows.length > 0) {
+                const { title, user_id } = infoRes.rows[0];
+                await createNotification({
+                    userId: user_id,
+                    title: 'Novo ciclo iniciado',
+                    message: `A tarefa "${title}" foi reiniciada para um novo ciclo`,
+                    type: 'task_assigned',
+                    referenceType: 'task_assignment',
+                    referenceId: assignmentId
+                });
+            }
+
             return { success: true, action: 'reset' };
         } catch (e: any) {
             await client.query('ROLLBACK');

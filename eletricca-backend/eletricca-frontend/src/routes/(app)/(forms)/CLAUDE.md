@@ -142,3 +142,76 @@ WHERE f.response_id = $1;
 
 
 # Security, Authentication and Logging
+
+
+
+# File Management
+
+Multiple buckets:
+    {reference_type}/{reference_id}/{uuid}.{ext}
+
+#### Examples
+    Bucket tasks
+        assignments/42/a1b2c3d4.xlsx
+
+            field	            value
+            object_key	        tasks/responses/42/a1b2c3d4.xlsx
+            original_name	    relatorio_março.xlsx
+            mime_type	        application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+            file_size	        45230
+            uploaded_by	        7 (user ID)
+            reference_type	    task_assignment
+            reference_id	    42
+            created_at	        2026-03-24 14:32:00
+
+### Data Base Schema
+- TABLE files (
+    id             SERIAL PRIMARY KEY,
+    object_key     VARCHAR(500) NOT NULL UNIQUE,  -- caminho no bucket
+    bucket         VARCHAR(100) NOT NULL DEFAULT 'project',
+    original_name  VARCHAR(255) NOT NULL,          -- nome que o usuário vê
+    mime_type      VARCHAR(100) NOT NULL,
+    file_size      BIGINT NOT NULL,                -- bytes
+    uploaded_by    INT NOT NULL REFERENCES users(user_id),
+    reference_type VARCHAR(50),   -- 'task_assignment', 'form_response', 'chat_message'
+    reference_id   INT,
+    created_at     TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_files_reference ON files(reference_type, reference_id);
+
+## Technology Used
+We plan to integrate both the S3 and posix in a ecosystem where users will be able to change 
+files directly while they will appear on versity gateway or on the intranet
+This will make for a good intranet for corps to use for free
+
+## Bucket Organization
+
+bucket: tasks     key: assignments/42/a1b2c3d4.xlsx
+bucket: forms     key: responses/15/e5f6g7h8.pdf
+bucket: chat      key: messages/103/i9j0k1l2.jpg
+
+## Versity configuration file
+
+VGW_BACKEND=posix
+VGW_BACKEND_ARG=/home/example/Desktop/gw-root
+ROOT_ACCESS_KEY_ID=example
+ROOT_SECRET_ACCESS_KEY=example
+VGW_PORT=:17017
+VGW_WEBUI_PORT=:17018
+VGW_WEBUI_NO_TLS=true
+VGW_CORS_ALLOW_ORIGIN=*
+VGW_IAM_DIR=/home/example/Desktop/gw-iam
+VGW_VERSIONING_DIR=/home/example/Desktop/gw-vers
+VGW_CHOWN_UID=true
+VGW_CHOWN_GID=true
+
+### IAM
+This is important, as I plan to make a multitenant aplication for 2 different companies
+So with IAM set I can make multiple users or multiple setups (still deciding)
+
+### Versioning
+We will use versioning
+
+### TLS
+No TLS for now as it is inside my local network so it will not need TLS for now

@@ -1,6 +1,7 @@
-import { fail, redirect, error } from "@sveltejs/kit"; 
+import { fail, redirect, error } from "@sveltejs/kit";
 import { pool } from "$lib/server/db";
 import { guardAction } from "$lib/server/auth";
+import { createNotification } from "$lib/server/notifications";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { PageServerLoad, Actions } from "./$types";
@@ -63,13 +64,17 @@ export const actions: Actions = {
         const formData = await request.formData();
         
         // Verificar se a atribuição existe, pertence ao usuário e ainda não foi completada
-        const assignCheck = await pool.query(
-            'SELECT form_id, is_completed FROM form_assignments WHERE id = $1 AND user_id = $2',
-            [assignmentId, user.user_id]
-        );
+        const assignCheck = await pool.query(`
+            SELECT fa.form_id, fa.is_completed, fa.assigned_by, f.title AS form_title
+            FROM form_assignments fa
+            JOIN forms f ON f.id = fa.form_id
+            WHERE fa.id = $1 AND fa.user_id = $2
+        `, [assignmentId, user.user_id]);
         if (assignCheck.rowCount === 0) return fail(404, { error: 'Atribuição não encontrada.' });
         if (assignCheck.rows[0].is_completed) return fail(400, { error: 'Este formulário já foi respondido.' });
         const formId = assignCheck.rows[0].form_id;
+        const assignedBy: number = assignCheck.rows[0].assigned_by;
+        const formTitle: string = assignCheck.rows[0].form_title;
 
         // Validação server-side: campos obrigatórios (respeitando lógica condicional)
         const fieldsRes = await pool.query(
@@ -123,6 +128,7 @@ export const actions: Actions = {
         }
 
         const client = await pool.connect();
+        let responseId = 0;
 
         try {
             await client.query('BEGIN');
@@ -133,8 +139,8 @@ export const actions: Actions = {
                 VALUES ($1, $2, $3, NOW())
                 RETURNING id
             `, [formId, user.user_id, assignmentId]);
-            
-            const responseId = resQuery.rows[0].id;
+
+            responseId = resQuery.rows[0].id;
 
             // 2. Processar cada campo do FormData
             // O frontend manda os campos com nome "field_{ID}"
@@ -199,6 +205,17 @@ export const actions: Actions = {
         } finally {
             client.release();
         }
+
+        // Notifica o responsável pela atribuição após o COMMIT
+        const userName = `${user.first_name} ${user.last_name}`.trim();
+        await createNotification({
+            userId: assignedBy,
+            title: 'Formulário respondido',
+            message: `${userName} respondeu "${formTitle}"`,
+            type: 'form_submitted',
+            referenceType: 'form_response',
+            referenceId: formId
+        });
 
         throw redirect(303, '/forms/assigned?status=completed');
     }

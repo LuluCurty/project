@@ -69,13 +69,22 @@
 
     function isOverdue(status: string, dueDate: string | null) {
         if (status === 'completed' || !dueDate) return false;
-        return new Date(dueDate) < new Date();
+        const due = new Date(dueDate);
+        const today = new Date();
+        // Compara apenas a data (ignora hora) — atrasado só quando o DIA passou
+        return due.getFullYear() < today.getFullYear() ||
+               (due.getFullYear() === today.getFullYear() && due.getMonth() < today.getMonth()) ||
+               (due.getFullYear() === today.getFullYear() && due.getMonth() === today.getMonth() && due.getDate() < today.getDate());
     }
 
     // Was the task completed after the due date?
     function wasCompletedLate(dueDate: string | null, completedAt: string | null) {
         if (!dueDate || !completedAt) return false;
-        return new Date(completedAt) > new Date(dueDate);
+        const due = new Date(dueDate);
+        const completed = new Date(completedAt);
+        // Compara só a data
+        due.setHours(23, 59, 59, 999);
+        return completed > due;
     }
 
     function priorityColor(priority: string) {

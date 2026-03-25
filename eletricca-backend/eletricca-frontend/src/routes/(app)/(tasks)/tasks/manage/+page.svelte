@@ -108,7 +108,7 @@
             <Button variant="outline" onclick={() => goto('/tasks/manage/assignment')}>
                 <ListChecks class="mr-2 size-4" /> Atribuições
             </Button>
-            <Button variant="outline" onclick={() => goto('/tasks/manage/stats')}>
+            <Button variant="outline" onclick={() => goto('/tasks/manage/statistics')}>
                 <ChartBar class="mr-2 size-4" /> Estatísticas
             </Button>
             <Button onclick={() => goto('/tasks/manage/create')}>
