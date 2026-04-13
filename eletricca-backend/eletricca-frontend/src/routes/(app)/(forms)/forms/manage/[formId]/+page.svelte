@@ -42,13 +42,25 @@
     let { data, form }: {data: PageData, form: FormState | null} = $props();
     
     const fieldTypes = [
-        { value: 'text', label: 'Texto', icon: Type },
-        { value: 'number', label: 'Número', icon: Hash },
-        { value: 'select', label: 'Seleção', icon: ListChecks },
-        { value: 'checkbox', label: 'Checkbox', icon: CheckSquare },
-        { value: 'date', label: 'Data', icon: Calendar },
-        { value: 'textarea', label: 'Texto Longo', icon: AlignLeft }
-        // { value: 'file', label: 'Arquivo', icon: FileUp } // TODO: implementar upload
+        { value: 'text',     label: 'Texto',       icon: Type },
+        { value: 'number',   label: 'Número',       icon: Hash },
+        { value: 'select',   label: 'Seleção',      icon: ListChecks },
+        { value: 'checkbox', label: 'Checkbox',     icon: CheckSquare },
+        { value: 'date',     label: 'Data',         icon: Calendar },
+        { value: 'textarea', label: 'Texto Longo',  icon: AlignLeft },
+        { value: 'file',     label: 'Arquivo',      icon: FileUp }
+    ];
+
+    type FileCategory = 'image' | 'pdf' | 'excel' | 'word' | 'powerpoint' | 'audio' | 'video';
+
+    const FILE_CATEGORIES: { value: FileCategory; label: string }[] = [
+        { value: 'image',      label: 'Foto / Imagem' },
+        { value: 'pdf',        label: 'PDF' },
+        { value: 'excel',      label: 'Excel' },
+        { value: 'word',       label: 'Word' },
+        { value: 'powerpoint', label: 'PowerPoint' },
+        { value: 'audio',      label: 'Áudio' },
+        { value: 'video',      label: 'Vídeo' }
     ];
 
     // Estado para o menu flutuante de adicionar campo
@@ -84,19 +96,19 @@
         { value: 'contains', label: 'Contém' }
     ];
 
-    // MUDANÇA: ID agora aceita number (do banco) ou string (temp)
     interface FormField {
-        id: string | number; 
+        id: string | number;
         field_type: string;
         label: string;
         placeholder: string;
         options: string[];
         is_required: boolean;
         field_order: number;
-        condition_field_id: string | number | null; // MUDANÇA
+        condition_field_id: string | number | null;
         condition_operator: string | null;
         condition_value: string | null;
         expanded: boolean;
+        allowed_file_types: FileCategory[];
     }
 
     let formTitle = $state('');
@@ -116,7 +128,7 @@
             if (data.fields && data.fields.length > 0) {
                 // Mapear campos do banco para o formato do Frontend
                 fields = data.fields.map((f: any) => ({
-                    id: f.id, // ID Numérico Real
+                    id: f.id,
                     field_type: f.field_type,
                     label: f.label,
                     placeholder: f.placeholder || '',
@@ -126,7 +138,8 @@
                     condition_field_id: f.condition_field_id,
                     condition_operator: f.condition_operator,
                     condition_value: f.condition_value,
-                    expanded: false // Começa fechado para organizar visualmente
+                    allowed_file_types: (f.allowed_file_types as FileCategory[]) ?? [],
+                    expanded: false
                 }));
             }
         }
@@ -147,6 +160,16 @@
     // Índice após o qual inserir um novo campo (-1 = no final)
     let insertAfterIndex: number | null = $state(null);
 
+    function toggleFileType(fieldId: string | number, value: FileCategory) {
+        const field = fields.find((f) => f.id === fieldId);
+        if (!field) return;
+        if (field.allowed_file_types.includes(value)) {
+            field.allowed_file_types = field.allowed_file_types.filter((t) => t !== value);
+        } else {
+            field.allowed_file_types = [...field.allowed_file_types, value];
+        }
+    }
+
     function addField(type: string, afterIndex?: number) {
         const newField: FormField = {
             id: generateId(),
@@ -159,6 +182,7 @@
             condition_field_id: null,
             condition_operator: null,
             condition_value: null,
+            allowed_file_types: [],
             expanded: true
         };
 
@@ -209,6 +233,7 @@
             condition_field_id: withConditions ? original.condition_field_id : null,
             condition_operator: withConditions ? original.condition_operator : null,
             condition_value: withConditions ? original.condition_value : null,
+            allowed_file_types: [...original.allowed_file_types],
             expanded: true
         };
 
@@ -292,6 +317,9 @@
                 if (!hasValidOption) {
                     errors.push(`Campo "${field.label || index + 1}": Adicione pelo menos uma opção válida.`);
                 }
+            }
+            if (field.field_type === 'file' && field.allowed_file_types.length === 0) {
+                errors.push(`Campo "${field.label || index + 1}": Selecione pelo menos um tipo de arquivo permitido.`);
             }
         });
 
@@ -625,6 +653,27 @@
                                                                 </p>
                                                             {/if}
                                                         </div>
+                                                    </div>
+                                                {/if}
+
+                                                {#if field.field_type === 'file'}
+                                                    <Separator class="my-4" />
+                                                    <div class="space-y-2">
+                                                        <Label>Tipos de arquivo permitidos *</Label>
+                                                        <div class="flex flex-wrap gap-2">
+                                                            {#each FILE_CATEGORIES as cat}
+                                                                <button
+                                                                    type="button"
+                                                                    onclick={() => toggleFileType(field.id, cat.value)}
+                                                                    class="rounded-full border px-3 py-1 text-xs transition-colors {field.allowed_file_types.includes(cat.value) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground hover:border-primary/50'}"
+                                                                >
+                                                                    {cat.label}
+                                                                </button>
+                                                            {/each}
+                                                        </div>
+                                                        {#if field.allowed_file_types.length === 0}
+                                                            <p class="text-xs text-amber-600">Selecione pelo menos um tipo de arquivo.</p>
+                                                        {/if}
                                                     </div>
                                                 {/if}
 

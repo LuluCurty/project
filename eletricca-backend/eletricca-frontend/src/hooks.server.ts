@@ -2,17 +2,53 @@
 import { type HandleFetch, type Handle, redirect } from '@sveltejs/kit';
 import { JWT_SECRET } from '$env/static/private';
 import jwt from 'jsonwebtoken';
+import { pool } from '$lib/server/db';
 
-interface userData {
+interface JwtPayload {
     user_id: number;
     email: string;
     first_name: string;
     last_name: string;
     user_role: string;
-    permissions?: string[];
     role_id: number;
     iat: number;
     exp: number;
+}
+
+interface UserData {
+    permissions: string[];
+    is_super_admin: boolean;
+}
+
+// Busca permissões e flag de super-admin diretamente do banco a cada request,
+// garantindo que qualquer mudança tenha efeito imediato (sem precisar deslogar).
+async function loadUserData(userId: number): Promise<UserData> {
+    const [permRes, userRes] = await Promise.all([
+        pool.query<{ slug: string }>(`
+            SELECT p.slug FROM permissions p
+            INNER JOIN user_permissions up ON up.permissions_id = p.id
+            WHERE up.user_id = $1
+            UNION
+            SELECT p.slug FROM permissions p
+            INNER JOIN role_permissions rp ON rp.permissions_id = p.id
+            INNER JOIN users u ON u.role_id = rp.role_id
+            WHERE u.user_id = $1
+        `, [userId]),
+        pool.query<{ is_super_admin: boolean }>(
+            'SELECT is_super_admin FROM users WHERE user_id = $1',
+            [userId]
+        )
+    ]);
+
+    const is_super_admin = userRes.rows[0]?.is_super_admin ?? false;
+
+    // Super-admin recebe todos os slugs cadastrados
+    if (is_super_admin) {
+        const allPerms = await pool.query<{ slug: string }>('SELECT slug FROM permissions');
+        return { permissions: allPerms.rows.map(r => r.slug), is_super_admin: true };
+    }
+
+    return { permissions: permRes.rows.map(r => r.slug), is_super_admin: false };
 }
 
 // Pega as requisições inbound
@@ -31,8 +67,10 @@ export const handle: Handle = async ({ event, resolve }) => {
     if (token) {
         try {
             // jwt.verify valida assinatura E expiração automaticamente
-            const decoded = jwt.verify(token, JWT_SECRET) as userData;
-            event.locals.user = decoded;
+            const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+            const { permissions, is_super_admin } = await loadUserData(decoded.user_id);
+
+            event.locals.user = { ...decoded, permissions, is_super_admin };
 
         } catch (error) {
             // Token inválido, expirado ou assinatura incorreta

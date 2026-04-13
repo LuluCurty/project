@@ -30,6 +30,35 @@
 
 	import type { PageData, ActionData } from './$types';
 
+	const ACCEPT_MAP: Record<string, string> = {
+		image:      'image/*',
+		pdf:        'application/pdf',
+		excel:      '.xlsx,.xls',
+		word:       '.docx,.doc',
+		powerpoint: '.pptx,.ppt',
+		audio:      'audio/*',
+		video:      'video/*'
+	};
+
+	const CATEGORY_LABEL: Record<string, string> = {
+		image:      'Imagem',
+		pdf:        'PDF',
+		excel:      'Excel',
+		word:       'Word',
+		powerpoint: 'PowerPoint',
+		audio:      'Áudio',
+		video:      'Vídeo'
+	};
+
+	function getAccept(types: string[]): string {
+		return types.map(t => ACCEPT_MAP[t] ?? '').filter(Boolean).join(',');
+	}
+
+	function getTypesLabel(types: string[]): string {
+		if (!types || types.length === 0) return '';
+		return types.map(t => CATEGORY_LABEL[t] ?? t).join(', ');
+	}
+
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let { assignment, fields } = data;
 
@@ -497,7 +526,7 @@
 															{selectedFiles[field.id]?.name}
 														</p>
 														<p class="text-xs text-muted-foreground">
-															{(selectedFiles[field.id]?.size || 0 / 1024 / 1024).toFixed(2)} MB
+															{((selectedFiles[field.id]?.size ?? 0) / 1024 / 1024).toFixed(2)} MB
 														</p>
 													</div>
 												</div>
@@ -524,13 +553,20 @@
 													<p class="text-sm font-medium">Clique para selecionar</p>
 													<p class="text-xs text-muted-foreground">ou arraste o arquivo aqui</p>
 												</div>
-												<p class="text-xs text-muted-foreground">Máximo: 10MB</p>
+												{#if field.allowed_file_types?.length > 0}
+													<p class="text-xs text-muted-foreground">
+														{getTypesLabel(field.allowed_file_types)} · Máx. 10MB
+													</p>
+												{:else}
+													<p class="text-xs text-muted-foreground">Máximo: 10MB</p>
+												{/if}
 											</label>
 										{/if}
 										<input
 											type="file"
 											name={`field_${field.id}`}
 											id={`field_${field.id}`}
+											accept={getAccept(field.allowed_file_types ?? [])}
 											required={field.is_required && !selectedFiles[field.id]}
 											class="sr-only"
 											onchange={(e) => handleFileChange(field.id, e)}

@@ -1,7 +1,6 @@
 import express from 'express';
 import pool from '../db.js';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
 import { Client } from 'ssh2';
 import { generateToken } from '../middleware/auth.js';
 import {authenticateToken} from '../middleware/auth.js';
@@ -76,7 +75,7 @@ router.post('/login', async (req, res) => {
             SELECT u.*, r.name as roles_name
             FROM users u
             LEFT JOIN roles r on u.role_id = r.id
-            WHERE email=$1
+            WHERE email = $1 OR username = $1
         `;
 
         const { rows } = await pool.query(queryUser, [email]);
@@ -104,7 +103,7 @@ router.post('/login', async (req, res) => {
                     const defaultRoleId = 4;
                     const newuserQuery = `
                         INSERT INTO users (
-                            email, password_hashed, first_name, last_name, role_id, auth_source
+                            username, password_hashed, first_name, last_name, role_id, auth_source
                         ) VALUES ($1, $2, $3, $4, $5, $6)
                         RETURNING *, (SELECT name FROM roles WHERE id=$5) as role_name;
                     `;
@@ -113,8 +112,8 @@ router.post('/login', async (req, res) => {
                     const last_name =  parts.length > 1 ? parts[1] : '';
             
                     const newRows = await pool.query(newuserQuery, [
-                        email,
-                        dummyHash, 
+                        usernameRemote,
+                        dummyHash,
                         first_name,
                         last_name,
                         defaultRoleId,
@@ -143,6 +142,7 @@ router.post('/login', async (req, res) => {
 
         res.json({ 
             user: { user_id: user.user_id, 
+                username: user.username, 
                 email: user.email, 
                 user_role: user.user_role, 
                 first_name: user.first_name, 

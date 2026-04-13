@@ -1,6 +1,6 @@
 import { fail, error, redirect } from "@sveltejs/kit";
 import { pool } from "$lib/server/db";
-import { checkSystemAdmin } from "$lib/server/auth";
+import { } from "$lib/server/auth";
 import type { PageServerLoad, Actions } from "./$types";
 
 interface PermissionRow {
@@ -13,7 +13,6 @@ interface PermissionRow {
 type PermissionGroup = Record<string, PermissionRow[]>;
 
 export const load: PageServerLoad = async ({ locals, params }) => {
-    checkSystemAdmin(locals.user);
     const roleId = Number(params.id);
 
     if (isNaN(roleId)) throw error(404, 'Cargo não encontrado');
@@ -58,7 +57,6 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 export const actions: Actions = {
     default: async ({ request, locals, params }) => {
-        checkSystemAdmin(locals.user);
         const roleId = Number(params.id);
 
         const data = await request.formData();

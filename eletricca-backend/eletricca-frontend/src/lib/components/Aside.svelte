@@ -29,6 +29,7 @@
         last_name: "Desconhecido",
         email: '...',
     });
+    const avatarUrl = $derived(page.data.avatarUrl ?? null);
 
     // --- FAVORITOS ---
     let defaultFavorites = [
@@ -38,7 +39,8 @@
     let isFavoriteModalOpen = $state(false);
 
     // --- GERAÇÃO AUTOMÁTICA DE MENUS ---
-    const menus = generateMenuFromRoutes();
+    const permissions = $derived(page.data.user?.permissions ?? []);
+    const menus = $derived(generateMenuFromRoutes(permissions));
 
     // Estado para controlar quais menus dropdown estão abertos
     // Ex: { 'Financeiro': true }
@@ -227,7 +229,10 @@
         <DropdownMenu.Root>
             <DropdownMenu.Trigger class="w-full outline-none">
                 <div class="flex w-full items-center gap-3 rounded-md p-2 hover:bg-muted transition-colors">
-                    <Avatar.Root class="h-8 w-8 rounded-lg border">
+                    <Avatar.Root class="h-10 w-10 rounded-lg border">
+                        {#if avatarUrl}
+                            <Avatar.Image src={avatarUrl} alt="Avatar" class="rounded-lg object-cover" />
+                        {/if}
                         <Avatar.Fallback class="rounded-lg bg-primary/10 text-primary font-bold text-xs">
                             {user.first_name[0]}{user.last_name[0]}
                         </Avatar.Fallback>

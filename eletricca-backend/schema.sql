@@ -1,6 +1,8 @@
 CREATE TABLE IF NOT EXISTS users (
     user_id                  SERIAL PRIMARY KEY,
-    email               VARCHAR(150) NOT NULL UNIQUE,
+    email               VARCHAR(150) UNIQUE,
+    username            VARCHAR(50) UNIQUE,
+    CONSTRAINT users_has_identifier CHECK (email IS NOT NULL OR username IS NOT NULL),
     password_hashed     VARCHAR(255) NOT NULL,
     telphone            VARCHAR(20),
     user_role           user_role_type NOT NULL DEFAULT 'clients',
@@ -8,8 +10,21 @@ CREATE TABLE IF NOT EXISTS users (
     last_name           VARCHAR(30) NOT NULL,
     creation_date       TIMESTAMP DEFAULT NOW(),
     auth_source         VARCHAR(10),
-    role_id             INT REFERENCES roles(id)
+    role_id             INT REFERENCES roles(id),
+    -- profile pictures (S3 via files table)
+    avatar_file_id      INT REFERENCES files(id) ON DELETE SET NULL,
+    banner_file_id      INT REFERENCES files(id) ON DELETE SET NULL,
+    is_super_admin      BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+-- Migration (run once on live DB):
+-- ALTER TABLE users ADD COLUMN avatar_file_id INT REFERENCES files(id) ON DELETE SET NULL;
+-- ALTER TABLE users ADD COLUMN banner_file_id INT REFERENCES files(id) ON DELETE SET NULL;
+-- ALTER TABLE users ADD COLUMN is_super_admin BOOLEAN NOT NULL DEFAULT FALSE;
+-- UPDATE users SET is_super_admin = TRUE WHERE user_id = 1;
+-- ALTER TABLE users ADD COLUMN username VARCHAR(50) UNIQUE;
+-- ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
+-- ALTER TABLE users ADD CONSTRAINT users_has_identifier CHECK (email IS NOT NULL OR username IS NOT NULL);
 
 CREATE TABLE IF NOT EXISTS services (
     id  SERIAL PRIMARY KEY,
@@ -26,8 +41,6 @@ CREATE TABLE IF NOT EXISTS supplies ( --tabela que nunca mais vai mudar kkk
     image_url       TEXT,
     details         TEXT,
     creation_date   TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-    price           numeric(10,2),
-    supplier        VARCHAR(50)
 )
 CREATE TYPE IF NOT EXISTS user_role_type AS ENUM (
     'admin',
@@ -72,22 +85,46 @@ CREATE TABLE IF NOT EXISTS supplies_list_items(
     price               NUMERIC(12,2) NOT NULL -- preço do fornecedor
 )
 
-CREATE TABLE IF NOT EXISTS suppliers( --show
-    id                  SERIAL PRIMARY KEY,
-    supplier_name       VARCHAR(50) NOT NULL,
-    supplier_email      VARCHAR(50) NOT NULL UNIQUE,
-    supplier_telephone  VARCHAR(50),
-    supplier_address    TEXT
+CREATE TABLE IF NOT EXISTS supplier(
+    id                          SERIAL PRIMARY KEY,
+    supplier_name               VARCHAR(100) NOT NULL,
+    supplier_legal_name         VARCHAR(150) NOT NULL UNIQUE, -- razão social
+    supplier_legal_identifier   VARCHAR(20)  NOT NULL UNIQUE, -- CNPJ
+    supplier_email              VARCHAR(100) UNIQUE,
+    supplier_telephone          VARCHAR(50),
+    supplier_address            TEXT,
+    description                 TEXT,
+    creation_date               TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
 )
 
-CREATE TABLE IF NOT EXISTS rel_supplies_suppliers( --relacao materiais e fornecedores
+CREATE TABLE IF NOT EXISTS supply_princing( --relacao materiais e fornecedores
     id                  SERIAL PRIMARY KEY,
     supply_id           INT REFERENCES supplies(id) ON DELETE CASCADE,
     supplier_id         INT REFERENCES suppliers(id) ON DELETE CASCADE,
     price               NUMERIC(12,2) NOT NULL CHECK (price >= 0),
+    is_default          BOOLEAN,
     UNIQUE              (supply_id, supplier_id)
 )
-CREATE OR REPLACE VIEW v_supplies_list_totals AS
+-- traduzir para SQL:
+   Column    |            Type             | Collation | Nullable |                  Default                   
+-------------+-----------------------------+-----------+----------+--------------------------------------------
+ id          | integer                     |           | not null | nextval('supply_pricing_id_seq'::regclass)
+ supply_id   | integer                     |           | not null | 
+ supplier_id | integer                     |           | not null | 
+ price       | numeric(10,2)               |           |          | 
+ is_default  | boolean                     |           |          | false
+ updated_at  | timestamp without time zone |           |          | now()
+Indexes:
+    "supply_pricing_pkey" PRIMARY KEY, btree (id)
+    "supply_pricing_supply_id_supplier_id_key" UNIQUE CONSTRAINT, btree (supply_id, supplier_id)
+    "unique_supply_supplier" UNIQUE CONSTRAINT, btree (supply_id, supplier_id)
+Foreign-key constraints:
+    "supply_pricing_supplier_id_fkey" FOREIGN KEY (supplier_id) REFERENCES supplier(id) ON DELETE CASCADE
+    "supply_pricing_supply_id_fkey" FOREIGN KEY (supply_id) REFERENCES supplies(id) ON DELETE CASCADE
+--
+
+
+CREATE OR REPLACE VIEW v_supplies_list_totals AS -- não sei se esta funcionando no banco de dados
     SELECT
         list.id AS list_id,
         list.list_name, 
@@ -174,10 +211,12 @@ CREATE TABLE IF NOT EXISTS form_fields(
     condition_field_id INT REFERENCES form_fields(id) ON DELETE SET NULL, 
     condition_operator VARCHAR(20), -- equals, not_equals, contains
     condition_value TEXT,
+    -- file upload config (only used when field_type = 'file')
+    allowed_file_types TEXT[] DEFAULT NULL,
     -- soft delete
     is_deleted BOOLEAN DEFAULT false,
     deleted_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW()   
+    created_at TIMESTAMP DEFAULT NOW()
 );
 
 -- =============================

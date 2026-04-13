@@ -1,203 +1,126 @@
 <script lang="ts">
-    import {
-        Plus,
-        Search,
-        EllipsisVertical,
-        Pencil,
-        Trash,
-        ChevronLeft,
-        ChevronRight,
-        FileText,
-        ArrowUp,
-        ArrowRight,
-        ArrowDown,
-        LoaderCircle
-    } from 'lucide-svelte';
-    import { goto } from '$app/navigation';
+    import { enhance } from '$app/forms';
+    import { goto, invalidateAll } from '$app/navigation';
     import { page } from '$app/state';
+    import { toast } from 'svelte-sonner';
+    import { onMount } from 'svelte';
+    import type { PageData } from './$types';
 
-    // Componentes Shadcn
-    import * as Table from '$lib/components/ui/table/index.js';
-    import * as Card from '$lib/components/ui/card/index.js';
-    import { Badge } from '$lib/components/ui/badge/index.js';
-    import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-    import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
-    import { Input } from '$lib/components/ui/input/';
-    import * as Pagination from "$lib/components/ui/pagination/index.js";
+    import * as Card from '$lib/components/ui/card';
+    import * as Table from '$lib/components/ui/table';
+    import * as Pagination from '$lib/components/ui/pagination';
+    import { Badge } from '$lib/components/ui/badge';
+    import { Button } from '$lib/components/ui/button';
+    import { Input } from '$lib/components/ui/input';
+    import {
+        Plus, Search, Pencil, Trash, FileText,
+        ArrowUp, ArrowRight, ArrowDown, Lock,
+        Clock, CircleCheck, CircleX, ChevronLeft, ChevronRight
+    } from '@lucide/svelte';
 
-    // --- TIPAGEM ---
-    type ListStatus = "denied" | "pending" | "approved";
-    type Priority = "low" | "medium" | "high";
+    let { data }: { data: PageData } = $props();
 
-    interface SupplyList {
-        id: number;
-        list_name: string;
-        list_status: ListStatus;
-        priority: Priority;
-        client_id: number;
-        created_by: number;
-        creation_date: string;
-        // Campos vindos do JOIN
-        client_first_name?: string;
-        client_last_name?: string;
-        creator_name?: string;
-        creator_first_name?: string;
-        creator_last_name?: string;
+    const STATUS = {
+        pending:  { label: 'Pendente', cls: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100' },
+        approved: { label: 'Aprovado', cls: 'bg-green-100  text-green-800  hover:bg-green-100'  },
+        denied:   { label: 'Recusado', cls: 'bg-red-100    text-red-800    hover:bg-red-100'    },
+    } as const;
+
+    const tabs = [
+        { key: 'pending',  label: 'Pendentes',  count: data.stats.pending,  icon: Clock        },
+        { key: 'approved', label: 'Aprovados',  count: data.stats.approved, icon: CircleCheck  },
+        { key: 'denied',   label: 'Recusados',  count: data.stats.denied,   icon: CircleX      },
+    ] as const;
+
+    function setFilter(s: string) {
+        const u = new URL(page.url);
+        u.searchParams.set('status', s);
+        u.searchParams.set('page', '1');
+        goto(u.toString(), { noScroll: true });
     }
 
-    interface ApiResponse {
-        lists: SupplyList[];
-        limit: number;
-        ok: boolean;
-        page: number;
-        totalItems: number;
-        totalPages: number;
+    function handleSearch(e: Event) {
+        const v = (e.target as HTMLInputElement).value;
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+            const u = new URL(page.url);
+            u.searchParams.set('search', v);
+            u.searchParams.set('page', '1');
+            goto(u.toString(), { noScroll: true, keepFocus: true });
+        }, 500);
     }
 
-    // --- ESTADO ---
-    let lists = $state<SupplyList[]>([]);
-    let isLoading = $state<boolean>(true);
-
-    // Params da URL
-    let search = $derived(page.url.searchParams.get('search') || '');
-    let currentPage = $derived(Number(page.url.searchParams.get('page')) || 1);
-    
-    let limit = $state<number>(10);
-    let totalItems = $state<number>(0);
-    let searchTimeout: ReturnType<typeof setTimeout>;
-
-    // --- AÇÕES ---
-
-    async function deleteList(id: number, name: string) {
-        if (!confirm(`Deseja apagar a lista "${name}" e todos os seus itens?`)) {
-            return;
-        }
-
-        try {
-            const res = await fetch(`/api/suplist/${id}`, {
-                method: 'DELETE',
-                credentials: 'include',
-            });
-
-            if (res.ok) {
-                lists = lists.filter(l => l.id !== id);
-            } else {
-                alert('Erro ao excluir a lista.');
-            }
-        } catch (e) {
-            console.error(e);
-            alert('Erro de conexão ao apagar.');
-        }
+    function handlePage(p: number) {
+        const u = new URL(page.url);
+        u.searchParams.set('page', p.toString());
+        goto(u.toString(), { noScroll: true });
     }
 
-    async function getLists() {
-        try {
-            isLoading = true;
-            const params = new URLSearchParams({
-                page: currentPage.toString(),
-                limit: limit.toString(),
-                search: search.toString()
-            });
+    let searchTimer: ReturnType<typeof setTimeout>;
 
-            const res = await fetch(`/api/suplist?${params.toString()}`, {
-                credentials: 'include'
-            });
-
-            if (res.ok) {
-                const data: ApiResponse = await res.json();
-                console.log(data)
-                lists = data.lists || [];
-                totalItems = data.totalItems;
-            }
-        } catch (error) {
-            console.error("Erro ao buscar listas", error);
-        } finally {
-            isLoading = false;
+    onMount(() => {
+        const msg = page.url.searchParams.get('msg');
+        if (msg === 'not_pending') {
+            toast.error('Esta lista não pode ser editada pois já foi aprovada ou recusada.');
+        } else if (msg === 'no_permission') {
+            toast.error('Você não tem permissão para editar esta lista.');
         }
-    };
-
-    // Reatividade
-    $effect(() => {
-        const _p = currentPage; 
-        const _s = search;
-        getLists();
+        if (msg) {
+            const u = new URL(page.url);
+            u.searchParams.delete('msg');
+            goto(u.toString(), { replaceState: true, noScroll: true });
+        }
     });
 
-    // Debounce na busca
-    function handleSearchInput(e: Event) {
-        const target = e.target as HTMLInputElement;
-        const value = target.value;
+    function fmtDate(s: string) { return new Date(s).toLocaleDateString('pt-BR'); }
+    function fmt(v: number)     { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            const url = new URL(page.url);
-            url.searchParams.set('search', value);
-            url.searchParams.set('page', '1');
-            goto(url.toString(), { keepFocus: true, noScroll: true });
-        }, 800);
-    };
-
-    function handlePageChange(newPage: string) {
-        const url = new URL(page.url);
-        url.searchParams.set('page', newPage.toString());
-        goto(url.toString(), { keepFocus: true });
-    };
-
-    function formatDate(dateString: string) {
-        if (!dateString) return '-';
-        return new Date(dateString).toLocaleDateString('pt-BR');
-    };
-
-    // --- Helpers Visuais ---
-    function getStatusColor(status: ListStatus) {
-        switch (status) {
-            case 'approved': return 'bg-green-100 text-green-800 hover:bg-green-100';
-            case 'denied': return 'bg-red-100 text-red-800 hover:bg-red-100';
-            default: return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100';
-        }
-    }
-
-    function getStatusLabel(status: ListStatus) {
-        switch (status) {
-            case 'approved': return 'Aprovado';
-            case 'denied': return 'Recusado';
-            default: return 'Pendente';
-        }
-    }
-
-    function getPriorityIcon(priority: Priority) {
-        // Retorna um snippet de componente ou config
-        return priority; 
+    function canEdit(status: string, createdBy: number) {
+        if (status !== 'pending') return false;
+        return data.currentUserId === createdBy || data.canManageAll;
     }
 </script>
 
 <div class="space-y-4">
+
     <div class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
             <h2 class="text-2xl font-bold tracking-tight text-primary">Listas de Materiais</h2>
-            <p class="text-muted-foreground">Gerencie orçamentos e listas de compras.</p>
+            <p class="text-muted-foreground text-sm">Gerencie orçamentos e listas de compras.</p>
         </div>
+        <Button onclick={() => goto('/supplies/lists/add')}>
+            <Plus class="mr-2 size-4" /> Nova Lista
+        </Button>
+    </div>
 
-        <div class="flex w-full items-center gap-2 sm:w-auto">
-            <Button onclick={() => goto('/supplies/lists/add')}>
-                <Plus class="mr-2 size-4" /> Nova Lista
-            </Button>
-        </div>
+    <!-- Tabs de status -->
+    <div class="flex gap-2 flex-wrap">
+        {#each tabs as t}
+            <button
+                onclick={() => setFilter(t.key)}
+                class="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors
+                       {data.statusFilter === t.key
+                           ? 'bg-primary text-primary-foreground border-primary'
+                           : 'bg-background hover:bg-muted border-border text-muted-foreground'}"
+            >
+                <t.icon class="size-4" />
+                {t.label}
+                <Badge variant="secondary" class="ml-1 h-5 min-w-5 px-1.5 text-xs">{t.count}</Badge>
+            </button>
+        {/each}
     </div>
 
     <Card.Root>
         <Card.Header class="pb-3">
-            <div class="flex items-center gap-2">
-                <div class="relative w-full max-w-sm">
-                    <Search class="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        type="search"
-                        placeholder="Buscar por lista ou cliente..."
-                        class="w-full pl-9"
-                        oninput={handleSearchInput}
-                        value={search} 
-                    />
-                </div>
+            <div class="relative w-full max-w-sm">
+                <Search class="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+                <Input
+                    type="search"
+                    placeholder="Buscar por lista ou cliente..."
+                    class="pl-9"
+                    value={data.search}
+                    oninput={handleSearch}
+                />
             </div>
         </Card.Header>
 
@@ -206,109 +129,108 @@
                 <Table.Root>
                     <Table.Header>
                         <Table.Row class="bg-muted/50">
-                            <Table.Head class="w-[50px]">ID</Table.Head>
-                            <Table.Head>Nome da Lista</Table.Head>
-                            <Table.Head>Cliente</Table.Head>
+                            <Table.Head class="w-12">#</Table.Head>
+                            <Table.Head>Nome</Table.Head>
+                            <Table.Head class="hidden md:table-cell">Cliente</Table.Head>
+                            <Table.Head class="hidden sm:table-cell">Prioridade</Table.Head>
+                            <Table.Head class="hidden lg:table-cell text-right">Total</Table.Head>
                             <Table.Head>Status</Table.Head>
-                            <Table.Head>Prioridade</Table.Head>
-                            <Table.Head>Criado Em</Table.Head>
-                            <Table.Head>Criado Por</Table.Head>
+                            <Table.Head class="hidden lg:table-cell">Criado por</Table.Head>
+                            <Table.Head class="hidden md:table-cell">Data</Table.Head>
                             <Table.Head class="text-right">Ações</Table.Head>
                         </Table.Row>
                     </Table.Header>
                     <Table.Body>
-                        {#if isLoading}
+                        {#if data.lists.length === 0}
                             <Table.Row>
-                                <Table.Cell colspan={7} class="h-24 text-center">
-                                    <div class="flex items-center justify-center gap-2">
-                                        <LoaderCircle class="size-5 animate-spin text-primary" />
-                                        <span class="text-muted-foreground">Carregando...</span>
-                                    </div>
-                                </Table.Cell>
-                            </Table.Row>
-                        {:else if lists.length === 0}
-                            <Table.Row>
-                                <Table.Cell colspan={7} class="h-24 text-center text-muted-foreground">
+                                <Table.Cell colspan={8} class="h-32 text-center text-muted-foreground">
                                     Nenhuma lista encontrada.
                                 </Table.Cell>
                             </Table.Row>
                         {:else}
-                            {#each lists as list (list.id)}
+                            {#each data.lists as list (list.id)}
+                                {@const st = STATUS[list.list_status as keyof typeof STATUS] ?? STATUS.pending}
                                 <Table.Row>
-                                    <Table.Cell class="font-medium text-muted-foreground">
-                                        #{list.id}
-                                    </Table.Cell>
-                                    
+                                    <Table.Cell class="text-xs text-muted-foreground font-mono">#{list.id}</Table.Cell>
+
                                     <Table.Cell>
                                         <div class="flex items-center gap-2">
-                                            <div class="bg-slate-100 p-1.5 rounded-md">
-                                                <FileText class="size-4 text-slate-600" />
-                                            </div>
+                                            <FileText class="size-4 shrink-0 text-muted-foreground" />
                                             <span class="font-medium">{list.list_name}</span>
                                         </div>
                                     </Table.Cell>
 
-                                    <Table.Cell>
+                                    <Table.Cell class="hidden md:table-cell text-sm text-muted-foreground">
                                         {#if list.client_first_name}
                                             {list.client_first_name} {list.client_last_name}
                                         {:else}
-                                            <span class="text-muted-foreground italic">Sem cliente</span>
+                                            <span class="italic">—</span>
                                         {/if}
                                     </Table.Cell>
-                                    
-                                    <Table.Cell>
-                                        <Badge variant="outline" class={getStatusColor(list.list_status)}>
-                                            {getStatusLabel(list.list_status)}
-                                        </Badge>
-                                    </Table.Cell>
 
-                                    <Table.Cell>
+                                    <Table.Cell class="hidden sm:table-cell">
                                         <div class="flex items-center gap-1 text-sm">
                                             {#if list.priority === 'high'}
-                                                <ArrowUp class="size-4 text-red-500" />
+                                                <ArrowUp class="size-3.5 text-red-500" />
                                                 <span class="text-red-600 font-medium">Alta</span>
                                             {:else if list.priority === 'medium'}
-                                                <ArrowRight class="size-4 text-orange-500" />
+                                                <ArrowRight class="size-3.5 text-orange-500" />
                                                 <span class="text-orange-600">Média</span>
                                             {:else}
-                                                <ArrowDown class="size-4 text-slate-400" />
+                                                <ArrowDown class="size-3.5 text-slate-400" />
                                                 <span class="text-slate-500">Baixa</span>
                                             {/if}
                                         </div>
                                     </Table.Cell>
 
-                                    <Table.Cell class="text-muted-foreground text-xs">
-                                        {formatDate(list.creation_date)}
+                                    <Table.Cell class="hidden lg:table-cell text-right text-sm font-medium">
+                                        {fmt(list.total_value)}
                                     </Table.Cell>
 
                                     <Table.Cell>
-                                        {list.creator_first_name} {list.creator_last_name}
+                                        <Badge variant="outline" class="gap-1 {st.cls}">{st.label}</Badge>
                                     </Table.Cell>
 
-                                    <Table.Cell class="text-right">
-                                        <DropdownMenu.Root>
-                                            <DropdownMenu.Trigger
-                                                class={buttonVariants({ variant: "ghost", size: "icon"}) + " size-8"}
-                                            >
-                                                <EllipsisVertical class="size-4" />
-                                                <span class="sr-only">Opções</span>
-                                            </DropdownMenu.Trigger>
+                                    <Table.Cell class="hidden lg:table-cell text-sm text-muted-foreground">
+                                        {list.creator_first_name ?? ''} {list.creator_last_name ?? ''}
+                                    </Table.Cell>
 
-                                            <DropdownMenu.Content align="end">
-                                                <DropdownMenu.Item
-                                                    onclick={() => goto(`/supplies/lists/edit/${list.id}`)}
-                                                >
-                                                    <Pencil class="mr-2 size-4"/> Ver / Editar
-                                                </DropdownMenu.Item>
-                                                
-                                                <DropdownMenu.Item 
-                                                    class="text-destructive focus:text-destructive"
-                                                    onclick={() => deleteList(list.id, list.list_name)}
-                                                >
-                                                    <Trash class="mr-2 size-4" /> Excluir
-                                                </DropdownMenu.Item>    
-                                            </DropdownMenu.Content>
-                                        </DropdownMenu.Root>
+                                    <Table.Cell class="hidden md:table-cell text-xs text-muted-foreground">
+                                        {fmtDate(list.creation_date)}
+                                    </Table.Cell>
+
+                                    <Table.Cell>
+                                        <div class="flex items-center justify-end gap-1">
+                                            {#if canEdit(list.list_status, list.created_by)}
+                                                <!-- Editar -->
+                                                <Button variant="ghost" size="icon" class="size-8"
+                                                    onclick={() => goto(`/supplies/lists/edit/${list.id}`)}>
+                                                    <Pencil class="size-4" />
+                                                </Button>
+
+                                                <!-- Excluir -->
+                                                <form method="POST" action="?/delete" use:enhance={() => async ({ result, update }) => {
+                                                    if (result.type === 'success') {
+                                                        toast.success('Lista excluída.');
+                                                        await invalidateAll();
+                                                    } else if (result.type === 'failure') {
+                                                        toast.error(String((result.data as any)?.error) || 'Erro ao excluir.');
+                                                    }
+                                                    await update({ reset: false });
+                                                }}>
+                                                    <input type="hidden" name="id" value={list.id} />
+                                                    <Button type="submit" variant="ghost" size="icon"
+                                                        class="size-8 text-muted-foreground hover:text-destructive">
+                                                        <Trash class="size-4" />
+                                                    </Button>
+                                                </form>
+                                            {:else}
+                                                <!-- Lista finalizada — somente leitura -->
+                                                <Button variant="ghost" size="icon" class="size-8 text-muted-foreground cursor-default opacity-50" disabled title="Lista finalizada, não pode ser editada">
+                                                    <Lock class="size-4" />
+                                                </Button>
+                                            {/if}
+                                        </div>
                                     </Table.Cell>
                                 </Table.Row>
                             {/each}
@@ -317,47 +239,38 @@
                 </Table.Root>
             </div>
 
-            {#if totalItems > 0}
+            {#if data.totalItems > 15}
                 <div class="mt-4">
-                    <Pagination.Root count={totalItems} perPage={limit} page={currentPage}>
+                    <Pagination.Root count={data.totalItems} perPage={15} page={data.currentPage}>
                         {#snippet children({ pages, currentPage })}
                             <Pagination.Content>
                                 <Pagination.Item>
                                     <Pagination.PrevButton
-                                        class="cursor-pointer"
                                         disabled={currentPage <= 1}
-                                        onclick={() => handlePageChange((currentPage - 1).toString())}
+                                        onclick={() => handlePage(currentPage - 1)}
+                                        class="cursor-pointer"
                                     >
-                                        <ChevronLeft class="size-4"/>
+                                        <ChevronLeft class="size-4" />
                                         <span class="hidden sm:block">Anterior</span>
                                     </Pagination.PrevButton>
                                 </Pagination.Item>
-
-                                {#each pages as page (page.key)}
-                                    {#if page.type === 'ellipsis'}
-                                        <Pagination.Item>
-                                            <Pagination.Ellipsis />
-                                        </Pagination.Item>
+                                {#each pages as p (p.key)}
+                                    {#if p.type === 'ellipsis'}
+                                        <Pagination.Item><Pagination.Ellipsis /></Pagination.Item>
                                     {:else}
                                         <Pagination.Item>
-                                            <Pagination.Link 
-                                                {page} 
-                                                isActive={currentPage === page.value}
-                                                onclick={(e)=> {
-                                                    e.preventDefault();
-                                                    handlePageChange((page.value).toString())
-                                                }}
-                                            >
-                                                {page.value}
-                                            </Pagination.Link>
+                                            <Pagination.Link
+                                                page={p}
+                                                isActive={currentPage === p.value}
+                                                onclick={(e) => { e.preventDefault(); handlePage(p.value); }}
+                                            >{p.value}</Pagination.Link>
                                         </Pagination.Item>
                                     {/if}
                                 {/each}
-                                
                                 <Pagination.Item>
                                     <Pagination.NextButton
-                                        onclick={() => handlePageChange((currentPage + 1).toString())}
-                                        disabled={currentPage * limit >= totalItems}
+                                        disabled={currentPage * 15 >= data.totalItems}
+                                        onclick={() => handlePage(currentPage + 1)}
                                         class="cursor-pointer"
                                     >
                                         <span class="hidden sm:block">Próximo</span>

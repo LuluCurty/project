@@ -1,6 +1,6 @@
 <script lang="ts">
     import { enhance } from '$app/forms';
-    import { User, Lock, Loader2, Megaphone } from 'lucide-svelte';
+    import { User, Lock, LoaderCircle as Loader2, Megaphone } from '@lucide/svelte';
     import logo from '$lib/assets/logo.png';
     
     // Componentes Shadcn
@@ -53,14 +53,15 @@
                     <Label for="email">Usuário / Email</Label>
                     <div class="relative">
                         <User class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            id="email" 
-                            name="email" 
-                            type="text" 
-                            placeholder="usuario@eletricca.com.br" 
-                            class="pl-9" 
-                            value={form?.email ?? ''} 
-                            required 
+                        <Input
+                            id="email"
+                            name="email"
+                            type="text"
+                            placeholder="usuario ou email@eletricca.com.br"
+                            autocomplete="username"
+                            class="pl-9"
+                            value={form?.email ?? ''}
+                            required
                         />
                     </div>
                 </div>

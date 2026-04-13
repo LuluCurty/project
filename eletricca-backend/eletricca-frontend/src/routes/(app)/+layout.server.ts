@@ -21,10 +21,11 @@ export const load: LayoutServerLoad = async ({ locals }) => {
     // 2. Notificacoes do usuario
     let unreadCount = 0;
     let notifications: any[] = [];
+    let avatarUrl: string | null = null;
 
     if (user) {
         try {
-            const [unreadRes, notifRes] = await Promise.all([
+            const [unreadRes, notifRes, avatarRes] = await Promise.all([
                 pool.query(
                     `SELECT COUNT(*) as count FROM notifications WHERE user_id = $1 AND is_read = FALSE`,
                     [user.user_id]
@@ -36,6 +37,10 @@ export const load: LayoutServerLoad = async ({ locals }) => {
                      ORDER BY created_at DESC
                      LIMIT 10`,
                     [user.user_id]
+                ),
+                pool.query(
+                    `SELECT avatar_file_id FROM users WHERE user_id = $1`,
+                    [user.user_id]
                 )
             ]);
 
@@ -44,6 +49,9 @@ export const load: LayoutServerLoad = async ({ locals }) => {
                 ...n,
                 created_at: n.created_at.toISOString()
             }));
+
+            const avatarFileId = avatarRes.rows[0]?.avatar_file_id;
+            avatarUrl = avatarFileId ? `/apiv2/files/${avatarFileId}` : null;
         } catch (e) {
             console.error('Erro ao carregar notificacoes:', e);
         }
@@ -53,6 +61,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
         user,
         announcement,
         unreadCount,
-        notifications
+        notifications,
+        avatarUrl
     };
 };

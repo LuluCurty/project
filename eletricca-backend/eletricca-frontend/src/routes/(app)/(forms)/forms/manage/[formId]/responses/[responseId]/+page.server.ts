@@ -1,6 +1,9 @@
 import { error } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
 import { guardAction } from '$lib/server/auth';
+import { s3 } from '$lib/server/storage';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, route, params }) => {
@@ -9,12 +12,10 @@ export const load: PageServerLoad = async ({ locals, route, params }) => {
     const formId = Number(params.formId);
     const responseId = Number(params.responseId);
 
-    if (!formId || !responseId) {
-        throw error(404, 'Resposta não encontrada');
-    }
+    if (!formId || !responseId) throw error(404, 'Resposta não encontrada');
 
     try {
-        // 1. Buscar dados da resposta + formulário + usuário
+        // 1. Response metadata + form + user
         const responseRes = await pool.query(`
             SELECT
                 fr.id as response_id,
@@ -39,21 +40,22 @@ export const load: PageServerLoad = async ({ locals, route, params }) => {
             WHERE fr.id = $1 AND fr.form_id = $2
         `, [responseId, formId]);
 
-        if (responseRes.rowCount === 0) {
-            throw error(404, 'Resposta não encontrada');
-        }
+        if (responseRes.rowCount === 0) throw error(404, 'Resposta não encontrada');
 
-        const response = responseRes.rows[0];
+        const responseRow = responseRes.rows[0];
+        const response = {
+            ...responseRow,
+            submitted_at: responseRow.submitted_at ? responseRow.submitted_at.toISOString() : null,
+            due_date:     responseRow.due_date     ? responseRow.due_date.toISOString()     : null,
+            assigned_at:  responseRow.assigned_at  ? responseRow.assigned_at.toISOString()  : null
+        };
 
-        // 2. Buscar campos com respostas (agregando múltiplos valores)
+        // 2. Fields with aggregated answer values
         const fieldsRes = await pool.query(`
             SELECT
                 ff.id,
-                ff.form_id,
                 ff.field_type,
                 ff.label,
-                ff.placeholder,
-                ff.options,
                 ff.is_required,
                 ff.field_order,
                 ff.condition_field_id,
@@ -61,45 +63,57 @@ export const load: PageServerLoad = async ({ locals, route, params }) => {
                 ff.condition_value,
                 STRING_AGG(frv.value, ',' ORDER BY frv.id) as answer_value
             FROM form_fields ff
-            LEFT JOIN form_response_values frv ON frv.field_id = ff.id AND frv.response_id = $1
+            LEFT JOIN form_response_values frv
+                ON frv.field_id = ff.id AND frv.response_id = $1
             WHERE ff.form_id = $2 AND ff.is_deleted = FALSE
-            GROUP BY ff.id, ff.form_id, ff.field_type, ff.label, ff.placeholder, ff.options,
-                     ff.is_required, ff.field_order, ff.condition_field_id, ff.condition_operator,
-                     ff.condition_value
+            GROUP BY ff.id, ff.field_type, ff.label, ff.is_required, ff.field_order,
+                     ff.condition_field_id, ff.condition_operator, ff.condition_value
             ORDER BY ff.field_order ASC
         `, [responseId, formId]);
 
-        // 3. Buscar arquivos enviados
-        const filesRes = await pool.query(`
-            SELECT
-                field_id,
-                file_name,
-                file_path,
-                file_type,
-                file_size
-            FROM form_files
-            WHERE response_id = $1
-        `, [responseId]);
+        // 3. For file-type fields, look up the file via the file_id stored in answer_value
+        //    and generate a pre-signed download URL.
+        const fields = await Promise.all(fieldsRes.rows.map(async (field: any) => {
+            if (field.field_type !== 'file' || !field.answer_value) {
+                return { ...field, file: null };
+            }
 
-        // Mapear arquivos por field_id
-        const filesByField: Record<number, any> = {};
-        for (const file of filesRes.rows) {
-            filesByField[file.field_id] = file;
-        }
+            const fileId = Number(field.answer_value);
+            if (!fileId) return { ...field, file: null };
 
-        // Combinar campos com arquivos
-        const fieldsWithAnswers = fieldsRes.rows.map(field => ({
-            ...field,
-            file: filesByField[field.id] || null
+            const fileRes = await pool.query(`
+                SELECT id, original_name, mime_type, file_size, object_key, bucket
+                FROM files
+                WHERE id = $1
+            `, [fileId]);
+
+            if (fileRes.rows.length === 0) return { ...field, file: null };
+
+            const f = fileRes.rows[0];
+            let file_url: string | null = null;
+            try {
+                file_url = await getSignedUrl(
+                    s3,
+                    new GetObjectCommand({ Bucket: f.bucket, Key: f.object_key }),
+                    { expiresIn: 3600 }
+                );
+            } catch { /* não bloqueia a página */ }
+
+            return {
+                ...field,
+                file: {
+                    file_name: f.original_name,
+                    file_size: f.file_size,
+                    mime_type: f.mime_type,
+                    file_url
+                }
+            };
         }));
 
-        return {
-            response,
-            fields: fieldsWithAnswers
-        };
+        return { response, fields };
 
     } catch (e: any) {
-        if (e.status) throw e;
+        if (e.status || e.location) throw e;
         console.error('Erro ao carregar resposta:', e);
         throw error(500, 'Erro ao carregar resposta');
     }

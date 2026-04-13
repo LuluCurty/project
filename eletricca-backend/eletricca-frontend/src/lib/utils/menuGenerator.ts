@@ -72,6 +72,11 @@ interface Menu {
     children?: any[] | null;
 }
 
+interface GroupData {
+    routes: { title: string; href: string }[];
+    moduleSlug: string | null; // null = sem restrição de permissão (ex: Início)
+}
+
 // 3. Lista Negra
 const blacklistedSegments = ['(admin)', 'admin', '(auth)', 'auth', 'api'];
 
@@ -96,10 +101,10 @@ function getTranslatedTitle(text: string) {
         .replace(/^\w/, c => c.toUpperCase());
 }
 
-export function generateMenuFromRoutes() {
+export function generateMenuFromRoutes(userPermissions: string[] = []) {
     const modules = import.meta.glob('/src/routes/\\(app\\)/**/+page.svelte');
 
-    const grouped: Record<string, any[]> = {};
+    const grouped: Record<string, GroupData> = {};
 
     for (const path in modules) {
         // --- LIMPEZA ---
@@ -115,7 +120,7 @@ export function generateMenuFromRoutes() {
         // --- FILTROS ---
         if (segments.some(s =>
             blacklistedSegments.includes(s) ||
-            ['add', 'edit', 'new', 'create', 'update', 
+            ['add', 'edit', 'new', 'create', 'update',
                 'delete', 'responses', 'response', 'fill',
                 'view', 'assignment', 'statistics', 'notifications'
             ]
@@ -126,27 +131,27 @@ export function generateMenuFromRoutes() {
         }
 
         // --- LINK (URL) ---
-        // (lembrando: removemos grupos para a URL)
         const hrefSegments = segments.filter(s => !s.startsWith('('));
         const href = '/' + hrefSegments.join('/');
 
-        // --- DEFINIÇÃO DE GRUPOS E TÍTULOS ---
+        // --- MÓDULO E GRUPO ---
         const rootFolder = segments[0];
         const lastSegment = segments[segments.length - 1];
 
-        // AQUI USAMOS A NOVA FUNÇÃO DE TRADUÇÃO
+        // Se segments[0] é um route group "(xxx)", extrai o slug de permissão
+        const moduleSlug = rootFolder.startsWith('(')
+            ? rootFolder.replace(/[()]/g, '')
+            : null;
+
         const groupTitle = getTranslatedTitle(rootFolder);
         const itemTitle = getTranslatedTitle(lastSegment);
 
         if (!grouped[groupTitle]) {
-            grouped[groupTitle] = [];
+            grouped[groupTitle] = { routes: [], moduleSlug };
         }
 
-        if (!grouped[groupTitle].find(i => i.href === href)) {
-            grouped[groupTitle].push({
-                title: itemTitle,
-                href: href
-            });
+        if (!grouped[groupTitle].routes.find(i => i.href === href)) {
+            grouped[groupTitle].routes.push({ title: itemTitle, href });
         }
     }
 
@@ -154,18 +159,12 @@ export function generateMenuFromRoutes() {
     const finalMenu = [];
     finalMenu.push({ title: 'Início', href: '/', icon: House, type: 'link' });
 
-    for (const [groupTitle, routes] of Object.entries(grouped)) {
-        // Busca ícone: tenta pelo nome traduzido ou original limpo
-        // Como o groupTitle já está traduzido (ex: "Usuários"), precisamos ser espertos no match
-        // Ou mapeamos 'usuários' no iconMap, ou tentamos manter uma referência.
-        // O jeito mais fácil: Adicione as palavras em português no iconMap lá em cima.
+    for (const [groupTitle, { routes, moduleSlug }] of Object.entries(grouped)) {
+        // Filtra módulos que exigem permissão de visualização
+        if (moduleSlug && !userPermissions.includes(`${moduleSlug}.view`)) continue;
 
-        const iconKey = groupTitle.toLowerCase()
-            //.normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos (Usuários -> usuarios)
-            .replace(/\s/g, '');
-
+        const iconKey = groupTitle.toLowerCase().replace(/\s/g, '');
         const modIcon = iconMap[iconKey] || Folder;
-        
 
         if (routes.length === 1) {
             finalMenu.push({
@@ -187,7 +186,6 @@ export function generateMenuFromRoutes() {
 
     const [home, ...rest] = finalMenu;
     rest.sort((a, b) => a.title.localeCompare(b.title));
-    
 
     return [home, ...rest];
 }

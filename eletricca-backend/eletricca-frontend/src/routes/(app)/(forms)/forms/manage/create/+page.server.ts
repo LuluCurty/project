@@ -14,6 +14,7 @@ interface FieldInput {
     condition_operator: string | null;
     condition_value: string | null;
     temp_id: string;
+    allowed_file_types: string[] | null;
 }
 
 export const load: PageServerLoad = async ({ locals, route }) => {
@@ -64,6 +65,11 @@ export const actions: Actions = {
                 (!field.options || field.options.length === 0)) {
                 return fail(400, { error: `Campo "${field.label}": Adicione opções válidas.`, title, description });
             }
+
+            if (field.field_type === 'file' &&
+                (!field.allowed_file_types || field.allowed_file_types.length === 0)) {
+                return fail(400, { error: `Campo "${field.label}": Selecione pelo menos um tipo de arquivo permitido.`, title, description });
+            }
         }
 
         const client = await pool.connect();
@@ -94,21 +100,26 @@ export const actions: Actions = {
                     ? JSON.stringify(field.options) 
                     : '[]';
 
+                const allowedFileTypes = field.field_type === 'file' && field.allowed_file_types?.length
+                    ? field.allowed_file_types
+                    : null;
+
                 const fieldRes = await client.query(`
                     INSERT INTO form_fields (
-                        form_id, field_type, label, placeholder, 
-                        options, is_required, field_order
+                        form_id, field_type, label, placeholder,
+                        options, is_required, field_order, allowed_file_types
                     )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                     RETURNING id
                 `, [
                     formId,
                     field.field_type,
                     field.label.trim(),
                     field.placeholder?.trim() || null,
-                    optionsValue, 
+                    optionsValue,
                     field.is_required || false,
-                    i + 1 // Força a ordem sequencial correta baseada no array enviado
+                    i + 1,
+                    allowedFileTypes
                 ]);
 
                 // Guarda o ID real mapeado pelo ID temporário do front

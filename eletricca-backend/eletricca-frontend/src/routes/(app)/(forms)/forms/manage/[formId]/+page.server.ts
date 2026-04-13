@@ -14,7 +14,8 @@ interface FieldInput {
     condition_field_id: string | number | null;
     condition_operator: string | null;
     condition_value: string | null;
-    temp_id?: string; // Usado pelo front para mapear novos campos
+    temp_id?: string;
+    allowed_file_types: string[] | null;
 }
 
 export const load: PageServerLoad = async ({ locals, route, params }) => {
@@ -77,9 +78,13 @@ export const actions: Actions = {
             if (field.options && Array.isArray(field.options)) {
                 field.options = field.options.filter(o => o.trim() !== '');
             }
-            if ((field.field_type === 'select' || field.field_type === 'checkbox') && 
+            if ((field.field_type === 'select' || field.field_type === 'checkbox') &&
                 (!field.options || field.options.length === 0)) {
                 return fail(400, { error: `Campo "${field.label}": Adicione opções` });
+            }
+            if (field.field_type === 'file' &&
+                (!field.allowed_file_types || field.allowed_file_types.length === 0)) {
+                return fail(400, { error: `Campo "${field.label}": Selecione pelo menos um tipo de arquivo permitido.` });
             }
         }
 
@@ -123,37 +128,40 @@ export const actions: Actions = {
 
                 let realId: number;
 
+                const allowedFileTypes = field.field_type === 'file' && field.allowed_file_types?.length
+                    ? field.allowed_file_types
+                    : null;
+
                 // Se ID é string (ex: "field_123"), é NOVO -> INSERT
                 if (typeof field.id === 'string') {
                     const res = await client.query(`
                         INSERT INTO form_fields (
-                            form_id, field_type, label, placeholder, 
-                            options, is_required, field_order
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                            form_id, field_type, label, placeholder,
+                            options, is_required, field_order, allowed_file_types
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                         RETURNING id
                     `, [
-                        formId, field.field_type, field.label.trim(), 
-                        field.placeholder?.trim() || null, optionsValue, 
-                        field.is_required || false, i + 1
+                        formId, field.field_type, field.label.trim(),
+                        field.placeholder?.trim() || null, optionsValue,
+                        field.is_required || false, i + 1, allowedFileTypes
                     ]);
                     realId = res.rows[0].id;
-                    // Mapeia o ID temporário para o novo ID real
                     idMap[field.id] = realId;
-                } 
+                }
                 // Se ID é number, é EXISTENTE -> UPDATE
                 else {
                     await client.query(`
                         UPDATE form_fields SET
                             field_type = $1, label = $2, placeholder = $3,
-                            options = $4, is_required = $5, field_order = $6
-                        WHERE id = $7
+                            options = $4, is_required = $5, field_order = $6,
+                            allowed_file_types = $7
+                        WHERE id = $8
                     `, [
-                        field.field_type, field.label.trim(), 
-                        field.placeholder?.trim() || null, optionsValue, 
-                        field.is_required || false, i + 1, field.id
+                        field.field_type, field.label.trim(),
+                        field.placeholder?.trim() || null, optionsValue,
+                        field.is_required || false, i + 1, allowedFileTypes, field.id
                     ]);
                     realId = field.id;
-                    // Mapeia ele para ele mesmo
                     idMap[realId] = realId;
                 }
             }

@@ -1,326 +1,240 @@
 <script lang="ts">
-    import { page } from '$app/state';
-    import { onMount } from 'svelte';
-    import { goto } from '$app/navigation';
-    import { Save, Plus, Trash2, ArrowLeft, Star, StarOff, Loader2 } from '@lucide/svelte';
+    import { enhance } from '$app/forms';
+    import { goto, invalidateAll } from '$app/navigation';
+    import { toast } from 'svelte-sonner';
+    import type { PageData, ActionData } from './$types';
 
-    // UI Components
     import * as Card from '$lib/components/ui/card';
+    import * as Table from '$lib/components/ui/table';
+    import * as Select from '$lib/components/ui/select';
     import { Input } from '$lib/components/ui/input';
     import { Label } from '$lib/components/ui/label';
     import { Button } from '$lib/components/ui/button';
-    import { Textarea } from '$lib/components/ui/textarea'; // Importante para descrição
-    import * as Table from "$lib/components/ui/table";
-    import * as Select from '$lib/components/ui/select';
-    import { Badge } from "$lib/components/ui/badge"; // Opcional, para visual
+    import { Textarea } from '$lib/components/ui/textarea';
+    import { Badge } from '$lib/components/ui/badge';
+    import {
+        ChevronLeft, Save, LoaderCircle, Package,
+        Plus, Trash2, Star, StarOff,
+    } from '@lucide/svelte';
 
-    // --- TIPAGEM (Interfaces) ---
-    interface SupplyData {
-        supply_name: string;
-        quantity: number;
-        details: string;
-    }
+    let { data, form }: { data: PageData; form: ActionData } = $props();
 
-    interface SupplierOption {
-        id: number;
-        supplier_name: string;
-    }
+    let isSaving   = $state(false);
+    let newSuppId  = $state('');
 
-    interface PricingEntry {
-        supplier_id: number;
-        supplier_name: string;
-        price: string; // Vem como string do banco decimal/money
-        is_default: boolean; // Novo campo vital
-    }
-
-    // --- ESTADO ---
-    let supplyId = page.params.id;
-    let isLoading = $state(true);
-    let isSavingBasic = $state(false);
-
-    // Dados do Material (Tipado)
-    let supply = $state<SupplyData>({
-        supply_name: '',
-        quantity: 0,
-        details: ''
-    });
-
-    // Listas (Tipadas)
-    let prices = $state<PricingEntry[]>([]); 
-    let allSuppliers = $state<SupplierOption[]>([]); 
-    
-    // Form de adição
-    let newSupplierId = $state('');
-    let newSupplierPrice = $state('');
-
-    // --- CARREGAMENTO ---
-    onMount(async () => {
-        try {
-            await Promise.all([loadSupplyData(), loadAllSuppliers()]);
-        } catch (error) {
-            console.error(error);
-            alert("Erro ao carregar dados.");
-        } finally {
-            isLoading = false;
+    // Feedback das sub-actions (addPricing, removePricing, setDefault)
+    $effect(() => {
+        if (!form) return;
+        const f = form as any;
+        if (f.success) {
+            if (f.action === 'update')        toast.success('Dados atualizados.');
+            if (f.action === 'addPricing')    toast.success('Fornecedor vinculado.');
+            if (f.action === 'removePricing') toast.success('Fornecedor removido.');
+            if (f.action === 'setDefault')    toast.success('Fornecedor padrão definido.');
+        } else if (f.error) {
+            toast.error(f.error);
         }
     });
 
-    async function loadSupplyData() {
-        const res = await fetch(`/api/supplies/${supplyId}`);
-        if (res.ok) {
-            const data = await res.json();
-            supply = { 
-                supply_name: data.supply_name, 
-                quantity: data.quantity, 
-                details: data.details || '' 
-            };
-            // Garante que prices é um array
-            prices = data.pricing || [];
-        }
+    // IDs já vinculados para esconder do select de adicionar
+    let linkedIds = $derived(new Set(data.pricing.map((p: any) => p.supplier_id.toString())));
+
+    function fmt(v: number | null) {
+        if (v == null) return '—';
+        return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    async function loadAllSuppliers() {
-        const res = await fetch('/api/supplier/list');
-        if (res.ok) allSuppliers = await res.json();
-    }
-
-    // --- AÇÕES ---
-
-    // 1. Atualizar dados básicos (PUT)
-    async function updateBasicInfo() {
-        isSavingBasic = true;
-        try {
-            const res = await fetch(`/api/supplies/${supplyId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(supply)
-            });
-            if (!res.ok) throw new Error('Falha ao atualizar');
-            alert('Informações atualizadas com sucesso!');
-        } catch (e) {
-            alert('Erro ao salvar informações.');
-        } finally {
-            isSavingBasic = false;
-        }
-    }
-
-    // 2. Adicionar Fornecedor
-    async function addSupplierPrice() {
-        if (!newSupplierId) return alert('Selecione um fornecedor');
-
-        try {
-            const res = await fetch(`/api/supplies/pricing/${supplyId}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    supplier_id: newSupplierId,
-                    price: parseFloat(newSupplierPrice || '0')
-                })
-            });
-
-            if (res.ok) {
-                await loadSupplyData(); // Recarrega para ver o novo item
-                newSupplierId = '';
-                newSupplierPrice = '';
-            } else {
-                alert('Erro ao vincular (talvez já exista?).');
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    // 3. Remover Fornecedor
-    async function removeSupplier(supplierId: number) {
-        if(!confirm("Tem certeza que deseja remover este fornecedor?")) return;
-
-        try {
-            const res = await fetch(`/api/supplies/pricing/${supplyId}`, {
-                method: 'DELETE',
-                credentials: 'include',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ supplier_id: supplierId })
-            });
-            if (res.ok) {
-                await loadSupplyData();
-            } else {
-                alert('Erro ao remover.');
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    // 4. Definir como Padrão
-    async function setAsDefault(supplierId: number) {
-        try {
-            const res = await fetch(`/api/supplies/pricing/${supplyId}/default`, {
-                method: 'PATCH',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ supplier_id: supplierId })
-            });
-
-            if (res.ok) {
-                await loadSupplyData();
-            } else {
-                alert('Erro ao definir como padrão.');
-            }
-        } catch (e) {
-            console.error(e);
+    function handleKeydown(e: KeyboardEvent) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            (document.querySelector<HTMLButtonElement>('[data-save]'))?.click();
         }
     }
 </script>
 
-<div class="max-w-4xl mx-auto space-y-6 pb-10">
-    
-    <div class="flex items-center gap-2 mb-4">
+<svelte:window onkeydown={handleKeydown} />
+
+<div class="mx-auto max-w-4xl space-y-6 p-4 pb-10">
+
+    <div class="flex items-center gap-2">
         <Button variant="ghost" size="icon" onclick={() => goto('/supplies')}>
-            <ArrowLeft class="size-5" />
+            <ChevronLeft class="size-5" />
         </Button>
-        <h1 class="text-2xl font-bold">Editar Material</h1>
+        <h1 class="text-2xl font-bold tracking-tight">Editar Material</h1>
     </div>
 
-    {#if isLoading}
-        <div class="flex justify-center py-10">
-            <Loader2 class="size-8 animate-spin text-muted-foreground" />
-        </div>
-    {:else}
-
-        <Card.Root>
-            <Card.Header>
-                <Card.Title>Informações Principais</Card.Title>
-            </Card.Header>
-            <Card.Content class="grid gap-4">
-                <div class="grid gap-2">
-                    <Label>Nome do Material</Label>
-                    <Input bind:value={supply.supply_name} />
+    <!-- Dados básicos -->
+    <Card.Root>
+        <Card.Header>
+            <div class="flex items-center gap-2">
+                <div class="rounded-full bg-primary/10 p-2 text-primary">
+                    <Package class="size-5" />
                 </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="grid gap-2">
-                        <Label>Quantidade Atual</Label>
-                        <Input type="number" bind:value={supply.quantity} />
-                    </div>
+                <div>
+                    <Card.Title>Informações Principais</Card.Title>
+                    <Card.Description>Material #{data.supply.id}</Card.Description>
+                </div>
+            </div>
+        </Card.Header>
+
+        <Card.Content>
+            <form method="POST" action="?/update"
+                use:enhance={() => {
+                    isSaving = true;
+                    return async ({ result, update }) => {
+                        isSaving = false;
+                        await update({ reset: false });
+                    };
+                }}
+                class="space-y-5"
+            >
+                <div class="space-y-2">
+                    <Label for="supply_name">Nome do Material *</Label>
+                    <Input id="supply_name" name="supply_name"
+                        value={data.supply.supply_name} required />
                 </div>
 
-                <div class="grid gap-2">
-                    <Label>Descrição / Detalhes</Label>
-                    <Textarea 
-                        bind:value={supply.details} 
-                        class="resize-none h-24" 
-                        placeholder="Detalhes técnicos..." 
-                    />
+                <div class="space-y-2">
+                    <Label for="quantity">Quantidade em Estoque</Label>
+                    <Input id="quantity" name="quantity" type="number" min="0"
+                        value={data.supply.quantity} />
                 </div>
 
-                <div class="flex justify-end">
-                    <Button onclick={updateBasicInfo} disabled={isSavingBasic} class="w-fit">
-                        {#if isSavingBasic}
-                            <Loader2 class="mr-2 size-4 animate-spin" /> Salvando...
+                <div class="space-y-2">
+                    <Label for="details">Detalhes / Descrição</Label>
+                    <Textarea id="details" name="details" class="h-24 resize-none"
+                        value={data.supply.details ?? ''} />
+                </div>
+
+                <div class="flex justify-end border-t pt-4">
+                    <Button type="submit" data-save disabled={isSaving}>
+                        {#if isSaving}
+                            <LoaderCircle class="mr-2 size-4 animate-spin" /> Salvando...
                         {:else}
-                            <Save class="mr-2 size-4" /> Atualizar Dados Básicos
+                            <Save class="mr-2 size-4" /> Salvar
+                            <span class="ml-2 border-l border-white/20 pl-2 text-xs font-normal opacity-50">Ctrl S</span>
                         {/if}
                     </Button>
                 </div>
-            </Card.Content>
-        </Card.Root>
+            </form>
+        </Card.Content>
+    </Card.Root>
 
-        <Card.Root>
-            <Card.Header>
-                <Card.Title>Fornecedores e Preços</Card.Title>
-                <Card.Description>Gerencie quem fornece este item. A estrela indica o fornecedor preferencial.</Card.Description>
-            </Card.Header>
-            
-            <Card.Content>
-                <Table.Root class="mb-6 border rounded-md">
+    <!-- Fornecedores e preços -->
+    <Card.Root>
+        <Card.Header>
+            <Card.Title>Fornecedores e Preços</Card.Title>
+            <Card.Description>A estrela indica o fornecedor preferencial para este material.</Card.Description>
+        </Card.Header>
+
+        <Card.Content class="space-y-4">
+
+            <!-- Tabela de vínculos existentes -->
+            <div class="rounded-md border">
+                <Table.Root>
                     <Table.Header>
-                        <Table.Row>
-                            <Table.Head class="w-[50px]">Padrão</Table.Head>
+                        <Table.Row class="bg-muted/50">
+                            <Table.Head class="w-14 text-center">Padrão</Table.Head>
                             <Table.Head>Fornecedor</Table.Head>
-                            <Table.Head>Preço</Table.Head>
+                            <Table.Head class="text-right">Preço</Table.Head>
                             <Table.Head class="text-right">Ações</Table.Head>
                         </Table.Row>
                     </Table.Header>
                     <Table.Body>
-                        {#each prices as item}
+                        {#if data.pricing.length === 0}
                             <Table.Row>
-                                <Table.Cell class="text-center">
-                                    {#if item.is_default}
-                                        <div title="Fornecedor Padrão" class="flex justify-center">
-                                            <Star class="size-5 text-yellow-500 fill-yellow-500" />
-                                        </div>
-                                    {:else}
-                                        <Button variant="ghost" size="icon" 
-                                                title="Definir como padrão"
-                                                onclick={() => setAsDefault(item.supplier_id)}>
-                                            <StarOff class="size-4 text-muted-foreground hover:text-yellow-500" />
-                                        </Button>
-                                    {/if}
-                                </Table.Cell>
-
-                                <Table.Cell class="font-medium">
-                                    {item.supplier_name}
-                                    {#if item.is_default}
-                                        <Badge variant="secondary" class="ml-2 text-[10px]">PADRÃO</Badge>
-                                    {/if}
-                                </Table.Cell>
-                                
-                                <Table.Cell>R$ {Number(item.price).toFixed(2)}</Table.Cell>
-                                
-                                <Table.Cell class="text-right">
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        class="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                        onclick={() => removeSupplier(item.supplier_id)}
-                                    >
-                                        <Trash2 class="size-4" />
-                                    </Button>
+                                <Table.Cell colspan={4} class="h-20 text-center text-muted-foreground">
+                                    Nenhum fornecedor vinculado.
                                 </Table.Cell>
                             </Table.Row>
-                        {/each}
+                        {:else}
+                            {#each data.pricing as item (item.supplier_id)}
+                                <Table.Row>
+                                    <Table.Cell class="text-center">
+                                        {#if item.is_default}
+                                            <Star class="mx-auto size-5 fill-yellow-400 text-yellow-400" />
+                                        {:else}
+                                            <form method="POST" action="?/setDefault" use:enhance={() =>
+                                                async ({ result, update }) => { await invalidateAll(); await update({ reset: false }); }
+                                            }>
+                                                <input type="hidden" name="supplier_id" value={item.supplier_id} />
+                                                <Button type="submit" variant="ghost" size="icon" class="size-7"
+                                                    title="Definir como padrão">
+                                                    <StarOff class="size-4 text-muted-foreground hover:text-yellow-400" />
+                                                </Button>
+                                            </form>
+                                        {/if}
+                                    </Table.Cell>
 
-                        {#if prices.length === 0}
-                            <Table.Row>
-                                <Table.Cell colspan={4} class="text-center text-muted-foreground py-4">
-                                    Nenhum fornecedor vinculado a este material.
-                                </Table.Cell>
-                            </Table.Row>
+                                    <Table.Cell class="font-medium">
+                                        {item.supplier_name}
+                                        {#if item.is_default}
+                                            <Badge variant="secondary" class="ml-2 text-[10px]">PADRÃO</Badge>
+                                        {/if}
+                                    </Table.Cell>
+
+                                    <Table.Cell class="text-right font-mono text-sm">
+                                        {fmt(item.price)}
+                                    </Table.Cell>
+
+                                    <Table.Cell class="text-right">
+                                        <form method="POST" action="?/removePricing" use:enhance={() =>
+                                            async ({ result, update }) => { await invalidateAll(); await update({ reset: false }); }
+                                        }>
+                                            <input type="hidden" name="supplier_id" value={item.supplier_id} />
+                                            <Button type="submit" variant="ghost" size="icon"
+                                                class="size-8 text-muted-foreground hover:text-destructive">
+                                                <Trash2 class="size-4" />
+                                            </Button>
+                                        </form>
+                                    </Table.Cell>
+                                </Table.Row>
+                            {/each}
                         {/if}
                     </Table.Body>
                 </Table.Root>
+            </div>
 
-                <div class=" p-4 rounded-lg border flex flex-col md:flex-row gap-4 items-end">
-                    <div class="w-full md:w-1/2 space-y-2">
-                        <Label>Adicionar Fornecedor</Label>
-                        <Select.Root type="single" bind:value={newSupplierId}>
+            <!-- Adicionar novo fornecedor -->
+            <form method="POST" action="?/addPricing"
+                use:enhance={() => {
+                    return async ({ result, update }) => {
+                        if (result.type === 'success') newSuppId = '';
+                        await invalidateAll();
+                        await update({ reset: true });
+                    };
+                }}
+                class="rounded-lg border p-4"
+            >
+                <p class="mb-3 text-sm font-medium">Vincular Fornecedor</p>
+                <div class="flex flex-col gap-3 md:flex-row md:items-end">
+                    <div class="flex-1 space-y-2">
+                        <Label>Fornecedor</Label>
+                        <Select.Root type="single" onValueChange={(v) => newSuppId = v}>
                             <Select.Trigger class="w-full">
-                                {
-                                    allSuppliers.find(s => s.id.toString() === newSupplierId)?.supplier_name 
-                                    || "Selecione..."
-                                }
+                                {data.suppliers.find((s: any) => s.id.toString() === newSuppId)?.supplier_name || 'Selecione...'}
                             </Select.Trigger>
                             <Select.Content>
-                                {#each allSuppliers as s}
-                                    <Select.Item value={s.id.toString()} label={s.supplier_name}>
-                                        {s.supplier_name}
-                                    </Select.Item>
+                                {#each data.suppliers.filter((s: any) => !linkedIds.has(s.id.toString())) as sup}
+                                    <Select.Item value={sup.id.toString()}>{sup.supplier_name}</Select.Item>
                                 {/each}
                             </Select.Content>
                         </Select.Root>
+                        <input type="hidden" name="supplier_id" value={newSuppId} />
                     </div>
 
-                    <div class="w-full md:w-1/3 space-y-2">
-                        <Label>Preço (R$)</Label>
-                        <Input type="number" step="0.01" bind:value={newSupplierPrice} placeholder="0.00" />
+                    <div class="w-full space-y-2 md:w-36">
+                        <Label for="new_price">Preço (R$)</Label>
+                        <Input id="new_price" name="price" type="number" step="0.01"
+                            placeholder="0,00" disabled={!newSuppId} />
                     </div>
 
-                    <Button onclick={addSupplierPrice} disabled={!newSupplierId}>
+                    <Button type="submit" disabled={!newSuppId}>
                         <Plus class="mr-2 size-4" /> Vincular
                     </Button>
                 </div>
+            </form>
 
-            </Card.Content>
-        </Card.Root>
-
-    {/if}
+        </Card.Content>
+    </Card.Root>
 </div>

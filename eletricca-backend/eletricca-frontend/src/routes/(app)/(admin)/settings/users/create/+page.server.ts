@@ -1,6 +1,6 @@
 import { fail, redirect, error } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
-import { checkSystemAdmin } from '$lib/server/auth';
+import { guardAdminModule } from '$lib/server/auth';
 import type { PageServerLoad, Actions } from './$types';
 import bcrypt from 'bcrypt';
 
@@ -21,7 +21,6 @@ type PermissionsGroup = Record<string, PermissionRow[]>;
 type RolesMap = Record<number, number[]>;
 
 export const load: PageServerLoad = async ({ locals }) => {
-    checkSystemAdmin(locals.user);
 
     try {
         const client = await pool.connect();
@@ -68,27 +67,29 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 export const actions: Actions = {
     default: async ({ request, locals }) => {
-        checkSystemAdmin(locals.user);
         const data = await request.formData();
 
-        const firstName = data.get('first_name') as string;
-        const lastName = data.get('last_name') as string;
-        const email = data.get('email') as string;
-        const password = data.get('password') as string; // Campo novo
-        const telphone = data.get('telphone') as string;
-        
+        const firstName = (data.get('first_name') as string)?.trim();
+        const lastName  = (data.get('last_name')  as string)?.trim() || null;
+        const email     = (data.get('email')      as string)?.trim() || null;
+        const username  = (data.get('username')   as string)?.trim() || null;
+        const password  = data.get('password') as string;
+        const telphone  = (data.get('telphone')   as string)?.trim() || null;
+
         const roleIdRaw = data.get('role_id');
         const roleId = roleIdRaw ? Number(roleIdRaw) : null;
 
         const directPermissionIds = data.getAll('permissions').map(id => Number(id));
 
         // Validação básica
-        if (!firstName || !email || !password) {
-            return fail(400, { error: 'Nome, Email e Senha são obrigatórios.', firstName, lastName, email, telphone });
+        if (!firstName || !password) {
+            return fail(400, { error: 'Nome e Senha são obrigatórios.', firstName, lastName, email, username, telphone });
+        }
+        if (!email && !username) {
+            return fail(400, { error: 'Informe pelo menos um Email ou Nome de Usuário.', firstName, lastName, email, username, telphone });
         }
 
-        // const passwordHashed = await hash(password, 10); 
-        const passwordHashed = await bcrypt.hash(password, 10);      
+        const passwordHashed = await bcrypt.hash(password, 10);
 
         const client = await pool.connect();
 
@@ -96,29 +97,20 @@ export const actions: Actions = {
             await client.query('BEGIN');
 
             // 1. Inserir Usuário
-            // user_role 'client' é o padrão do banco, mas podemos forçar ou deixar o default
             const userRes = await client.query(`
-                INSERT INTO users (first_name, last_name, email, password_hashed, telphone, role_id, user_role, auth_source)
-                VALUES ($1, $2, $3, $4, $5, $6, 'client', 'Local')
+                INSERT INTO users (first_name, last_name, email, username, password_hashed, telphone, role_id, user_role, auth_source)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, 'client', 'LOCAL')
                 RETURNING user_id
-            `, [firstName, lastName, email, passwordHashed, telphone, roleId]);
+            `, [firstName, lastName, email, username, passwordHashed, telphone, roleId]);
 
             const newUserId = userRes.rows[0].user_id;
 
             // 2. Inserir Permissões Extras (se houver)
             if (directPermissionIds.length > 0) {
-                const values: any[] = [];
-                const placeholders: string[] = [];
-                
-                directPermissionIds.forEach((permId, index) => {
-                    placeholders.push(`($1, $${index + 2})`); 
-                    values.push(permId);
-                });
-
+                const placeholders = directPermissionIds.map((_, i) => `($1, $${i + 2})`).join(', ');
                 await client.query(`
-                    INSERT INTO user_permissions (user_id, permissions_id)
-                    VALUES ${placeholders.join(', ')}
-                `, [newUserId, ...values]);
+                    INSERT INTO user_permissions (user_id, permissions_id) VALUES ${placeholders}
+                `, [newUserId, ...directPermissionIds]);
             }
 
             await client.query('COMMIT');
@@ -126,8 +118,12 @@ export const actions: Actions = {
         } catch (e: any) {
             await client.query('ROLLBACK');
             console.error(e);
-            if (e.code === '23505') return fail(400, { error: 'Email já está cadastrado.', firstName, lastName, email, telphone });
-            return fail(500, { error: 'Erro ao criar usuário.', firstName, lastName, email, telphone });
+            if (e.code === '23505') {
+                const detail = e.detail ?? '';
+                const field  = detail.includes('username') ? 'Nome de usuário' : 'Email';
+                return fail(400, { error: `${field} já está em uso.`, firstName, lastName, email, username, telphone });
+            }
+            return fail(500, { error: 'Erro ao criar usuário.', firstName, lastName, email, username, telphone });
         } finally {
             client.release();
         }

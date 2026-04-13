@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 export const actions: Actions = {
     login: async ({ request, cookies, fetch }) => {
         const formData = await request.formData();
-        const email = formData.get('email') as string;
+        const email = formData.get('email') as string; //o username também é passado aqui
         const password = formData.get('password') as string;
         const rememberMe = formData.get('remember-me') === 'on';        
 
@@ -25,7 +25,7 @@ export const actions: Actions = {
 
         try {
             const PORT = process.env.PORT || 54445;
-            const apiURL = `https://localhost:${PORT}/api/auth/login`;
+            const apiURL = `https://localhost:${PORT}/api/auth/login`; // a api captura email como se fosse um nome geral de entrada para relação ususario senha
 
             const res = await fetch(apiURL, {
                 method: 'POST',

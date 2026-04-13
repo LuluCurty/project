@@ -1,55 +1,62 @@
 import { fail, redirect, error } from "@sveltejs/kit";
 import { pool } from "$lib/server/db";
-import { guardAction } from "$lib/server/auth";
 import { createNotification } from "$lib/server/notifications";
-import { writeFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { s3, BUCKETS } from "$lib/server/storage";
+import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { randomUUID } from "node:crypto";
 import type { PageServerLoad, Actions } from "./$types";
 
-export const load: PageServerLoad = async ({ locals, params}) => {
-    const user= locals.user;
+const MIME_WHITELIST: Record<string, string[]> = {
+    image:      ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'],
+    pdf:        ['application/pdf'],
+    excel:      ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'],
+    word:       ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'],
+    powerpoint: ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/vnd.ms-powerpoint'],
+    audio:      ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4', 'audio/aac'],
+    video:      ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime']
+};
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+export const load: PageServerLoad = async ({ locals, params }) => {
+    const user = locals.user;
     if (!user) throw redirect(302, '/login');
 
     const assignmentId = params.assignmentId;
 
     try {
-        // 1. Buscar assignment + detalhes do form
-        // vericamos se pertence ao usuario por segurança
-
         const assignRes = await pool.query(`
-                SELECT
-                    fa.id, fa.form_id, fa.is_completed, fa.due_date, fa.period_reference,
-                    f.title, f.description
-                FROM form_assignments fa
-                JOIN forms f ON fa.form_id = f.id
-                WHERE fa.id = $1 AND fa.user_id = $2
+            SELECT
+                fa.id, fa.form_id, fa.is_completed, fa.due_date, fa.period_reference,
+                f.title, f.description
+            FROM form_assignments fa
+            JOIN forms f ON fa.form_id = f.id
+            WHERE fa.id = $1 AND fa.user_id = $2
+        `, [assignmentId, user.user_id]);
 
-            ;`, [assignmentId, user.user_id]
-        );
+        if (assignRes.rowCount === 0) throw error(404, 'Atribuição não encontrada');
 
-        if (assignRes.rowCount === 0) throw error(404, 'Atribuicao não encontrada');
-
-        const assignment = assignRes.rows[0];
+        const row = assignRes.rows[0];
+        const assignment = {
+            ...row,
+            due_date: row.due_date ? row.due_date.toISOString() : null
+        };
 
         if (assignment.is_completed) {
             throw redirect(303, `/forms/view/${assignmentId}`);
         }
 
-        // 2. buscar campos fields
         const fieldsRes = await pool.query(`
             SELECT id, field_type, label, placeholder, options, is_required, field_order,
-                   condition_field_id, condition_operator, condition_value
+                   condition_field_id, condition_operator, condition_value, allowed_file_types
             FROM form_fields
             WHERE form_id = $1 AND is_deleted = FALSE
             ORDER BY field_order ASC
-        ;`, [assignment.form_id]);
+        `, [assignment.form_id]);
 
-        return {
-            assignment,
-            fields: fieldsRes.rows
-        }
+        return { assignment, fields: fieldsRes.rows };
     } catch (e: any) {
-        if (e.status || e.location) throw e; // Re-lançar error() e redirect() do SvelteKit
+        if (e.status || e.location) throw e;
         console.error('Erro ao carregar formulário:', e);
         throw error(500, 'Erro ao carregar formulário');
     }
@@ -62,64 +69,74 @@ export const actions: Actions = {
 
         const assignmentId = Number(params.assignmentId);
         const formData = await request.formData();
-        
-        // Verificar se a atribuição existe, pertence ao usuário e ainda não foi completada
+
+        // Verify assignment belongs to user and is not completed
         const assignCheck = await pool.query(`
             SELECT fa.form_id, fa.is_completed, fa.assigned_by, f.title AS form_title
             FROM form_assignments fa
             JOIN forms f ON f.id = fa.form_id
             WHERE fa.id = $1 AND fa.user_id = $2
         `, [assignmentId, user.user_id]);
+
         if (assignCheck.rowCount === 0) return fail(404, { error: 'Atribuição não encontrada.' });
         if (assignCheck.rows[0].is_completed) return fail(400, { error: 'Este formulário já foi respondido.' });
-        const formId = assignCheck.rows[0].form_id;
+
+        const formId: number = assignCheck.rows[0].form_id;
         const assignedBy: number = assignCheck.rows[0].assigned_by;
         const formTitle: string = assignCheck.rows[0].form_title;
 
-        // Validação server-side: campos obrigatórios (respeitando lógica condicional)
-        const fieldsRes = await pool.query(
-            `SELECT id, field_type, is_required, label, condition_field_id, condition_operator, condition_value
-             FROM form_fields WHERE form_id = $1 AND is_deleted = FALSE ORDER BY field_order ASC`,
-            [formId]
-        );
+        // Load fields for validation
+        const fieldsRes = await pool.query(`
+            SELECT id, field_type, is_required, label,
+                   condition_field_id, condition_operator, condition_value,
+                   allowed_file_types
+            FROM form_fields
+            WHERE form_id = $1 AND is_deleted = FALSE
+            ORDER BY field_order ASC
+        `, [formId]);
 
-        // Montar mapa de respostas enviadas para verificar visibilidade condicional
+        const fieldMap = new Map<number, any>(fieldsRes.rows.map((f: any) => [f.id, f]));
+
+        // Build answer map for conditional visibility (server mirror of frontend logic)
         const submittedAnswers: Record<number, string> = {};
         for (const field of fieldsRes.rows) {
             const fKey = `field_${field.id}`;
             if (field.field_type === 'checkbox') {
-                const vals = formData.getAll(fKey).map(v => v.toString()).filter(Boolean);
+                const vals = formData.getAll(fKey).map((v: any) => v.toString()).filter(Boolean);
                 submittedAnswers[field.id] = vals.join(',');
             } else {
                 const val = formData.get(fKey);
-                submittedAnswers[field.id] = val ? val.toString() : '';
+                submittedAnswers[field.id] = val instanceof File ? '' : (val ? val.toString() : '');
             }
         }
 
-        // Replicar lógica de visibilidade condicional do frontend
         function isFieldVisible(field: any): boolean {
             if (!field.condition_field_id) return true;
             const parentValue = submittedAnswers[field.condition_field_id];
             if (!parentValue || parentValue.trim() === '') return false;
-            const condVal = field.condition_value;
             switch (field.condition_operator) {
-                case 'equals': return parentValue === condVal;
-                case 'not_equals': return parentValue !== condVal;
-                case 'contains': return parentValue.includes(condVal);
-                default: return true;
+                case 'equals':     return parentValue === field.condition_value;
+                case 'not_equals': return parentValue !== field.condition_value;
+                case 'contains':   return parentValue.includes(field.condition_value);
+                default:           return true;
             }
         }
 
+        // Server-side required field validation
         for (const field of fieldsRes.rows) {
-            if (!field.is_required) continue;
-            if (!isFieldVisible(field)) continue; // Pular campos que não estão visíveis
+            if (!field.is_required || !isFieldVisible(field)) continue;
 
             if (field.field_type === 'checkbox') {
                 const values = formData.getAll(`field_${field.id}`);
-                if (!values || values.length === 0 || (values.length === 1 && values[0] === '')) {
+                if (!values.length || (values.length === 1 && values[0] === '')) {
                     return fail(400, { error: `O campo "${field.label}" é obrigatório.` });
                 }
-            } else if (field.field_type !== 'file') {
+            } else if (field.field_type === 'file') {
+                const fileVal = formData.get(`field_${field.id}`);
+                if (!(fileVal instanceof File) || fileVal.size === 0) {
+                    return fail(400, { error: `O campo "${field.label}" requer um arquivo.` });
+                }
+            } else {
                 const value = formData.get(`field_${field.id}`);
                 if (!value || value.toString().trim() === '') {
                     return fail(400, { error: `O campo "${field.label}" é obrigatório.` });
@@ -127,72 +144,99 @@ export const actions: Actions = {
             }
         }
 
+        // ── Step 1: validate and upload files to S3 before opening a DB transaction ──
+        type UploadedFile = { fieldId: number; key: string; file: File };
+        const uploadedFiles: UploadedFile[] = [];
+
+        for (const [key, value] of formData.entries()) {
+            if (!key.startsWith('field_') || !(value instanceof File) || value.size === 0) continue;
+            const fieldId = Number(key.replace('field_', ''));
+            const field = fieldMap.get(fieldId);
+            if (!field || field.field_type !== 'file') continue;
+
+            // MIME validation
+            const allowedTypes: string[] = field.allowed_file_types ?? [];
+            if (allowedTypes.length > 0) {
+                const allowedMimes = allowedTypes.flatMap((cat: string) => MIME_WHITELIST[cat] ?? []);
+                if (!allowedMimes.includes(value.type)) {
+                    return fail(400, { error: `Tipo de arquivo não permitido para o campo "${field.label}".` });
+                }
+            }
+            if (value.size > MAX_FILE_SIZE) {
+                return fail(400, { error: `Arquivo do campo "${field.label}" excede o limite de 10MB.` });
+            }
+
+            const ext = value.name.split('.').pop()?.toLowerCase() ?? 'bin';
+            const objectKey = `responses/${assignmentId}/${randomUUID()}.${ext}`;
+            const buffer = Buffer.from(await value.arrayBuffer());
+
+            await s3.send(new PutObjectCommand({
+                Bucket: BUCKETS.forms,
+                Key: objectKey,
+                Body: buffer,
+                ContentType: value.type,
+                ContentLength: buffer.byteLength
+            }));
+
+            uploadedFiles.push({ fieldId, key: objectKey, file: value });
+        }
+
+        // ── Step 2: DB transaction ──
         const client = await pool.connect();
         let responseId = 0;
 
         try {
             await client.query('BEGIN');
 
-            // 1. Criar a "Resposta Mãe" (Response)
+            // Create response record
             const resQuery = await client.query(`
                 INSERT INTO form_responses (form_id, user_id, assignment_id, submitted_at)
                 VALUES ($1, $2, $3, NOW())
                 RETURNING id
             `, [formId, user.user_id, assignmentId]);
-
             responseId = resQuery.rows[0].id;
 
-            // 2. Processar cada campo do FormData
-            // O frontend manda os campos com nome "field_{ID}"
+            // Insert values for each field
             for (const [key, value] of formData.entries()) {
-                if (key.startsWith('field_')) {
-                    const fieldId = Number(key.replace('field_', ''));
-                    
-                    // Verificamos o tipo do valor
-                    if (value instanceof File) {
-                        // === PROCESSAMENTO DE ARQUIVO ===
-                        if (value.size > 0) {
-                            const fileName = `${Date.now()}_${fieldId}_${value.name}`;
-                            // Caminho relativo para salvar (crie a pasta static/uploads antes!)
-                            const uploadDir = 'static/uploads'; 
-                            const filePath = join(process.cwd(), uploadDir, fileName);
-                            
-                            // Cria pasta se não existir
-                            try { mkdirSync(uploadDir, { recursive: true }); } catch {}
+                if (!key.startsWith('field_')) continue;
+                const fieldId = Number(key.replace('field_', ''));
 
-                            // Salva arquivo
-                            const buffer = Buffer.from(await value.arrayBuffer());
-                            writeFileSync(filePath, buffer);
+                if (value instanceof File) {
+                    if (value.size === 0) continue;
+                    const uploaded = uploadedFiles.find(u => u.fieldId === fieldId);
+                    if (!uploaded) continue;
 
-                            // Salva metadados na tabela form_files
-                            await client.query(`
-                                INSERT INTO form_files 
-                                (response_id, field_id, file_name, file_path, file_type, file_size)
-                                VALUES ($1, $2, $3, $4, $5, $6)
-                            `, [
-                                responseId, fieldId, value.name, 
-                                `/uploads/${fileName}`, // Caminho web
-                                value.type, value.size
-                            ]);
-                        }
-                    } else {
-                        // === PROCESSAMENTO DE TEXTO/NUMERO ===
-                        // Se for string vazia e não obrigatório, salvamos null ou string vazia?
-                        // Vamos salvar string vazia se vier.
-                        if (value !== null) {
-                            await client.query(`
-                                INSERT INTO form_response_values (response_id, field_id, value)
-                                VALUES ($1, $2, $3)
-                            `, [responseId, fieldId, value.toString()]);
-                        }
-                    }
+                    // Insert into shared files table
+                    const fileRes = await client.query(`
+                        INSERT INTO files
+                            (object_key, bucket, original_name, mime_type, file_size,
+                             uploaded_by, reference_type, reference_id)
+                        VALUES ($1, $2, $3, $4, $5, $6, 'form_response', $7)
+                        RETURNING id
+                    `, [
+                        uploaded.key, BUCKETS.forms, uploaded.file.name,
+                        uploaded.file.type, uploaded.file.size,
+                        user.user_id, responseId
+                    ]);
+
+                    // Store the file id as the field value so we can retrieve it later
+                    await client.query(`
+                        INSERT INTO form_response_values (response_id, field_id, value)
+                        VALUES ($1, $2, $3)
+                    `, [responseId, fieldId, String(fileRes.rows[0].id)]);
+
+                } else if (value !== null) {
+                    await client.query(`
+                        INSERT INTO form_response_values (response_id, field_id, value)
+                        VALUES ($1, $2, $3)
+                    `, [responseId, fieldId, value.toString()]);
                 }
             }
 
-            // 3. Marcar Assignment como Concluído
+            // Mark assignment complete
             await client.query(`
-                UPDATE form_assignments 
-                SET is_completed = TRUE, completed_at = NOW() 
+                UPDATE form_assignments
+                SET is_completed = TRUE, completed_at = NOW()
                 WHERE id = $1
             `, [assignmentId]);
 
@@ -200,13 +244,21 @@ export const actions: Actions = {
 
         } catch (e) {
             await client.query('ROLLBACK');
-            console.error('Erro no submit:', e);
+            // Delete any files already uploaded to S3
+            if (uploadedFiles.length > 0) {
+                await Promise.allSettled(
+                    uploadedFiles.map(u =>
+                        s3.send(new DeleteObjectCommand({ Bucket: BUCKETS.forms, Key: u.key }))
+                    )
+                );
+            }
+            console.error('Erro no submit do formulário:', e);
             return fail(500, { error: 'Erro ao salvar resposta.' });
         } finally {
             client.release();
         }
 
-        // Notifica o responsável pela atribuição após o COMMIT
+        // Notify the manager who assigned the form (after commit)
         const userName = `${user.first_name} ${user.last_name}`.trim();
         await createNotification({
             userId: assignedBy,

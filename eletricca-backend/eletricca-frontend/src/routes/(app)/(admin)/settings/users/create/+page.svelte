@@ -13,7 +13,7 @@
     import { Separator } from '$lib/components/ui/separator';
     
     // Icons
-    import { ArrowLeft, Save, Shield, UserPlus, Lock, Layers } from '@lucide/svelte';
+    import { ArrowLeft, Save, Shield, UserPlus, Lock, Layers, Mail, AtSign } from '@lucide/svelte';
 
     let { data, form }: {data: PageData, form: ActionData} = $props();
 
@@ -100,10 +100,23 @@
                             </div>
                         </div>
 
-                        <div class="grid gap-2">
-                            <Label>Email <span class="text-red-500">*</span></Label>
-                            <Input type="email" name="email" value={form?.email || ''} required placeholder="joao@exemplo.com" />
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="grid gap-2">
+                                <Label for="email">Email</Label>
+                                <div class="relative">
+                                    <Mail class="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+                                    <Input id="email" type="email" name="email" class="pl-9" value={form?.email || ''} placeholder="joao@exemplo.com" />
+                                </div>
+                            </div>
+                            <div class="grid gap-2">
+                                <Label for="username">Nome de Usuário</Label>
+                                <div class="relative">
+                                    <AtSign class="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+                                    <Input id="username" name="username" class="pl-9 font-mono" value={form?.username || ''} placeholder="joao.silva" />
+                                </div>
+                            </div>
                         </div>
+                        <p class="text-[11px] text-muted-foreground">Pelo menos um dos dois é obrigatório. Ambos podem ser usados para login.</p>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div class="grid gap-2">

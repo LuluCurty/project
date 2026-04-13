@@ -50,6 +50,18 @@
 		{ value: 'contains', label: 'Contém' }
 	];
 
+	type FileCategory = 'image' | 'excel' | 'word' | 'powerpoint' | 'audio' | 'video' | 'pdf';
+
+	const FILE_CATEGORIES: { value: FileCategory; label: string }[] = [
+		{ value: 'image',       label: 'Foto / Imagem' },
+		{ value: 'pdf',         label: 'PDF' },
+		{ value: 'excel',       label: 'Excel' },
+		{ value: 'word',        label: 'Word' },
+		{ value: 'powerpoint',  label: 'PowerPoint' },
+		{ value: 'audio',       label: 'Áudio' },
+		{ value: 'video',       label: 'Vídeo' }
+	];
+
 	interface FormField {
 		id: string;
 		field_type: string;
@@ -62,6 +74,7 @@
 		condition_operator: string | null;
 		condition_value: string | null;
 		expanded: boolean;
+		allowed_file_types: FileCategory[];
 	}
 
 	let formTitle = $state('');
@@ -93,9 +106,20 @@
 			condition_field_id: null,
 			condition_operator: null,
 			condition_value: null,
-			expanded: true
+			expanded: true,
+			allowed_file_types: []
 		};
 		fields = [...fields, newField];
+	}
+
+	function toggleFileType(fieldId: string, value: FileCategory) {
+		const field = fields.find((f) => f.id === fieldId);
+		if (!field) return;
+		if (field.allowed_file_types.includes(value)) {
+			field.allowed_file_types = field.allowed_file_types.filter((t) => t !== value);
+		} else {
+			field.allowed_file_types = [...field.allowed_file_types, value];
+		}
 	}
 
 	function removeField(id: string) {
@@ -159,12 +183,14 @@
 			if (!field.label.trim()) {
 				errors.push(`Campo ${index + 1}: O rótulo é obrigatório`);
 			}
-			// CORREÇÃO: Validação real de opções vazias
 			if (field.field_type === 'select' || field.field_type === 'checkbox') {
 				const hasValidOption = field.options.some((opt) => opt.trim().length > 0);
 				if (!hasValidOption) {
 					errors.push(`Campo "${field.label || index + 1}": Adicione pelo menos uma opção válida.`);
 				}
+			}
+			if (field.field_type === 'file' && field.allowed_file_types.length === 0) {
+				errors.push(`Campo "${field.label || index + 1}": Selecione pelo menos um tipo de arquivo permitido.`);
 			}
 		});
 
@@ -432,6 +458,27 @@
 																</p>
 															{/if}
 														</div>
+													</div>
+												{/if}
+
+												{#if field.field_type === 'file'}
+													<Separator class="my-4" />
+													<div class="space-y-2">
+														<Label>Tipos de arquivo permitidos *</Label>
+														<div class="flex flex-wrap gap-2">
+															{#each FILE_CATEGORIES as cat}
+																<button
+																	type="button"
+																	onclick={() => toggleFileType(field.id, cat.value)}
+																	class="rounded-full border px-3 py-1 text-xs transition-colors {field.allowed_file_types.includes(cat.value) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground hover:border-primary/50'}"
+																>
+																	{cat.label}
+																</button>
+															{/each}
+														</div>
+														{#if field.allowed_file_types.length === 0}
+															<p class="text-xs text-amber-600">Selecione pelo menos um tipo de arquivo.</p>
+														{/if}
 													</div>
 												{/if}
 

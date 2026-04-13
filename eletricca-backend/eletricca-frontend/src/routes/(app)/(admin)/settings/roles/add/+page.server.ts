@@ -1,12 +1,12 @@
 import { fail, error, redirect } from "@sveltejs/kit";
 import type { PageServerLoad, Actions } from "./$types";
-import { checkSystemAdmin } from "$lib/server/auth";
+import {  } from "$lib/server/auth";
 import { pool } from "$lib/server/db";
 
 type PermissionGroup = Record<string, { id: number, slug: string, description: string}[]>;
 
 export const load: PageServerLoad = async ({ locals }) => {
-    checkSystemAdmin(locals.user);
+    
 
     try {
         const query = `
@@ -36,7 +36,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 export const actions: Actions = {
     default: async ({request, locals}) => {
-        checkSystemAdmin(locals.user);
 
         const data = await request.formData();
         const name = data.get('name') as string;

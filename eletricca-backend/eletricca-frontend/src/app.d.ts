@@ -10,8 +10,9 @@ declare global {
 				first_name: string;
 				last_name: string;
 				user_role: string;
-				permissions?: string[];
+				permissions: string[];
 				role_id: number;
+				is_super_admin: boolean;
 			} | null
 		}
 		// interface PageData {}

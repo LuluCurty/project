@@ -1,6 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
 import { guardAction } from '$lib/server/auth';
+import { s3 } from '$lib/server/storage';
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals, route, url }) => {
@@ -168,9 +170,28 @@ export const actions: Actions = {
         if (!id) return fail(400, { error: 'ID inválido' });
 
         try {
+            // Find S3 files linked to responses of this assignment before deleting
+            const filesRes = await pool.query(`
+                SELECT f.object_key, f.bucket
+                FROM files f
+                JOIN form_responses fr ON fr.id = f.reference_id
+                    AND f.reference_type = 'form_response'
+                WHERE fr.assignment_id = $1
+            `, [id]);
+
+            // Delete the assignment (cascades to form_responses → form_response_values)
             await pool.query('DELETE FROM form_assignments WHERE id = $1', [id]);
+
+            // Create delete markers on VersityGW (versioning active — bytes are preserved)
+            if (filesRes.rows.length > 0) {
+                await Promise.allSettled(
+                    filesRes.rows.map((f: any) =>
+                        s3.send(new DeleteObjectCommand({ Bucket: f.bucket, Key: f.object_key }))
+                    )
+                );
+            }
         } catch (e) {
-            console.error(e);
+            console.error('Erro ao excluir atribuição de formulário:', e);
             return fail(500, { error: 'Erro ao excluir atribuição' });
         }
 

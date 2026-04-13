@@ -1,198 +1,136 @@
 <script lang="ts">
-    import { page } from '$app/state';
-    import { onMount } from 'svelte';
+    import { enhance } from '$app/forms';
     import { goto } from '$app/navigation';
-    import { ChevronLeft, Save, Loader2, Truck, AlertCircle } from 'lucide-svelte';
-    
-    // Componentes Shadcn
+    import { toast } from 'svelte-sonner';
+    import type { PageData, ActionData } from './$types';
+
     import * as Card from '$lib/components/ui/card';
     import { Input } from '$lib/components/ui/input';
     import { Label } from '$lib/components/ui/label';
     import { Button } from '$lib/components/ui/button';
     import { Textarea } from '$lib/components/ui/textarea';
+    import { ChevronLeft, Save, LoaderCircle, Truck } from '@lucide/svelte';
 
-    // Estados
-    let supplierId = page.params.id;
-    let isLoadingData = $state(true);
-    let isSaving = $state(false);
-    let errorMessage = $state('');
+    let { data, form }: { data: PageData; form: ActionData } = $props();
 
-    // Dados do formulário
-    let formData = $state({
-        supplier_name: '',
-        supplier_email: '',
-        supplier_telephone: '',
-        supplier_address: ''
-    });
+    let isSubmitting = $state(false);
 
-    // 1. Carregar dados ao iniciar
-    onMount(async () => {
-        try {
-            // Precisas de uma rota GET /api/supplier/:id (similar à de clientes)
-            const res = await fetch(`/api/supplier/${supplierId}`, {
-                credentials: 'include'
-            });
-            if (res.ok) {
-                const data = await res.json();
-                // Assumindo que o backend retorna o objeto direto ou dentro de uma chave
-                // Ajuste aqui conforme teu GET retorna (ex: data.supplier ou data direto)
-                const s = data.supplier || data; 
-                
-                formData.supplier_name = s.supplier_name;
-                formData.supplier_email = s.supplier_email;
-                formData.supplier_telephone = s.supplier_telephone;
-                formData.supplier_address = s.supplier_address || ''; // Garante string vazia se for null
-            } else {
-                errorMessage = "Fornecedor não encontrado.";
-            }
-        } catch (e) {
-            console.error(e);
-            errorMessage = "Erro ao carregar dados.";
-        } finally {
-            isLoadingData = false;
-        }
-    });
-
-    // 2. Salvar Alterações
-    async function handleUpdate(e?: Event) {
-        if (e) e.preventDefault();
-        
-        isSaving = true;
-        errorMessage = '';
-
-        try {
-            const res = await fetch(`/api/supplier/update/${supplierId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.error || 'Erro ao atualizar');
-            }
-
-            alert('Fornecedor atualizado com sucesso!');
-            goto('/suppliers');
-
-        } catch (error: any) {
-            console.error(error);
-            errorMessage = error.message;
-        } finally {
-            isSaving = false;
-        }
-    }
-
-    // Atalho de Teclado (Ctrl + S)
-    function handleKeydown(event: KeyboardEvent) {
-        if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-            event.preventDefault();
-            if (!isSaving) handleUpdate();
+    function handleKeydown(e: KeyboardEvent) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            (document.querySelector<HTMLButtonElement>('button[type="submit"]'))?.click();
         }
     }
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="max-w-2xl mx-auto space-y-4 p-4">
-    
-    <div class="flex items-center gap-2 mb-6">
-        <Button variant="ghost" size="icon" onclick={() => goto('/suppliers')}>
+<div class="mx-auto max-w-2xl space-y-4 p-4">
+
+    <div class="mb-6 flex items-center gap-2">
+        <Button variant="ghost" size="icon" onclick={() => goto('/supplies/suppliers')}>
             <ChevronLeft class="size-5" />
         </Button>
         <h1 class="text-2xl font-bold tracking-tight">Editar Fornecedor</h1>
     </div>
 
-    {#if isLoadingData}
-        <div class="flex flex-col items-center justify-center py-12 space-y-4">
-            <Loader2 class="size-8 animate-spin text-primary" />
-            <p class="text-muted-foreground">Carregando informações...</p>
-        </div>
-    {:else}
-        <Card.Root>
-            <Card.Header>
-                <div class="flex items-center gap-2">
-                    <div class="p-2 bg-orange-100 text-orange-600 rounded-full">
-                        <Truck class="size-5" />
+    <Card.Root>
+        <Card.Header>
+            <div class="flex items-center gap-2">
+                <div class="rounded-full bg-orange-100 p-2 text-orange-600">
+                    <Truck class="size-5" />
+                </div>
+                <div>
+                    <Card.Title>Dados da Empresa</Card.Title>
+                    <Card.Description>Editando fornecedor #{data.supplier.id}</Card.Description>
+                </div>
+            </div>
+        </Card.Header>
+
+        <Card.Content class="pt-6">
+            <form method="POST"
+                use:enhance={() => {
+                    isSubmitting = true;
+                    return async ({ result, update }) => {
+                        isSubmitting = false;
+                        if (result.type === 'failure') {
+                            toast.error(String((result.data as any)?.error) || 'Erro ao salvar.');
+                        } else if (result.type === 'redirect') {
+                            toast.success('Fornecedor atualizado com sucesso!');
+                        }
+                        await update();
+                    };
+                }}
+                class="space-y-5"
+            >
+                <!-- Nome fantasia + Razão social -->
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div class="space-y-2">
+                        <Label for="supplier_name">Nome / Fantasia *</Label>
+                        <Input id="supplier_name" name="supplier_name"
+                            value={data.supplier.supplier_name} required />
                     </div>
-                    <div>
-                        <Card.Title>Dados da Empresa</Card.Title>
-                        <Card.Description>Atualize os dados do fornecedor ID #{supplierId}.</Card.Description>
+                    <div class="space-y-2">
+                        <Label for="supplier_legal_name">Razão Social *</Label>
+                        <Input id="supplier_legal_name" name="supplier_legal_name"
+                            value={data.supplier.supplier_legal_name ?? ''} required />
                     </div>
                 </div>
-            </Card.Header>
 
-            <Card.Content class="pt-6">
-                <form onsubmit={handleUpdate} class="space-y-6">
-                    
+                <!-- CNPJ + Telefone -->
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div class="space-y-2">
-                        <Label for="name">Nome da Empresa</Label>
-                        <Input 
-                            id="name" 
-                            bind:value={formData.supplier_name} 
-                            required
-                        />
+                        <Label for="supplier_legal_identifier">CNPJ *</Label>
+                        <Input id="supplier_legal_identifier" name="supplier_legal_identifier"
+                            placeholder="00.000.000/0001-00"
+                            value={data.supplier.supplier_legal_identifier ?? ''} required />
                     </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="space-y-2">
-                            <Label for="email">Email Comercial</Label>
-                            <Input 
-                                id="email" 
-                                type="email" 
-                                bind:value={formData.supplier_email} 
-                                required
-                            />
-                        </div>
-
-                        <div class="space-y-2">
-                            <Label for="phone">Telefone</Label>
-                            <Input 
-                                id="phone" 
-                                type="tel" 
-                                bind:value={formData.supplier_telephone} 
-                                required
-                            />
-                        </div>
-                    </div>
-
                     <div class="space-y-2">
-                        <Label for="address">Endereço Completo</Label>
-                        <Textarea 
-                            id="address" 
-                            class="resize-none h-24"
-                            bind:value={formData.supplier_address} 
-                        />
+                        <Label for="supplier_telephone">Telefone / WhatsApp</Label>
+                        <Input id="supplier_telephone" name="supplier_telephone" type="tel"
+                            value={data.supplier.supplier_telephone ?? ''} />
                     </div>
+                </div>
 
-                    {#if errorMessage}
-                        <div class="flex items-center gap-2 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                            <AlertCircle class="size-4" />
-                            <span>{errorMessage}</span>
-                        </div>
-                    {/if}
+                <!-- Email -->
+                <div class="space-y-2">
+                    <Label for="supplier_email">Email Comercial</Label>
+                    <Input id="supplier_email" name="supplier_email" type="email"
+                        value={data.supplier.supplier_email ?? ''} />
+                </div>
 
-                    <div class="flex justify-end gap-3 pt-4 border-t">
-                        <Button type="button" variant="outline" onclick={() => goto('/suppliers')}>
-                            Cancelar
-                        </Button>
-                        
-                        <Button type="submit" disabled={isSaving}>
-                            {#if isSaving}
-                                <Loader2 class="mr-2 size-4 animate-spin" /> Salvando...
-                            {:else}
-                                <Save class="mr-2 size-4" /> 
-                                <span class="mr-2">Salvar Alterações</span>
-                                <kbd class="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded bg-black/20 px-1.5 font-mono text-[10px] font-medium text-white opacity-50">
-                                    CTRL S
-                                </kbd>
-                            {/if}
-                        </Button>
-                    </div>
+                <!-- Endereço -->
+                <div class="space-y-2">
+                    <Label for="supplier_address">Endereço</Label>
+                    <Input id="supplier_address" name="supplier_address"
+                        value={data.supplier.supplier_address ?? ''} />
+                </div>
 
-                </form>
-            </Card.Content>
-        </Card.Root>
-    {/if}
+                <!-- Descrição -->
+                <div class="space-y-2">
+                    <Label for="description">Descrição / Observações</Label>
+                    <Textarea id="description" name="description" class="h-20 resize-none"
+                        value={data.supplier.description ?? ''} />
+                </div>
+
+                {#if form?.error}
+                    <p class="text-sm text-destructive">{form.error}</p>
+                {/if}
+
+                <div class="flex justify-end gap-3 border-t pt-4">
+                    <Button type="button" variant="outline" onclick={() => goto('/supplies/suppliers')}>
+                        Cancelar
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                        {#if isSubmitting}
+                            <LoaderCircle class="mr-2 size-4 animate-spin" /> Salvando...
+                        {:else}
+                            <Save class="mr-2 size-4" /> Salvar Alterações
+                            <span class="ml-2 border-l border-white/20 pl-2 text-xs font-normal opacity-50">Ctrl S</span>
+                        {/if}
+                    </Button>
+                </div>
+            </form>
+        </Card.Content>
+    </Card.Root>
 </div>

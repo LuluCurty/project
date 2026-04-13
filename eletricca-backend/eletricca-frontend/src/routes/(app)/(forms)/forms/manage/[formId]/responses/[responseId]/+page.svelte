@@ -12,12 +12,11 @@
 		AlignLeft,
 		ListChecks,
 		CalendarDays,
-		CircleDot,
 		ChevronDown,
 		Paperclip,
 		Mail,
 		Clock
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 
 	import * as Card from '$lib/components/ui/card';
@@ -32,38 +31,32 @@
 	let fields = $derived(data.fields);
 
 	const fieldIcons: Record<string, any> = {
-		text: Type,
-		number: Hash,
+		text:     Type,
+		number:   Hash,
 		textarea: AlignLeft,
-		select: ChevronDown,
+		select:   ChevronDown,
 		checkbox: ListChecks,
-		radio: CircleDot,
-		date: CalendarDays,
-		file: Paperclip
+		date:     CalendarDays,
+		file:     Paperclip
 	};
 
 	function formatDate(dateStr: string | null): string {
 		if (!dateStr) return '-';
 		return new Date(dateStr).toLocaleDateString('pt-BR', {
-			day: '2-digit',
-			month: 'short',
-			year: 'numeric'
+			day: '2-digit', month: 'short', year: 'numeric'
 		});
 	}
 
 	function formatDateTime(dateStr: string | null): string {
 		if (!dateStr) return '-';
-		return new Date(dateStr).toLocaleDateString('pt-BR', {
-			day: '2-digit',
-			month: 'short',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
+		return new Date(dateStr).toLocaleString('pt-BR', {
+			day: '2-digit', month: 'short', year: 'numeric',
+			hour: '2-digit', minute: '2-digit'
 		});
 	}
 
 	function formatFileSize(bytes: number): string {
-		if (bytes < 1024) return bytes + ' B';
+		if (bytes < 1024)        return bytes + ' B';
 		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
 		return (bytes / 1024 / 1024).toFixed(2) + ' MB';
 	}
@@ -74,66 +67,49 @@
 		if (!parentField) return true;
 		const parentValue = parentField.answer_value;
 		if (!parentValue) return false;
-		const conditionVal = field.condition_value;
 		switch (field.condition_operator) {
-			case 'equals':
-				return parentValue === conditionVal;
-			case 'not_equals':
-				return parentValue !== conditionVal;
-			case 'contains':
-				return parentValue.includes(conditionVal);
-			default:
-				return true;
+			case 'equals':     return parentValue === field.condition_value;
+			case 'not_equals': return parentValue !== field.condition_value;
+			case 'contains':   return parentValue.includes(field.condition_value);
+			default:           return true;
 		}
 	}
 
 	let visibleFields = $derived(fields.filter((f: any) => wasFieldVisible(f)));
-
-	function getFieldTypeName(type: string): string {
-		const names: Record<string, string> = {
-			text: 'Texto',
-			number: 'Número',
-			textarea: 'Texto longo',
-			select: 'Seleção',
-			checkbox: 'Múltipla escolha',
-			radio: 'Escolha única',
-			date: 'Data',
-			file: 'Arquivo'
-		};
-		return names[type] || type;
-	}
 
 	function hasAnswer(field: any): boolean {
 		return !!(field.answer_value || field.file);
 	}
 
 	function getInitials(firstName: string, lastName: string): string {
-		return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
+		return `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase();
 	}
+
+	const answeredCount = $derived(visibleFields.filter(hasAnswer).length);
 </script>
 
-<div class="min-h-screen bg-gradient-to-b from-muted/30 to-background">
+<div class="min-h-screen bg-background">
 	<!-- Header fixo -->
 	<div class="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-		<div class="mx-auto max-w-4xl px-4 py-4">
-			<div class="flex items-start justify-between gap-4">
-				<div class="flex items-start gap-3">
+		<div class="mx-auto max-w-3xl px-4 py-3">
+			<div class="flex items-center justify-between gap-3">
+				<div class="flex min-w-0 items-center gap-2">
 					<Button
 						variant="ghost"
 						size="icon"
-						class="mt-0.5 shrink-0"
+						class="shrink-0"
 						onclick={() => goto(`/forms/manage/${response.form_id}/responses`)}
 					>
 						<ArrowLeft class="size-5" />
 					</Button>
 					<div class="min-w-0">
-						<h1 class="truncate text-lg font-semibold sm:text-xl">{response.form_title}</h1>
+						<h1 class="truncate text-base font-semibold sm:text-lg">{response.form_title}</h1>
 						{#if response.form_description}
-							<p class="line-clamp-1 text-sm text-muted-foreground">{response.form_description}</p>
+							<p class="truncate text-xs text-muted-foreground">{response.form_description}</p>
 						{/if}
 					</div>
 				</div>
-				<Badge class="shrink-0 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+				<Badge class="shrink-0 bg-green-100 text-green-800 border-none text-xs">
 					<CircleCheck class="mr-1 size-3" />
 					Respondido
 				</Badge>
@@ -141,179 +117,178 @@
 		</div>
 	</div>
 
-	<div class="mx-auto max-w-4xl space-y-4 px-4 py-4 sm:py-6">
-		<!-- Card do Usuário -->
-		<Card.Root class="overflow-hidden border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
-			<Card.Content class="p-4 sm:p-5">
-				<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-					<!-- Info do usuário -->
-					<div class="flex items-center gap-4">
-						<Avatar.Root class="size-14">
-							<Avatar.Fallback class="bg-primary/10 text-primary text-lg">
-								{getInitials(response.first_name, response.last_name)}
-							</Avatar.Fallback>
-						</Avatar.Root>
-						<div>
-							<h3 class="text-lg font-semibold">{response.first_name} {response.last_name}</h3>
-							<div class="flex items-center gap-1.5 text-sm text-muted-foreground">
-								<Mail class="size-3.5" />
-								{response.email}
-							</div>
+	<div class="mx-auto max-w-3xl space-y-4 px-4 py-4 pb-10">
+
+		<!-- Card do Usuário + Metadata -->
+		<Card.Root class="border-primary/20 bg-primary/3">
+			<Card.Content class="p-4">
+				<!-- Usuário -->
+				<div class="flex items-center gap-3 pb-3 border-b">
+					<Avatar.Root class="size-11 shrink-0">
+						<Avatar.Fallback class="bg-primary/10 text-primary text-sm font-semibold">
+							{getInitials(response.first_name, response.last_name)}
+						</Avatar.Fallback>
+					</Avatar.Root>
+					<div class="min-w-0">
+						<p class="font-semibold truncate">{response.first_name} {response.last_name}</p>
+						<div class="flex items-center gap-1 text-xs text-muted-foreground">
+							<Mail class="size-3 shrink-0" />
+							<span class="truncate">{response.email}</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Metadata em grid -->
+				<div class="grid grid-cols-2 gap-3 pt-3 sm:grid-cols-3">
+					<div class="flex items-center gap-2">
+						<div class="shrink-0 rounded-md bg-green-500/10 p-1.5">
+							<Calendar class="size-3.5 text-green-600" />
+						</div>
+						<div class="min-w-0">
+							<p class="text-xs text-muted-foreground">Enviado</p>
+							<p class="truncate text-xs font-medium">{formatDateTime(response.submitted_at)}</p>
 						</div>
 					</div>
 
-					<!-- Metadata -->
-					<div class="flex flex-wrap gap-4 text-sm">
-						{#if response.period_reference}
-							<div class="flex items-center gap-2">
-								<div class="rounded-lg bg-primary/10 p-2">
-									<FileText class="size-4 text-primary" />
-								</div>
-								<div>
-									<p class="text-xs text-muted-foreground">Período</p>
-									<p class="font-medium">{response.period_reference}</p>
-								</div>
-							</div>
-						{/if}
+					{#if response.period_reference}
 						<div class="flex items-center gap-2">
-							<div class="rounded-lg bg-green-500/10 p-2">
-								<Calendar class="size-4 text-green-600" />
+							<div class="shrink-0 rounded-md bg-primary/10 p-1.5">
+								<FileText class="size-3.5 text-primary" />
 							</div>
-							<div>
-								<p class="text-xs text-muted-foreground">Enviado em</p>
-								<p class="font-medium">{formatDateTime(response.submitted_at)}</p>
+							<div class="min-w-0">
+								<p class="text-xs text-muted-foreground">Período</p>
+								<p class="truncate text-xs font-medium">{response.period_reference}</p>
 							</div>
 						</div>
-						{#if response.assignment_id}
-							<div class="flex items-center gap-2">
-								<div class="rounded-lg bg-blue-500/10 p-2">
-									<User class="size-4 text-blue-600" />
-								</div>
-								<div>
-									<p class="text-xs text-muted-foreground">Atribuído por</p>
-									<p class="font-medium">{response.assigned_by_name}</p>
-								</div>
+					{/if}
+
+					{#if response.assignment_id}
+						<div class="flex items-center gap-2">
+							<div class="shrink-0 rounded-md bg-blue-500/10 p-1.5">
+								<User class="size-3.5 text-blue-600" />
 							</div>
-						{:else}
-							<div class="flex items-center gap-2">
-								<div class="rounded-lg bg-amber-500/10 p-2">
-									<Clock class="size-4 text-amber-600" />
-								</div>
-								<div>
-									<p class="text-xs text-muted-foreground">Atribuição</p>
-									<p class="font-medium text-amber-600">Removida</p>
-								</div>
+							<div class="min-w-0">
+								<p class="text-xs text-muted-foreground">Atribuído por</p>
+								<p class="truncate text-xs font-medium">{response.assigned_by_name}</p>
 							</div>
-						{/if}
-					</div>
+						</div>
+					{:else}
+						<div class="flex items-center gap-2">
+							<div class="shrink-0 rounded-md bg-amber-500/10 p-1.5">
+								<Clock class="size-3.5 text-amber-600" />
+							</div>
+							<div class="min-w-0">
+								<p class="text-xs text-muted-foreground">Atribuição</p>
+								<p class="truncate text-xs font-medium text-amber-600">Removida</p>
+							</div>
+						</div>
+					{/if}
 				</div>
 			</Card.Content>
 		</Card.Root>
 
-		<!-- Resumo rápido -->
-		<div class="flex items-center justify-between rounded-lg border bg-card px-4 py-3">
-			<div class="flex items-center gap-2 text-sm text-muted-foreground">
-				<ListChecks class="size-4" />
+		<!-- Contagem rápida -->
+		<div class="flex items-center justify-between rounded-lg border bg-card px-4 py-2.5 text-sm">
+			<div class="flex items-center gap-2 text-muted-foreground">
+				<ListChecks class="size-4 shrink-0" />
 				<span>{visibleFields.length} pergunta{visibleFields.length !== 1 ? 's' : ''}</span>
 			</div>
-			<div class="flex items-center gap-2 text-sm">
-				<span class="font-medium text-green-600">
-					{visibleFields.filter(hasAnswer).length} respondida{visibleFields.filter(hasAnswer).length !== 1 ? 's' : ''}
-				</span>
-			</div>
+			<span class="font-medium text-green-600">
+				{answeredCount} respondida{answeredCount !== 1 ? 's' : ''}
+			</span>
 		</div>
 
 		<!-- Respostas -->
 		<div class="space-y-3">
-			{#each visibleFields as field, index (index)}
-				{@const FieldIcon = fieldIcons[field.field_type] || Type}
+			{#each visibleFields as field, index (field.id)}
+				{@const FieldIcon = fieldIcons[field.field_type] ?? Type}
 				{@const answered = hasAnswer(field)}
 
-				<Card.Root class="overflow-hidden transition-all hover:shadow-sm {!answered ? 'border-dashed opacity-60' : ''}">
+				<Card.Root class="overflow-hidden {!answered ? 'border-dashed opacity-60' : ''}">
 					<div class="flex">
-						<!-- Número da pergunta -->
-						<div class="flex w-12 shrink-0 flex-col items-center justify-start border-r bg-muted/30 py-4 sm:w-14">
-							<span class="text-lg font-bold text-primary">{index + 1}</span>
-							<FieldIcon class="mt-1 size-3.5 text-muted-foreground" />
+						<!-- Coluna do número -->
+						<div class="flex w-10 shrink-0 flex-col items-center justify-start gap-1 border-r bg-muted/30 py-4 sm:w-12">
+							<span class="text-base font-bold text-primary leading-none">{index + 1}</span>
+							<FieldIcon class="size-3 text-muted-foreground" />
 						</div>
 
 						<!-- Conteúdo -->
-						<div class="flex-1 p-4">
-							<!-- Cabeçalho da pergunta -->
-							<div class="mb-3 flex flex-wrap items-start justify-between gap-2">
-								<div class="flex-1">
-									<h3 class="font-medium leading-snug text-foreground">
+						<div class="min-w-0 flex-1 p-3 sm:p-4">
+							<!-- Cabeçalho do campo -->
+							<div class="mb-2.5 flex items-start justify-between gap-2">
+								<div class="min-w-0 flex-1">
+									<p class="text-sm font-medium leading-snug">
 										{field.label}
-									</h3>
-									<p class="mt-0.5 text-xs text-muted-foreground">
-										{getFieldTypeName(field.field_type)}
 										{#if field.is_required}
-											<span class="text-red-500">*</span>
+											<span class="text-destructive ml-0.5">*</span>
 										{/if}
 									</p>
 								</div>
 								{#if answered}
-									<CircleCheck class="size-5 shrink-0 text-green-500" />
+									<CircleCheck class="mt-0.5 size-4 shrink-0 text-green-500" />
 								{/if}
 							</div>
 
-							<!-- Valor da resposta -->
-							<div class="rounded-lg bg-muted/40 p-3">
+							<!-- Resposta -->
+							<div class="rounded-md bg-muted/40 px-3 py-2.5">
 								{#if field.file}
-									<!-- Arquivo -->
+									<!-- Arquivo via S3 -->
 									<div class="flex items-center gap-3">
-										<div class="rounded-md bg-primary/10 p-2.5">
-											<FileUp class="size-5 text-primary" />
+										<div class="shrink-0 rounded-md bg-primary/10 p-2">
+											<FileUp class="size-4 text-primary" />
 										</div>
 										<div class="min-w-0 flex-1">
-											<p class="truncate font-medium">{field.file.file_name}</p>
+											<p class="truncate text-sm font-medium">{field.file.file_name}</p>
 											<p class="text-xs text-muted-foreground">{formatFileSize(field.file.file_size)}</p>
 										</div>
-										<Button variant="outline" size="sm" onclick={() => window.open(field.file.file_path, '_blank')}>
-											<Download class="mr-2 size-4" />
-											Baixar
-										</Button>
+										{#if field.file.file_url}
+											<a
+												href={field.file.file_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="shrink-0"
+											>
+												<Button variant="outline" size="sm" class="h-8 px-2.5">
+													<Download class="size-3.5 sm:mr-1.5" />
+													<span class="hidden sm:inline text-xs">Baixar</span>
+												</Button>
+											</a>
+										{:else}
+											<span class="shrink-0 text-xs text-muted-foreground">Indisponível</span>
+										{/if}
 									</div>
+
 								{:else if field.field_type === 'checkbox' && field.answer_value}
-									<!-- Checkbox -->
-									{@const options = field.answer_value.split(',').filter(Boolean)}
-									<div class="space-y-2">
-										{#each options as option}
-											<div class="flex items-center gap-2">
-												<div class="flex size-5 items-center justify-center rounded bg-green-500/20">
-													<CircleCheck class="size-3.5 text-green-600" />
-												</div>
-												<span class="text-sm">{option}</span>
-											</div>
+									<!-- Múltipla escolha -->
+									<div class="flex flex-wrap gap-1.5">
+										{#each field.answer_value.split(',').filter(Boolean) as option}
+											<span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+												<CircleCheck class="size-3" />{option}
+											</span>
 										{/each}
 									</div>
-								{:else if field.field_type === 'radio' && field.answer_value}
-									<!-- Radio -->
-									<div class="flex items-center gap-2">
-										<div class="flex size-5 items-center justify-center rounded-full border-2 border-primary bg-primary/10">
-											<div class="size-2 rounded-full bg-primary"></div>
-										</div>
-										<span class="text-sm font-medium">{field.answer_value}</span>
-									</div>
+
 								{:else if field.field_type === 'select' && field.answer_value}
-									<!-- Select -->
-									<div class="flex items-center gap-2">
-										<Badge variant="secondary" class="font-normal">
-											{field.answer_value}
-										</Badge>
-									</div>
+									<!-- Seleção única -->
+									<Badge variant="secondary" class="font-normal text-xs">
+										{field.answer_value}
+									</Badge>
+
 								{:else if field.field_type === 'textarea' && field.answer_value}
-									<!-- Textarea -->
+									<!-- Texto longo -->
 									<p class="whitespace-pre-wrap text-sm leading-relaxed">{field.answer_value}</p>
+
 								{:else if field.field_type === 'date' && field.answer_value}
 									<!-- Data -->
 									<div class="flex items-center gap-2">
-										<CalendarDays class="size-4 text-muted-foreground" />
+										<CalendarDays class="size-4 shrink-0 text-muted-foreground" />
 										<span class="text-sm font-medium">{formatDate(field.answer_value)}</span>
 									</div>
+
 								{:else if field.answer_value}
-									<!-- Texto/Número -->
+									<!-- Texto / Número -->
 									<p class="text-sm">{field.answer_value}</p>
+
 								{:else}
 									<!-- Não respondido -->
 									<p class="text-sm italic text-muted-foreground">Não respondido</p>
@@ -325,9 +300,13 @@
 			{/each}
 		</div>
 
-		<!-- Footer -->
-		<div class="flex justify-center gap-3 pb-6 pt-2">
-			<Button variant="outline" onclick={() => goto(`/forms/manage/${response.form_id}/responses`)}>
+		<!-- Rodapé -->
+		<div class="flex justify-center pt-2">
+			<Button
+				variant="outline"
+				size="sm"
+				onclick={() => goto(`/forms/manage/${response.form_id}/responses`)}
+			>
 				<ArrowLeft class="mr-2 size-4" />
 				Voltar para Lista
 			</Button>

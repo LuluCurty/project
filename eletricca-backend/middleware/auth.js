@@ -8,6 +8,7 @@ function generateToken(user, rememberMe) {
     const payload = {
         user_id: user.user_id,
         user_role: user.user_role,
+        username: user.username,
         email: user.email,
         first_name: user.first_name,
         last_name: user.last_name,
