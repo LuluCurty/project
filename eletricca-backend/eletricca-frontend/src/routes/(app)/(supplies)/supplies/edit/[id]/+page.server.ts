@@ -97,6 +97,63 @@ export const actions: Actions = {
         return { success: true, action: 'removePricing' };
     },
 
+    // Cria novo fornecedor e vincula ao material
+    createAndLink: async ({ request, locals, params }) => {
+        if (!locals.user) return fail(401, { error: 'Não autenticado.' });
+
+        const id   = Number(params.id);
+        const data = await request.formData();
+
+        const name      = (data.get('new_supplier_name') as string)?.trim();
+        const legalName = (data.get('new_supplier_legal_name') as string)?.trim() || name;
+        const cnpj      = (data.get('new_supplier_cnpj') as string)?.trim();
+        const price     = Number(data.get('price') || 0);
+
+        if (!name) return fail(400, { error: 'Nome do fornecedor é obrigatório.' });
+        if (!cnpj) return fail(400, { error: 'CNPJ é obrigatório.' });
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            let supplierId: number;
+            try {
+                const suppRes = await client.query(
+                    `INSERT INTO supplier (supplier_name, supplier_legal_name, supplier_legal_identifier)
+                     VALUES ($1, $2, $3) RETURNING id`,
+                    [name, legalName, cnpj]
+                );
+                supplierId = suppRes.rows[0].id;
+            } catch (e: any) {
+                if (e.code === '23505') {
+                    await client.query('ROLLBACK');
+                    return fail(409, { error: 'Este CNPJ já está cadastrado. Busque o fornecedor existente.' });
+                }
+                throw e;
+            }
+
+            const existing = await client.query(
+                'SELECT COUNT(*)::int AS cnt FROM supply_pricing WHERE supply_id=$1', [id]
+            );
+            const isFirst = existing.rows[0].cnt === 0;
+
+            await client.query(
+                `INSERT INTO supply_pricing (supply_id, supplier_id, price, is_default)
+                 VALUES ($1, $2, $3, $4)`,
+                [id, supplierId, price, isFirst]
+            );
+
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            console.error(e);
+            return fail(500, { error: 'Erro ao criar fornecedor.' });
+        } finally {
+            client.release();
+        }
+        return { success: true, action: 'createAndLink' };
+    },
+
     // Define fornecedor padrão
     setDefault: async ({ request, locals, params }) => {
         if (!locals.user) return fail(401, { error: 'Não autenticado.' });

@@ -1,5 +1,6 @@
 import { fail, redirect, error } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
+import { createNotificationBulk } from '$lib/server/notifications';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -75,13 +76,14 @@ export const actions: Actions = {
 
         // Garante que a lista ainda está pendente
         const statusCheck = await pool.query(
-            'SELECT list_status FROM supplies_lists WHERE id = $1',
+            'SELECT list_status, created_by FROM supplies_lists WHERE id = $1',
             [listId]
         );
         if (statusCheck.rowCount === 0) return fail(404, { error: 'Lista não encontrada.' });
         if (statusCheck.rows[0].list_status !== 'pending') {
             return fail(403, { error: 'Esta lista não pode mais ser editada.' });
         }
+        const listCreatedBy: number = statusCheck.rows[0].created_by;
 
         const data = await request.formData();
 
@@ -123,6 +125,20 @@ export const actions: Actions = {
                     INSERT INTO supplies_list_items (list_id, supply_id, supplier_id, quantity, price)
                     VALUES ($1, $2, $3, $4, $5)
                 `, [listId, item.supply_id, item.supplier_id, item.quantity, item.price]);
+
+                // Cria entrada em supply_pricing se o fornecedor ainda não estiver vinculado
+                if (item.supplier_id) {
+                    const cnt = await client.query(
+                        'SELECT COUNT(*)::int AS cnt FROM supply_pricing WHERE supply_id=$1',
+                        [item.supply_id]
+                    );
+                    const isFirst = cnt.rows[0].cnt === 0;
+                    await client.query(`
+                        INSERT INTO supply_pricing (supply_id, supplier_id, price, is_default)
+                        VALUES ($1, $2, $3, $4)
+                        ON CONFLICT DO NOTHING
+                    `, [item.supply_id, item.supplier_id, item.price, isFirst]);
+                }
             }
 
             await client.query('COMMIT');
@@ -132,6 +148,45 @@ export const actions: Actions = {
             return fail(500, { error: 'Erro ao atualizar lista.' });
         } finally {
             client.release();
+        }
+
+        // Notifica gestores e, se diferente do editor, o criador da lista
+        try {
+            const editorId = locals.user.user_id;
+            const editorName = `${locals.user.first_name} ${locals.user.last_name}`;
+
+            const managersRes = await pool.query<{ user_id: number }>(`
+                SELECT DISTINCT user_id FROM (
+                    SELECT u.user_id FROM users u WHERE u.is_super_admin = TRUE
+                    UNION
+                    SELECT u.user_id FROM users u
+                        JOIN role_permissions rp ON rp.role_id = u.role_id
+                        JOIN permissions p ON p.id = rp.permissions_id
+                        WHERE p.slug = 'supplies.manage'
+                    UNION
+                    SELECT up.user_id FROM user_permissions up
+                        JOIN permissions p ON p.id = up.permissions_id
+                        WHERE p.slug = 'supplies.manage'
+                ) managers
+                WHERE user_id != $1
+            `, [editorId]);
+
+            const notifyIds = new Set(managersRes.rows.map(r => r.user_id));
+
+            // Notifica o criador da lista se ele não for o editor nem já estiver na lista
+            if (listCreatedBy !== editorId) notifyIds.add(listCreatedBy);
+
+            if (notifyIds.size > 0) {
+                await createNotificationBulk([...notifyIds], {
+                    title: 'Lista de materiais editada',
+                    message: `${editorName} editou a lista "${listName}"`,
+                    type: 'supply_list_updated',
+                    referenceType: 'supply_list',
+                    referenceId: listId,
+                });
+            }
+        } catch (e) {
+            console.error('Erro ao enviar notificações de lista editada:', e);
         }
 
         redirect(303, '/supplies/lists');

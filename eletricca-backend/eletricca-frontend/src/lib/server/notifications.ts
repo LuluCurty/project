@@ -8,6 +8,8 @@ export type NotificationType =
     | 'task_comment'
     | 'form_assigned'
     | 'form_submitted'
+    | 'supply_list_created'
+    | 'supply_list_updated'
     | 'system';
 
 export interface CreateNotificationParams {

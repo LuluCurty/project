@@ -41,7 +41,11 @@ export const GET: RequestHandler = async ({ locals, url }) => {
         );
     } else {
         rows = await pool.query(
-            `SELECT id, supplier_name FROM supplier WHERE supplier_name ILIKE $1 ORDER BY supplier_name LIMIT 20`,
+            `SELECT id, supplier_name, supplier_legal_name
+             FROM supplier
+             WHERE supplier_name ILIKE $1 OR supplier_legal_name ILIKE $1
+             ORDER BY supplier_name
+             LIMIT 20`,
             [`%${q}%`]
         );
     }

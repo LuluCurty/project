@@ -16,7 +16,7 @@
 
     interface Client   { id: number; client_first_name: string; client_last_name: string; client_email: string; }
     interface Supply   { id: number; supply_name: string; }
-    interface Supplier { id: number; supplier_name: string; price?: number; }
+    interface Supplier { id: number; supplier_name: string; supplier_legal_name?: string; price?: number; }
     interface ListItem { supply: Supply; supplier: Supplier | null; quantity: number; price: number; }
 
     // --- estado geral ---
@@ -62,10 +62,8 @@
                 let url = '';
                 if (type === 'client')   url = `/apiv2/clients/search?q=${encodeURIComponent(q)}`;
                 if (type === 'supply')   url = `/apiv2/supplies/search?q=${encodeURIComponent(q)}`;
-                if (type === 'supplier') {
-                    url = `/apiv2/suppliers/search?q=${encodeURIComponent(q)}`;
-                    if (newItem.supply) url += `&supply_id=${newItem.supply.id}`;
-                }
+                // Busca todos os fornecedores (sem filtrar por material)
+                if (type === 'supplier') url = `/apiv2/suppliers/search?q=${encodeURIComponent(q)}`;
                 const res = await fetch(url);
                 if (!res.ok) return;
                 const rows = await res.json();
@@ -83,12 +81,12 @@
     }
 
     async function pickSupply(s: Supply) {
-        newItem.supply = s;
+        newItem.supply   = s;
         newItem.supplier = null;
-        searchSupply = '';
-        showSupply = false;
+        searchSupply     = '';
+        showSupply       = false;
 
-        // Tenta auto-selecionar o fornecedor padrão desse material
+        // Auto-seleciona o fornecedor padrão já cadastrado para este material
         try {
             const res = await fetch(`/apiv2/suppliers/search?supply_id=${s.id}`);
             if (res.ok) {
@@ -102,7 +100,7 @@
         newItem.supplier = s;
         if (s.price != null) newItem.price = s.price;
         searchSupplier = '';
-        showSupplier = false;
+        showSupplier   = false;
     }
 
     function addItem() {
@@ -340,11 +338,9 @@
                                                 {#each suggestionsSupplier as s}
                                                     <button type="button" class="w-full text-left px-3 py-2 text-sm hover:bg-muted border-b last:border-0"
                                                         onclick={() => pickSupplier(s)}>
-                                                        <span>{s.supplier_name}</span>
-                                                        {#if s.price != null}
-                                                            <span class="text-xs text-muted-foreground ml-1">
-                                                                {Number(s.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                            </span>
+                                                        <p class="font-medium">{s.supplier_name}</p>
+                                                        {#if s.supplier_legal_name && s.supplier_legal_name !== s.supplier_name}
+                                                            <p class="text-xs text-muted-foreground">{s.supplier_legal_name}</p>
                                                         {/if}
                                                     </button>
                                                 {/each}

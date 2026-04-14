@@ -6,7 +6,6 @@
 
     import * as Card from '$lib/components/ui/card';
     import * as Table from '$lib/components/ui/table';
-    import * as Select from '$lib/components/ui/select';
     import { Input } from '$lib/components/ui/input';
     import { Label } from '$lib/components/ui/label';
     import { Button } from '$lib/components/ui/button';
@@ -14,15 +13,14 @@
     import { Badge } from '$lib/components/ui/badge';
     import {
         ChevronLeft, Save, LoaderCircle, Package,
-        Plus, Trash2, Star, StarOff,
+        Plus, Trash2, Star, StarOff, X, Search,
     } from '@lucide/svelte';
 
     let { data, form }: { data: PageData; form: ActionData } = $props();
 
-    let isSaving   = $state(false);
-    let newSuppId  = $state('');
+    let isSaving = $state(false);
 
-    // Feedback das sub-actions (addPricing, removePricing, setDefault)
+    // Feedback das sub-actions
     $effect(() => {
         if (!form) return;
         const f = form as any;
@@ -31,12 +29,13 @@
             if (f.action === 'addPricing')    toast.success('Fornecedor vinculado.');
             if (f.action === 'removePricing') toast.success('Fornecedor removido.');
             if (f.action === 'setDefault')    toast.success('Fornecedor padrão definido.');
+            if (f.action === 'createAndLink') toast.success('Fornecedor criado e vinculado.');
         } else if (f.error) {
             toast.error(f.error);
         }
     });
 
-    // IDs já vinculados para esconder do select de adicionar
+    // IDs já vinculados
     let linkedIds = $derived(new Set(data.pricing.map((p: any) => p.supplier_id.toString())));
 
     function fmt(v: number | null) {
@@ -50,6 +49,61 @@
             (document.querySelector<HTMLButtonElement>('[data-save]'))?.click();
         }
     }
+
+    // Supplier autocomplete for "Vincular Fornecedor"
+    type Supplier = { id: number; supplier_name: string; supplier_legal_name: string };
+    type LinkMode = 'none' | 'existing' | 'new';
+    let linkMode         = $state<LinkMode>('none');
+    let linkQuery        = $state('');
+    let linkSuggestions  = $state<Supplier[]>([]);
+    let showLinkDrop     = $state(false);
+    let linkSelectedId   = $state<number | null>(null);
+    let linkSelectedName = $state('');
+    let linkSelectedLegal = $state('');
+    let linkNewName      = $state('');
+    let debounceTimer: ReturnType<typeof setTimeout>;
+
+    function handleLinkSearch() {
+        clearTimeout(debounceTimer);
+        if (linkQuery.length < 2) { linkSuggestions = []; showLinkDrop = false; return; }
+        debounceTimer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/apiv2/suppliers/search?q=${encodeURIComponent(linkQuery)}`);
+                if (res.ok) {
+                    const all: Supplier[] = await res.json();
+                    linkSuggestions = all.filter(s => !linkedIds.has(s.id.toString()));
+                    showLinkDrop = true;
+                }
+            } catch { /* ignore */ }
+        }, 300);
+    }
+
+    function selectLinkExisting(s: Supplier) {
+        linkSelectedId    = s.id;
+        linkSelectedName  = s.supplier_name;
+        linkSelectedLegal = s.supplier_legal_name;
+        linkMode          = 'existing';
+        showLinkDrop      = false;
+    }
+
+    function startLinkCreate() {
+        linkNewName  = linkQuery.trim();
+        linkMode     = 'new';
+        showLinkDrop = false;
+    }
+
+    function clearLink() {
+        linkMode          = 'none';
+        linkQuery         = '';
+        linkSelectedId    = null;
+        linkSelectedName  = '';
+        linkSelectedLegal = '';
+        linkNewName       = '';
+        linkSuggestions   = [];
+    }
+
+    // Determine which action to call based on linkMode
+    let linkFormAction = $derived(linkMode === 'new' ? '?/createAndLink' : '?/addPricing');
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -195,11 +249,11 @@
                 </Table.Root>
             </div>
 
-            <!-- Adicionar novo fornecedor -->
-            <form method="POST" action="?/addPricing"
+            <!-- Vincular / Criar Fornecedor -->
+            <form method="POST" action={linkFormAction}
                 use:enhance={() => {
                     return async ({ result, update }) => {
-                        if (result.type === 'success') newSuppId = '';
+                        if (result.type === 'success') clearLink();
                         await invalidateAll();
                         await update({ reset: true });
                     };
@@ -207,32 +261,109 @@
                 class="rounded-lg border p-4"
             >
                 <p class="mb-3 text-sm font-medium">Vincular Fornecedor</p>
-                <div class="flex flex-col gap-3 md:flex-row md:items-end">
-                    <div class="flex-1 space-y-2">
-                        <Label>Fornecedor</Label>
-                        <Select.Root type="single" onValueChange={(v) => newSuppId = v}>
-                            <Select.Trigger class="w-full">
-                                {data.suppliers.find((s: any) => s.id.toString() === newSuppId)?.supplier_name || 'Selecione...'}
-                            </Select.Trigger>
-                            <Select.Content>
-                                {#each data.suppliers.filter((s: any) => !linkedIds.has(s.id.toString())) as sup}
-                                    <Select.Item value={sup.id.toString()}>{sup.supplier_name}</Select.Item>
+
+                {#if linkMode === 'none'}
+                    <!-- Search input -->
+                    <div class="relative">
+                        <Search class="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+                        <Input
+                            bind:value={linkQuery}
+                            oninput={handleLinkSearch}
+                            onfocus={() => { if (linkSuggestions.length > 0) showLinkDrop = true; }}
+                            onblur={() => setTimeout(() => { showLinkDrop = false; }, 150)}
+                            placeholder="Buscar ou criar fornecedor..."
+                            class="pl-9"
+                            autocomplete="off"
+                        />
+                        {#if showLinkDrop}
+                            <div class="absolute z-10 mt-1 w-full rounded-md border bg-popover text-popover-foreground shadow-md">
+                                {#each linkSuggestions as s}
+                                    <button type="button"
+                                        class="w-full px-3 py-2 text-left hover:bg-accent"
+                                        onmousedown={(e) => { e.preventDefault(); selectLinkExisting(s); }}
+                                    >
+                                        <p class="text-sm font-medium">{s.supplier_name}</p>
+                                        {#if s.supplier_legal_name && s.supplier_legal_name !== s.supplier_name}
+                                            <p class="text-xs text-muted-foreground">{s.supplier_legal_name}</p>
+                                        {/if}
+                                    </button>
                                 {/each}
-                            </Select.Content>
-                        </Select.Root>
-                        <input type="hidden" name="supplier_id" value={newSuppId} />
+                                {#if linkQuery.trim().length >= 2}
+                                    <button type="button"
+                                        class="flex w-full items-center gap-1.5 border-t px-3 py-2 text-left text-sm text-primary hover:bg-accent"
+                                        onmousedown={(e) => { e.preventDefault(); startLinkCreate(); }}
+                                    >
+                                        <Plus class="size-3" /> Criar "{linkQuery.trim()}"
+                                    </button>
+                                {/if}
+                                {#if linkSuggestions.length === 0 && linkQuery.length >= 2}
+                                    <p class="px-3 py-2 text-xs text-muted-foreground">
+                                        Nenhum resultado. Clique em "Criar" para adicionar.
+                                    </p>
+                                {/if}
+                            </div>
+                        {/if}
                     </div>
 
-                    <div class="w-full space-y-2 md:w-36">
-                        <Label for="new_price">Preço (R$)</Label>
-                        <Input id="new_price" name="price" type="number" step="0.01"
-                            placeholder="0,00" disabled={!newSuppId} />
+                {:else if linkMode === 'existing'}
+                    <div class="flex flex-col gap-3 md:flex-row md:items-end">
+                        <div class="flex flex-1 items-center justify-between rounded-md border px-3 py-2">
+                            <div>
+                                <p class="text-sm font-medium">{linkSelectedName}</p>
+                                {#if linkSelectedLegal && linkSelectedLegal !== linkSelectedName}
+                                    <p class="text-xs text-muted-foreground">{linkSelectedLegal}</p>
+                                {/if}
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" class="size-6" onclick={clearLink}>
+                                <X class="size-3.5" />
+                            </Button>
+                        </div>
+                        <input type="hidden" name="supplier_id" value={linkSelectedId} />
+
+                        <div class="w-full space-y-2 md:w-36">
+                            <Label for="link_price">Preço (R$)</Label>
+                            <Input id="link_price" name="price" type="number" step="0.01" placeholder="0,00" />
+                        </div>
+
+                        <Button type="submit">
+                            <Plus class="mr-2 size-4" /> Vincular
+                        </Button>
                     </div>
 
-                    <Button type="submit" disabled={!newSuppId}>
-                        <Plus class="mr-2 size-4" /> Vincular
-                    </Button>
-                </div>
+                {:else if linkMode === 'new'}
+                    <div class="space-y-3 rounded-lg border bg-muted/30 p-3">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-primary">Novo Fornecedor</p>
+                            <Button type="button" variant="ghost" size="icon" class="size-6" onclick={clearLink}>
+                                <X class="size-3.5" />
+                            </Button>
+                        </div>
+                        <div class="grid gap-3 md:grid-cols-2">
+                            <div class="space-y-1.5">
+                                <Label class="text-xs">Nome *</Label>
+                                <Input name="new_supplier_name" value={linkNewName} required placeholder="Nome comercial" />
+                            </div>
+                            <div class="space-y-1.5">
+                                <Label class="text-xs">Razão Social</Label>
+                                <Input name="new_supplier_legal_name" placeholder="Igual ao nome se não informado" />
+                            </div>
+                            <div class="space-y-1.5">
+                                <Label class="text-xs">CNPJ *</Label>
+                                <Input name="new_supplier_cnpj" required placeholder="00.000.000/0000-00" />
+                            </div>
+                            <div class="space-y-1.5">
+                                <Label class="text-xs">Preço (R$)</Label>
+                                <Input name="price" type="number" step="0.01" placeholder="0,00" />
+                            </div>
+                        </div>
+                        <div class="flex justify-end border-t pt-2">
+                            <Button type="submit">
+                                <Plus class="mr-2 size-4" /> Criar e Vincular
+                            </Button>
+                        </div>
+                    </div>
+                {/if}
+
             </form>
 
         </Card.Content>

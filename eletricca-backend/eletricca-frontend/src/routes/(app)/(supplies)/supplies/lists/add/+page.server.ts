@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
+import { createNotificationBulk } from '$lib/server/notifications';
 import type { Actions } from './$types';
 
 export const actions: Actions = {
@@ -28,6 +29,7 @@ export const actions: Actions = {
             return fail(400, { error: 'A lista precisa de pelo menos um item.' });
         }
 
+        let listId = 0;
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
@@ -38,13 +40,27 @@ export const actions: Actions = {
                 RETURNING id
             `, [listName, clientId ? Number(clientId) : null, locals.user.user_id, priority, description]);
 
-            const listId = listRes.rows[0].id;
+            listId = listRes.rows[0].id;
 
             for (const item of items) {
                 await client.query(`
                     INSERT INTO supplies_list_items (list_id, supply_id, supplier_id, quantity, price)
                     VALUES ($1, $2, $3, $4, $5)
                 `, [listId, item.supply_id, item.supplier_id, item.quantity, item.price]);
+
+                // Cria entrada em supply_pricing se o fornecedor ainda não estiver vinculado
+                if (item.supplier_id) {
+                    const cnt = await client.query(
+                        'SELECT COUNT(*)::int AS cnt FROM supply_pricing WHERE supply_id=$1',
+                        [item.supply_id]
+                    );
+                    const isFirst = cnt.rows[0].cnt === 0;
+                    await client.query(`
+                        INSERT INTO supply_pricing (supply_id, supplier_id, price, is_default)
+                        VALUES ($1, $2, $3, $4)
+                        ON CONFLICT DO NOTHING
+                    `, [item.supply_id, item.supplier_id, item.price, isFirst]);
+                }
             }
 
             await client.query('COMMIT');
@@ -54,6 +70,39 @@ export const actions: Actions = {
             return fail(500, { error: 'Erro ao criar lista.' });
         } finally {
             client.release();
+        }
+
+        // Notifica gestores (supplies.manage ou super_admin) sobre a nova lista
+        try {
+            const managersRes = await pool.query<{ user_id: number }>(`
+                SELECT DISTINCT user_id FROM (
+                    SELECT u.user_id FROM users u WHERE u.is_super_admin = TRUE
+                    UNION
+                    SELECT u.user_id FROM users u
+                        JOIN role_permissions rp ON rp.role_id = u.role_id
+                        JOIN permissions p ON p.id = rp.permissions_id
+                        WHERE p.slug = 'supplies.manage'
+                    UNION
+                    SELECT up.user_id FROM user_permissions up
+                        JOIN permissions p ON p.id = up.permissions_id
+                        WHERE p.slug = 'supplies.manage'
+                ) managers
+                WHERE user_id != $1
+            `, [locals.user.user_id]);
+
+            const managerIds = managersRes.rows.map(r => r.user_id);
+            if (managerIds.length > 0) {
+                const creatorName = `${locals.user.first_name} ${locals.user.last_name}`;
+                await createNotificationBulk(managerIds, {
+                    title: 'Nova lista de materiais criada',
+                    message: `${creatorName} criou a lista "${listName}"`,
+                    type: 'supply_list_created',
+                    referenceType: 'supply_list',
+                    referenceId: listId,
+                });
+            }
+        } catch (e) {
+            console.error('Erro ao enviar notificações de lista criada:', e);
         }
 
         redirect(303, '/supplies/lists');
