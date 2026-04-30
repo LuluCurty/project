@@ -1,6 +1,6 @@
 import { fail, error, redirect } from "@sveltejs/kit";
 import { pool } from "$lib/server/db";
-import { checkSystemAdmin, guardAction } from "$lib/server/auth";
+import { guardAction } from "$lib/server/auth";
 import type { PageServerLoad, Actions } from "./$types";
 
 interface PermissionRow {
@@ -11,7 +11,6 @@ interface PermissionRow {
 }
 
 export const load: PageServerLoad = async ({ locals, params }) => {
-    checkSystemAdmin(locals.user);
     const moduleName = decodeURIComponent(params.module);
     try {
         const query = `
@@ -35,7 +34,6 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 export const actions: Actions = {
     create: async ({request, locals, params}) => {
-        checkSystemAdmin(locals.user);
         const moduleName = decodeURIComponent(params.module);
 
         const data = await request.formData();
@@ -58,7 +56,6 @@ export const actions: Actions = {
 
     },
     update: async ({request, locals}) => {
-        checkSystemAdmin(locals.user);
 
         const data = await request.formData();
         const id = Number(data.get('id'));
@@ -76,7 +73,6 @@ export const actions: Actions = {
         }
     },
     delete: async ({request, locals}) => {
-        checkSystemAdmin(locals.user);
         const data = await request.formData();
         const id = Number(data.get('id'));
 

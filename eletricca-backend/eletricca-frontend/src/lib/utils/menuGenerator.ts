@@ -32,6 +32,8 @@ const translations: Record<string, string> = {
     
 
     // Sub-rotas comuns
+    'calls': 'Chamadas',
+    'stats': 'Estatísticas',
     'lists': 'Lista Geral',
     'new': 'Novo Cadastro',
     'history': 'Histórico',

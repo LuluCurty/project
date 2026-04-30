@@ -1,8 +1,9 @@
 import { json, error } from '@sveltejs/kit';
-import { spawn } from 'child_process';
+import { spawnPython } from '$lib/server/python';
 import { join } from 'path';
 import { writeFile, unlink } from 'fs/promises';
 import { tmpdir } from 'os';
+
 import type { RequestHandler } from './$types';
 
 const SCRIPT = join(process.cwd(), '..', 'python_scripts', 'import_suppliers.py');
@@ -24,7 +25,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     await writeFile(tmpPath, Buffer.from(await file.arrayBuffer()));
 
     return new Promise((resolve) => {
-        const py = spawn('python3', [SCRIPT, tmpPath]);
+        const py = spawnPython([SCRIPT, tmpPath]);
 
         let stdout = '';
         let stderr = '';

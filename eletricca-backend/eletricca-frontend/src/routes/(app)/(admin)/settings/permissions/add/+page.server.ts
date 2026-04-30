@@ -1,7 +1,7 @@
 import { pool } from "$lib/server/db";
 import path from "node:path";
 import fs from 'node:fs';
-import { checkSystemAdmin } from "$lib/server/auth";
+import {  } from "$lib/server/auth";
 import type { PageServerLoad, Actions } from "./$types";
 import { fail, error, redirect } from "@sveltejs/kit";
 
@@ -38,7 +38,7 @@ export const load: PageServerLoad = async () => {
 
 export const actions: Actions = {
     createStandard: async ({request, locals}) => {
-        checkSystemAdmin(locals.user);
+        
         const data = await request.formData();
         const moduleName = data.get('module_name') as string;
 

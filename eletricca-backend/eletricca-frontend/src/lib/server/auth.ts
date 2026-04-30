@@ -1,4 +1,5 @@
 import { error } from "@sveltejs/kit";
+import { authLog } from '$lib/server/logger';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -64,7 +65,7 @@ export function guardAdminModule(user: App.Locals['user'], clientIp: string): vo
 
     if (isSuperAdmin(user)) {
         if (!isLanAddress(clientIp)) {
-            console.warn(`[auth] super-admin ${user.email} bloqueado: IP externo ${clientIp}`);
+            authLog.warn({ email: user.email, ip: clientIp }, 'super-admin blocked: external IP');
             throw error(403, 'Acesso negado: super-admin só pode acessar de dentro da rede interna');
         }
         return;
@@ -74,7 +75,7 @@ export function guardAdminModule(user: App.Locals['user'], clientIp: string): vo
     const hasPermission = user.permissions.includes('admin.view');
 
     if (!hasAdminRole || !hasPermission) {
-        console.warn(`[auth] ${user.email} negado no módulo admin (role_id=${user.role_id}, permission=${hasPermission})`);
+        authLog.warn({ email: user.email, role_id: user.role_id, has_permission: hasPermission }, 'access denied: admin module');
         throw error(403, 'Acesso negado: área administrativa requer cargo de administrador');
     }
 }
@@ -104,7 +105,7 @@ export function guardModule(
     const required = permission ?? `${moduleName}.view`;
 
     if (!user.permissions.includes(required)) {
-        console.warn(`[auth] ${user.email} negado no módulo "${moduleName}" (requer "${required}")`);
+        authLog.warn({ email: user.email, required }, 'access denied: module guard');
         throw error(403, `Acesso negado: requer permissão "${required}"`);
     }
 }
@@ -135,7 +136,7 @@ export function guardAction(
     const required = `${moduleName}.${actionSuffix}`;
 
     if (!user.permissions.includes(required)) {
-        console.warn(`[auth] ${user.email} negado na ação "${required}"`);
+        authLog.warn({ email: user.email, required }, 'access denied: action guard');
         throw error(403, `Acesso negado: requer permissão "${required}"`);
     }
 }

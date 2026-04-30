@@ -3,6 +3,7 @@ import { type HandleFetch, type Handle, redirect } from '@sveltejs/kit';
 import { JWT_SECRET } from '$env/static/private';
 import jwt from 'jsonwebtoken';
 import { pool } from '$lib/server/db';
+import { authLog } from '$lib/server/logger';
 
 interface JwtPayload {
     user_id: number;
@@ -72,8 +73,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 
             event.locals.user = { ...decoded, permissions, is_super_admin };
 
-        } catch (error) {
+        } catch (err) {
             // Token inválido, expirado ou assinatura incorreta
+            authLog.warn({ path: event.url.pathname, err: (err as Error).message }, 'invalid or expired token — clearing cookie');
             event.cookies.delete('token', { path: '/' });
             if (!isPublicRoute) {
                 throw redirect(303, '/login');

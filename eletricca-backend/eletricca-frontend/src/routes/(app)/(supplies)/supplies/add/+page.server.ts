@@ -1,14 +1,18 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
 import type { PageServerLoad, Actions } from './$types';
+import { guardAction } from '$lib/server/auth';
+import { supplyLog } from '$lib/server/logger';
 
-export const load: PageServerLoad = async () => {
+
+export const load: PageServerLoad = async ({locals, route}) => {
+    guardAction(route.id, locals.user, 'create');
     return {};
 };
 
 export const actions: Actions = {
-    default: async ({ request, locals }) => {
-        if (!locals.user) return fail(401, { error: 'Não autenticado.' });
+    default: async ({ request, locals, route }) => {
+        guardAction(route.id, locals.user, 'create')
 
         const data        = await request.formData();
         const supply_name = (data.get('supply_name') as string)?.trim();
@@ -71,9 +75,10 @@ export const actions: Actions = {
             }
 
             await client.query('COMMIT');
+            supplyLog.info({ user_id: locals.user!.user_id, supply_name }, 'supply created');
         } catch (e) {
             await client.query('ROLLBACK');
-            console.error(e);
+            supplyLog.error({ err: e, user_id: locals.user!.user_id, supply_name }, 'failed to create supply');
             return fail(500, { error: 'Erro ao criar material.' });
         } finally {
             client.release();

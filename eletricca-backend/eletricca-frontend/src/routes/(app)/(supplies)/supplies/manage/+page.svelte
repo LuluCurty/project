@@ -16,7 +16,7 @@
         ClipboardList, Clock, CircleCheck, CircleX,
         Search, ArrowUp, ArrowRight, ArrowDown,
         Check, X, Eye, Pencil, Trash2, LoaderCircle,
-        PackageSearch, CircleDollarSign
+        PackageSearch, Tags, ClipboardCheck
     } from '@lucide/svelte';
 
     let { data, form } = $props();
@@ -54,17 +54,17 @@
         }, 500);
     }
 
-    // ── Detalhe do pedido (via Express API) ──
-    let detailOpen      = $state(false);
-    let detailLoading   = $state(false);
-    let detail          = $state<any>(null);
+    // ── Detalhe do pedido ──
+    let detailOpen    = $state(false);
+    let detailLoading = $state(false);
+    let detail        = $state<any>(null);
 
     async function openDetail(id: number) {
         detail        = null;
         detailOpen    = true;
         detailLoading = true;
         try {
-            const res = await fetch(`/apiv2/supplies/lists/${id}`);
+            const res = await fetch(`/supplies/manage/${id}`);
             if (!res.ok) throw new Error();
             detail = await res.json();
         } catch { toast.error('Erro ao carregar detalhes'); detailOpen = false; }
@@ -74,6 +74,8 @@
     // ── Helpers visuais ──
     const STATUS = {
         pending:  { label: 'Pendente',  cls: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100', icon: Clock },
+        quoting:  { label: 'Cotando',   cls: 'bg-blue-100   text-blue-800   hover:bg-blue-100',   icon: Tags },
+        quoted:   { label: 'Cotado',    cls: 'bg-violet-100 text-violet-800 hover:bg-violet-100', icon: ClipboardCheck },
         approved: { label: 'Aprovado',  cls: 'bg-green-100  text-green-800  hover:bg-green-100',  icon: CircleCheck },
         denied:   { label: 'Recusado',  cls: 'bg-red-100    text-red-800    hover:bg-red-100',    icon: CircleX },
     } as const;
@@ -88,10 +90,12 @@
     function fmtDate(s: string) { return new Date(s).toLocaleDateString('pt-BR'); }
 
     const tabs = [
-        { key: 'pending',  label: 'Pendentes',  color: 'text-yellow-700 border-yellow-400' },
-        { key: 'approved', label: 'Aprovados',  color: 'text-green-700  border-green-400'  },
-        { key: 'denied',   label: 'Recusados',  color: 'text-red-700    border-red-400'    },
-        { key: 'all',      label: 'Todos',      color: 'text-foreground border-primary'    },
+        { key: 'pending',  label: 'Pendentes',          color: 'text-yellow-700 border-yellow-400' },
+        { key: 'quoting',  label: 'Cotando',            color: 'text-blue-700   border-blue-400'   },
+        { key: 'quoted',   label: 'Prontos p/ aprovar', color: 'text-violet-700 border-violet-400' },
+        { key: 'approved', label: 'Aprovados',          color: 'text-green-700  border-green-400'  },
+        { key: 'denied',   label: 'Recusados',          color: 'text-red-700    border-red-400'    },
+        { key: 'all',      label: 'Todos',              color: 'text-foreground border-primary'    },
     ] as const;
 </script>
 
@@ -115,6 +119,16 @@
             </Card.Content>
         </Card.Root>
 
+        <Card.Root class="border-l-4 border-l-violet-400">
+            <Card.Content class="flex items-center gap-3 p-4">
+                <ClipboardCheck class="size-8 shrink-0 text-violet-500" />
+                <div>
+                    <p class="text-2xl font-bold">{data.stats.quoted}</p>
+                    <p class="text-xs text-muted-foreground">Prontos p/ aprovar</p>
+                </div>
+            </Card.Content>
+        </Card.Root>
+
         <Card.Root class="border-l-4 border-l-green-400">
             <Card.Content class="flex items-center gap-3 p-4">
                 <CircleCheck class="size-8 shrink-0 text-green-500" />
@@ -131,16 +145,6 @@
                 <div>
                     <p class="text-2xl font-bold">{data.stats.denied}</p>
                     <p class="text-xs text-muted-foreground">Recusados</p>
-                </div>
-            </Card.Content>
-        </Card.Root>
-
-        <Card.Root class="border-l-4 border-l-primary">
-            <Card.Content class="flex items-center gap-3 p-4">
-                <CircleDollarSign class="size-8 shrink-0 text-primary" />
-                <div>
-                    <p class="text-lg font-bold leading-tight">{fmt(data.stats.pending_value)}</p>
-                    <p class="text-xs text-muted-foreground">Valor pendente</p>
                 </div>
             </Card.Content>
         </Card.Root>
@@ -189,7 +193,7 @@
                             <Table.Head class="hidden md:table-cell">Cliente</Table.Head>
                             <Table.Head class="hidden sm:table-cell">Prioridade</Table.Head>
                             <Table.Head class="hidden lg:table-cell text-center">Itens</Table.Head>
-                            <Table.Head class="hidden lg:table-cell text-right">Valor Total</Table.Head>
+                            <Table.Head class="hidden lg:table-cell text-right">Melhor Cotação</Table.Head>
                             <Table.Head>Status</Table.Head>
                             <Table.Head class="hidden md:table-cell">Criado em</Table.Head>
                             <Table.Head class="text-right">Ações</Table.Head>
@@ -233,7 +237,7 @@
                                     </Table.Cell>
 
                                     <Table.Cell class="hidden lg:table-cell text-right text-sm font-medium">
-                                        {fmt(order.total_value)}
+                                        {order.total_value > 0 ? fmt(order.total_value) : '—'}
                                     </Table.Cell>
 
                                     <Table.Cell>
@@ -269,8 +273,8 @@
                                                 <Pencil class="size-4" />
                                             </Button>
 
-                                            <!-- Aprovar (só se pendente) -->
-                                            {#if order.list_status === 'pending'}
+                                            <!-- Aprovar / Recusar (pendente ou cotado) -->
+                                            {#if order.list_status === 'pending' || order.list_status === 'quoted'}
                                                 <form
                                                     method="POST"
                                                     action="?/approve"
@@ -385,104 +389,151 @@
 
 <!-- ── Dialog de detalhes ── -->
 <Dialog.Root bind:open={detailOpen}>
-    <Dialog.Content class="max-w-2xl">
+    <Dialog.Content class="flex max-h-[90vh] max-w-4xl flex-col overflow-hidden">
         {#if detailLoading || !detail}
             <div class="flex h-48 items-center justify-center">
                 <LoaderCircle class="size-8 animate-spin text-primary" />
             </div>
         {:else}
-            {@const st  = STATUS[detail.list_status as keyof typeof STATUS]  ?? STATUS.pending}
-            {@const pri = PRIORITY[detail.priority as keyof typeof PRIORITY] ?? PRIORITY.medium}
+            {@const st       = STATUS[detail.list_status as keyof typeof STATUS]  ?? STATUS.pending}
+            {@const pri      = PRIORITY[detail.priority as keyof typeof PRIORITY] ?? PRIORITY.medium}
+            {@const bestId   = detail.quotes.length > 0
+                ? detail.quotes.reduce((b: any, q: any) => q.total < b.total ? q : b).id
+                : null}
+            {@const bestQuote = detail.quotes.find((q: any) => q.id === bestId) ?? null}
 
-            <Dialog.Header>
-                <Dialog.Title class="flex items-center gap-2">
-                    <ClipboardList class="size-5" />
-                    {detail.list_name}
-                    <Badge variant="outline" class="ml-1 gap-1 {st.cls}">
+            <!-- Header -->
+            <Dialog.Header class="shrink-0">
+                <Dialog.Title class="flex flex-wrap items-center gap-2">
+                    <ClipboardList class="size-5 shrink-0" />
+                    <span>{detail.list_name}</span>
+                    <Badge variant="outline" class="gap-1 {st.cls}">
                         <st.icon class="size-3" />{st.label}
                     </Badge>
+                    <span class="flex items-center gap-1 text-sm font-normal {pri.cls}">
+                        <pri.Icon class="size-3.5" />{pri.label}
+                    </span>
                 </Dialog.Title>
-                <Dialog.Description>
+                <Dialog.Description class="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
                     {#if detail.client_first_name}
-                        Cliente: <strong>{detail.client_first_name} {detail.client_last_name}</strong> ·
+                        <span>Cliente: <strong class="text-foreground">{detail.client_first_name} {detail.client_last_name}</strong></span>
                     {/if}
-                    Prioridade: <span class={pri.cls}>{pri.label}</span>
+                    <span>Criado por: {detail.creator_first_name} {detail.creator_last_name}</span>
+                    <span>Data: {fmtDate(detail.creation_date)}</span>
                     {#if detail.description}
-                        · {detail.description}
+                        <span class="w-full text-foreground/70 italic">{detail.description}</span>
                     {/if}
                 </Dialog.Description>
             </Dialog.Header>
 
-            <!-- Itens -->
-            <div class="max-h-[55vh] overflow-y-auto rounded-md border">
-                <Table.Root>
-                    <Table.Header class="sticky top-0 bg-muted/80 backdrop-blur-sm">
-                        <Table.Row>
-                            <Table.Head>Material</Table.Head>
-                            <Table.Head>Fornecedor</Table.Head>
-                            <Table.Head class="text-center w-16">Qtd</Table.Head>
-                            <Table.Head class="text-right">Unit.</Table.Head>
-                            <Table.Head class="text-right">Total</Table.Head>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {#each detail.items ?? [] as item}
-                            <Table.Row>
-                                <Table.Cell class="font-medium">{item.supply_name}</Table.Cell>
-                                <Table.Cell class="text-sm text-muted-foreground">{item.supplier_name}</Table.Cell>
-                                <Table.Cell class="text-center">{item.quantity}</Table.Cell>
-                                <Table.Cell class="text-right text-sm">{fmt(Number(item.price))}</Table.Cell>
-                                <Table.Cell class="text-right font-semibold">{fmt(item.quantity * Number(item.price))}</Table.Cell>
-                            </Table.Row>
-                        {:else}
-                            <Table.Row>
-                                <Table.Cell colspan={5} class="text-center text-muted-foreground h-16">Nenhum item.</Table.Cell>
-                            </Table.Row>
-                        {/each}
-                    </Table.Body>
-                </Table.Root>
+            <!-- Body: quotes table or plain items -->
+            <div class="min-h-0 flex-1 overflow-auto rounded-md border">
+                {#if detail.quotes.length > 0}
+                    <table class="w-full text-sm">
+                        <thead class="sticky top-0 bg-muted/90 backdrop-blur-sm">
+                            <tr class="border-b">
+                                <th class="p-2 text-left font-medium text-muted-foreground">Material</th>
+                                <th class="p-2 text-right font-medium text-muted-foreground">Qtd</th>
+                                {#each detail.quotes as q (q.id)}
+                                    <th class="min-w-[120px] p-2 text-right font-medium
+                                        {q.id === bestId ? 'text-green-700' : 'text-muted-foreground'}">
+                                        {q.supplier_name}
+                                        {#if q.id === bestId}
+                                            <span class="ml-0.5 text-[10px] font-normal text-green-600">★ melhor</span>
+                                        {/if}
+                                    </th>
+                                {/each}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#each detail.items as item (item.id)}
+                                <tr class="border-b last:border-0 hover:bg-muted/30">
+                                    <td class="p-2 font-medium">{item.supply_name}</td>
+                                    <td class="p-2 text-right text-muted-foreground">{item.quantity}</td>
+                                    {#each detail.quotes as q (q.id)}
+                                        {@const price = q.priceMap[item.id]}
+                                        <td class="p-2 text-right {q.id === bestId ? 'font-medium text-green-700' : ''}">
+                                            {#if price != null}
+                                                {fmt(price)}
+                                            {:else}
+                                                <span class="text-muted-foreground">—</span>
+                                            {/if}
+                                        </td>
+                                    {/each}
+                                </tr>
+                            {/each}
+                            <!-- Totals -->
+                            <tr class="border-t bg-muted/40 font-semibold">
+                                <td class="p-2">Total</td>
+                                <td></td>
+                                {#each detail.quotes as q (q.id)}
+                                    <td class="p-2 text-right {q.id === bestId ? 'text-green-700' : ''}">
+                                        {fmt(q.total)}
+                                    </td>
+                                {/each}
+                            </tr>
+                        </tbody>
+                    </table>
+                {:else}
+                    <!-- No quotes yet — show plain item list -->
+                    <table class="w-full text-sm">
+                        <thead class="sticky top-0 bg-muted/90 backdrop-blur-sm">
+                            <tr class="border-b">
+                                <th class="p-2 text-left font-medium text-muted-foreground">Material</th>
+                                <th class="p-2 text-right font-medium text-muted-foreground">Quantidade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#each detail.items as item (item.id)}
+                                <tr class="border-b last:border-0">
+                                    <td class="p-2">{item.supply_name}</td>
+                                    <td class="p-2 text-right">{item.quantity}</td>
+                                </tr>
+                            {:else}
+                                <tr>
+                                    <td colspan={2} class="h-16 p-2 text-center text-muted-foreground">Nenhum item.</td>
+                                </tr>
+                            {/each}
+                        </tbody>
+                    </table>
+                {/if}
             </div>
 
-            <!-- Total + ações rápidas -->
-            <div class="flex items-center justify-between pt-1">
+            <!-- Footer: best total + actions -->
+            <div class="flex shrink-0 items-center justify-between border-t pt-3">
                 <div>
-                    <p class="text-xs text-muted-foreground">Valor Total Estimado</p>
-                    <p class="text-xl font-bold text-primary">
-                        {fmt((detail.items ?? []).reduce((s: number, i: any) => s + i.quantity * Number(i.price), 0))}
-                    </p>
+                    {#if bestQuote}
+                        <p class="text-xs text-muted-foreground">Melhor proposta — {bestQuote.supplier_name}</p>
+                        <p class="text-xl font-bold text-green-700">{fmt(bestQuote.total)}</p>
+                    {:else}
+                        <p class="text-sm text-muted-foreground">Sem cotações registradas</p>
+                    {/if}
                 </div>
 
                 <div class="flex gap-2">
-                    {#if detail.list_status === 'pending'}
-                        <form
-                            method="POST"
-                            action="?/deny"
+                    {#if detail.list_status === 'pending' || detail.list_status === 'quoted'}
+                        <form method="POST" action="?/deny"
                             use:enhance={() => async ({ result }) => {
                                 if (result.type === 'success') { toast.success('Pedido recusado.'); detailOpen = false; await invalidateAll(); }
                                 else toast.error('Erro ao recusar.');
-                            }}
-                        >
+                            }}>
                             <input type="hidden" name="id" value={detail.id} />
-                            <Button type="submit" variant="outline" class="text-red-600 border-red-200 hover:bg-red-50">
+                            <Button type="submit" variant="outline" class="border-red-200 text-red-600 hover:bg-red-50">
                                 <X class="mr-2 size-4" /> Recusar
                             </Button>
                         </form>
-
-                        <form
-                            method="POST"
-                            action="?/approve"
+                        <form method="POST" action="?/approve"
                             use:enhance={() => async ({ result }) => {
                                 if (result.type === 'success') { toast.success('Pedido aprovado!'); detailOpen = false; await invalidateAll(); }
                                 else toast.error('Erro ao aprovar.');
-                            }}
-                        >
+                            }}>
                             <input type="hidden" name="id" value={detail.id} />
                             <Button type="submit" class="bg-green-600 hover:bg-green-700">
                                 <Check class="mr-2 size-4" /> Aprovar
                             </Button>
                         </form>
                     {:else}
-                        <Button variant="outline" onclick={() => goto(`/supplies/lists/edit/${detail.id}`)}>
+                        <Button variant="outline" onclick={() => { detailOpen = false; goto(`/supplies/lists/edit/${detail.id}`); }}>
                             <Pencil class="mr-2 size-4" /> Editar
                         </Button>
                     {/if}

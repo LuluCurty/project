@@ -2,13 +2,17 @@ import { fail, redirect, error } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
 import type { PageServerLoad, Actions } from './$types';
 
-export const load: PageServerLoad = async ({ params }) => {
+import { guardAction } from '$lib/server/auth';
+
+export const load: PageServerLoad = async ({ params, route, locals }) => {
+    guardAction(route.id, locals.user, 'manage');
+
     const id = Number(params.id);
     if (isNaN(id)) throw error(404, 'Fornecedor não encontrado.');
 
     const res = await pool.query(`
         SELECT id, supplier_name, supplier_legal_name, supplier_legal_identifier,
-               supplier_email, supplier_telephone, supplier_address, description
+               supplier_email, supplier_telephone, supplier_address, description, pdf_parser
         FROM supplier WHERE id = $1
     `, [id]);
 
@@ -18,8 +22,8 @@ export const load: PageServerLoad = async ({ params }) => {
 };
 
 export const actions: Actions = {
-    default: async ({ request, locals, params }) => {
-        if (!locals.user) return fail(401, { error: 'Não autenticado.' });
+    default: async ({ request, locals, params, route }) => {
+        guardAction(route.id, locals.user, 'manage');
 
         const id = Number(params.id);
         if (isNaN(id)) return fail(400, { error: 'ID inválido.' });
@@ -33,6 +37,7 @@ export const actions: Actions = {
         const supplier_telephone        = (data.get('supplier_telephone')        as string)?.trim() || null;
         const supplier_address          = (data.get('supplier_address')          as string)?.trim() || null;
         const description               = (data.get('description')               as string)?.trim() || null;
+        const pdf_parser                = (data.get('pdf_parser')                as string)?.trim() || null;
 
         if (!supplier_name)             return fail(400, { error: 'Nome é obrigatório.' });
         if (!supplier_legal_name)       return fail(400, { error: 'Razão Social é obrigatória.' });
@@ -47,10 +52,11 @@ export const actions: Actions = {
                     supplier_email            = $4,
                     supplier_telephone        = $5,
                     supplier_address          = $6,
-                    description               = $7
-                WHERE id = $8
+                    description               = $7,
+                    pdf_parser                = $8
+                WHERE id = $9
             `, [supplier_name, supplier_legal_name, supplier_legal_identifier,
-                supplier_email, supplier_telephone, supplier_address, description, id]);
+                supplier_email, supplier_telephone, supplier_address, description, pdf_parser, id]);
         } catch (e: any) {
             if (e.code === '23505') return fail(409, { error: 'Razão Social ou CNPJ já cadastrado.' });
             console.error(e);

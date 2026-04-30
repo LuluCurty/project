@@ -1,6 +1,7 @@
 import { fail, redirect, error } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
 import { createNotificationBulk } from '$lib/server/notifications';
+import { supplyLog } from '$lib/server/logger';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -32,6 +33,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
     const row = listRes.rows[0];
 
+    // Only editable while pending — once quoting starts items are locked
     if (row.list_status !== 'pending') {
         redirect(303, '/supplies/lists?msg=not_pending');
     }
@@ -62,7 +64,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
             supplier_id:   r.supplier_id   ?? null,
             supplier_name: r.supplier_name ?? null,
             quantity:      r.quantity,
-            price:         Number(r.price),
+            price:         r.price !== null ? Number(r.price) : null,
         })),
     };
 };
@@ -74,7 +76,6 @@ export const actions: Actions = {
         const listId = Number(params.id);
         if (isNaN(listId)) return fail(400, { error: 'ID inválido.' });
 
-        // Garante que a lista ainda está pendente
         const statusCheck = await pool.query(
             'SELECT list_status, created_by FROM supplies_lists WHERE id = $1',
             [listId]
@@ -96,7 +97,7 @@ export const actions: Actions = {
         if (!listName) return fail(400, { error: 'Nome da lista é obrigatório.' });
         if (!itemsRaw) return fail(400, { error: 'A lista precisa de pelo menos um item.' });
 
-        let items: { supply_id: number; supplier_id: number | null; quantity: number; price: number }[];
+        let items: { supply_id: number; quantity: number; supplier_id?: number | null; price?: number | null }[];
         try {
             items = JSON.parse(itemsRaw);
         } catch {
@@ -117,63 +118,46 @@ export const actions: Actions = {
                 WHERE id=$5
             `, [listName, clientId ? Number(clientId) : null, priority, description, listId]);
 
-            // Substitui todos os itens
             await client.query('DELETE FROM supplies_list_items WHERE list_id=$1', [listId]);
 
             for (const item of items) {
                 await client.query(`
                     INSERT INTO supplies_list_items (list_id, supply_id, supplier_id, quantity, price)
                     VALUES ($1, $2, $3, $4, $5)
-                `, [listId, item.supply_id, item.supplier_id, item.quantity, item.price]);
-
-                // Cria entrada em supply_pricing se o fornecedor ainda não estiver vinculado
-                if (item.supplier_id) {
-                    const cnt = await client.query(
-                        'SELECT COUNT(*)::int AS cnt FROM supply_pricing WHERE supply_id=$1',
-                        [item.supply_id]
-                    );
-                    const isFirst = cnt.rows[0].cnt === 0;
-                    await client.query(`
-                        INSERT INTO supply_pricing (supply_id, supplier_id, price, is_default)
-                        VALUES ($1, $2, $3, $4)
-                        ON CONFLICT DO NOTHING
-                    `, [item.supply_id, item.supplier_id, item.price, isFirst]);
-                }
+                `, [listId, item.supply_id, item.supplier_id ?? null, item.quantity, item.price ?? null]);
             }
 
             await client.query('COMMIT');
+            supplyLog.info({ user_id: locals.user.user_id, list_id: listId }, 'supply list edited');
         } catch (e) {
             await client.query('ROLLBACK');
-            console.error(e);
+            supplyLog.error({ err: e, user_id: locals.user.user_id, list_id: listId }, 'failed to edit supply list');
             return fail(500, { error: 'Erro ao atualizar lista.' });
         } finally {
             client.release();
         }
 
-        // Notifica gestores e, se diferente do editor, o criador da lista
         try {
             const editorId = locals.user.user_id;
             const editorName = `${locals.user.first_name} ${locals.user.last_name}`;
 
-            const managersRes = await pool.query<{ user_id: number }>(`
+            const notifyRes = await pool.query<{ user_id: number }>(`
                 SELECT DISTINCT user_id FROM (
                     SELECT u.user_id FROM users u WHERE u.is_super_admin = TRUE
                     UNION
                     SELECT u.user_id FROM users u
                         JOIN role_permissions rp ON rp.role_id = u.role_id
                         JOIN permissions p ON p.id = rp.permissions_id
-                        WHERE p.slug = 'supplies.manage'
+                        WHERE p.slug IN ('supplies.manage', 'supplies.quote')
                     UNION
                     SELECT up.user_id FROM user_permissions up
                         JOIN permissions p ON p.id = up.permissions_id
-                        WHERE p.slug = 'supplies.manage'
-                ) managers
+                        WHERE p.slug IN ('supplies.manage', 'supplies.quote')
+                ) targets
                 WHERE user_id != $1
             `, [editorId]);
 
-            const notifyIds = new Set(managersRes.rows.map(r => r.user_id));
-
-            // Notifica o criador da lista se ele não for o editor nem já estiver na lista
+            const notifyIds = new Set(notifyRes.rows.map(r => r.user_id));
             if (listCreatedBy !== editorId) notifyIds.add(listCreatedBy);
 
             if (notifyIds.size > 0) {
@@ -186,7 +170,7 @@ export const actions: Actions = {
                 });
             }
         } catch (e) {
-            console.error('Erro ao enviar notificações de lista editada:', e);
+            supplyLog.error({ err: e }, 'failed to send supply list edit notifications');
         }
 
         redirect(303, '/supplies/lists');

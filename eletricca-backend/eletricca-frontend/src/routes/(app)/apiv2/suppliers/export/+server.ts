@@ -1,6 +1,6 @@
 import { pool } from '$lib/server/db';
 import { error } from '@sveltejs/kit';
-import { spawn } from 'child_process';
+import { spawnPython } from '$lib/server/python';
 import { join } from 'path';
 import type { RequestHandler } from './$types';
 
@@ -32,7 +32,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     const filename  = `fornecedores_${date}.${format}`;
 
     return new Promise((resolve) => {
-        const py = spawn('python3', [SCRIPT, format]);
+        const py = spawnPython([SCRIPT, format]);
 
         py.stdin.write(JSON.stringify(suppliers));
         py.stdin.end();

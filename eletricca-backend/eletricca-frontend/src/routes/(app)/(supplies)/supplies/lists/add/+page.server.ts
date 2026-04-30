@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
 import { createNotificationBulk } from '$lib/server/notifications';
+import { supplyLog } from '$lib/server/logger';
 import type { Actions } from './$types';
 
 export const actions: Actions = {
@@ -18,7 +19,8 @@ export const actions: Actions = {
         if (!listName) return fail(400, { error: 'Nome da lista é obrigatório.' });
         if (!itemsRaw) return fail(400, { error: 'A lista precisa de pelo menos um item.' });
 
-        let items: { supply_id: number; supplier_id: number | null; quantity: number; price: number }[];
+        // price and supplier_id are now optional — quotes handle pricing
+        let items: { supply_id: number; quantity: number; supplier_id?: number | null; price?: number | null }[];
         try {
             items = JSON.parse(itemsRaw);
         } catch {
@@ -46,54 +48,41 @@ export const actions: Actions = {
                 await client.query(`
                     INSERT INTO supplies_list_items (list_id, supply_id, supplier_id, quantity, price)
                     VALUES ($1, $2, $3, $4, $5)
-                `, [listId, item.supply_id, item.supplier_id, item.quantity, item.price]);
-
-                // Cria entrada em supply_pricing se o fornecedor ainda não estiver vinculado
-                if (item.supplier_id) {
-                    const cnt = await client.query(
-                        'SELECT COUNT(*)::int AS cnt FROM supply_pricing WHERE supply_id=$1',
-                        [item.supply_id]
-                    );
-                    const isFirst = cnt.rows[0].cnt === 0;
-                    await client.query(`
-                        INSERT INTO supply_pricing (supply_id, supplier_id, price, is_default)
-                        VALUES ($1, $2, $3, $4)
-                        ON CONFLICT DO NOTHING
-                    `, [item.supply_id, item.supplier_id, item.price, isFirst]);
-                }
+                `, [listId, item.supply_id, item.supplier_id ?? null, item.quantity, item.price ?? null]);
             }
 
             await client.query('COMMIT');
+            supplyLog.info({ user_id: locals.user.user_id, list_id: listId, list_name: listName }, 'supply list created');
         } catch (e) {
             await client.query('ROLLBACK');
-            console.error(e);
+            supplyLog.error({ err: e, user_id: locals.user.user_id, list_name: listName }, 'failed to create supply list');
             return fail(500, { error: 'Erro ao criar lista.' });
         } finally {
             client.release();
         }
 
-        // Notifica gestores (supplies.manage ou super_admin) sobre a nova lista
+        // Notify quoters and managers about the new list
         try {
-            const managersRes = await pool.query<{ user_id: number }>(`
+            const notifyRes = await pool.query<{ user_id: number }>(`
                 SELECT DISTINCT user_id FROM (
                     SELECT u.user_id FROM users u WHERE u.is_super_admin = TRUE
                     UNION
                     SELECT u.user_id FROM users u
                         JOIN role_permissions rp ON rp.role_id = u.role_id
                         JOIN permissions p ON p.id = rp.permissions_id
-                        WHERE p.slug = 'supplies.manage'
+                        WHERE p.slug IN ('supplies.manage', 'supplies.quote')
                     UNION
                     SELECT up.user_id FROM user_permissions up
                         JOIN permissions p ON p.id = up.permissions_id
-                        WHERE p.slug = 'supplies.manage'
-                ) managers
+                        WHERE p.slug IN ('supplies.manage', 'supplies.quote')
+                ) targets
                 WHERE user_id != $1
             `, [locals.user.user_id]);
 
-            const managerIds = managersRes.rows.map(r => r.user_id);
-            if (managerIds.length > 0) {
+            const ids = notifyRes.rows.map(r => r.user_id);
+            if (ids.length > 0) {
                 const creatorName = `${locals.user.first_name} ${locals.user.last_name}`;
-                await createNotificationBulk(managerIds, {
+                await createNotificationBulk(ids, {
                     title: 'Nova lista de materiais criada',
                     message: `${creatorName} criou a lista "${listName}"`,
                     type: 'supply_list_created',
@@ -102,7 +91,7 @@ export const actions: Actions = {
                 });
             }
         } catch (e) {
-            console.error('Erro ao enviar notificações de lista criada:', e);
+            supplyLog.error({ err: e }, 'failed to send supply list creation notifications');
         }
 
         redirect(303, '/supplies/lists');

@@ -34,7 +34,7 @@ async function ucmPost(body: object): Promise<UCMResponse> {
     });
     return res.json();
 }
-
+// 4. ASK UCMPOST FOR CHALLENGE
 async function getChallenge(): Promise<string> {
     const data = await ucmPost({
         request: {
@@ -62,7 +62,7 @@ async function login(challenge: string): Promise<string> {
 
     return data.response.cookie || '';
 }
-
+// 3. TRYING TO GET VALIDO COOKIE, ASK THE CHALLENGE TOKEN
 async function getValidCookie(): Promise<string> {
     const now = Date.now();
 
@@ -78,7 +78,7 @@ async function getValidCookie(): Promise<string> {
 
     return cookie;
 }
-
+// 2. EXTENSIONS FIRST TRY TO GET VALID COOKIE TO LOGIN
 async function fetchExtensions(): Promise<Extension[]> {
     const cookie = await getValidCookie();
 
@@ -105,6 +105,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     let extensions: Extension[] = [];
 
     try {
+        // 1. ASK FOR EXTENSIONS
         extensions = await fetchExtensions();
     } catch (e) {
         console.error('Erro ao buscar ramais UCM:', e);

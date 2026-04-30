@@ -113,6 +113,18 @@
                         value={data.supplier.description ?? ''} />
                 </div>
 
+                <!-- PDF Parser -->
+                <div class="space-y-2 rounded-lg border border-dashed p-4">
+                    <Label for="pdf_parser">Parser de PDF <span class="text-muted-foreground font-normal">(opcional)</span></Label>
+                    <Input id="pdf_parser" name="pdf_parser"
+                        placeholder="ex: cabine_rio"
+                        value={data.supplier.pdf_parser ?? ''} />
+                    <p class="text-xs text-muted-foreground">
+                        Nome do script em <code class="rounded bg-muted px-1">python_scripts/supplier_parsers/</code> sem a extensão <code class="rounded bg-muted px-1">.py</code>.
+                        Deixe vazio para usar o parser genérico.
+                    </p>
+                </div>
+
                 {#if form?.error}
                     <p class="text-sm text-destructive">{form.error}</p>
                 {/if}

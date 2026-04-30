@@ -1,10 +1,14 @@
 import { fail } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
 import type { PageServerLoad, Actions } from './$types';
+import { guardAction } from '$lib/server/auth';
 
 const LIMIT = 15;
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, route, locals }) => {
+
+    guardAction(route.id, locals.user, 'view')
+
     const search  = url.searchParams.get('search') || '';
     const pageNum = Math.max(1, Number(url.searchParams.get('page')) || 1);
     const offset  = (pageNum - 1) * LIMIT;
@@ -43,8 +47,8 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-    delete: async ({ request, locals }) => {
-        if (!locals.user) return fail(401, { error: 'Não autenticado.' });
+    delete: async ({ request, locals, route }) => {
+        guardAction(route.id, locals.user, 'manage');
 
         const data = await request.formData();
         const id   = Number(data.get('id'));
@@ -62,8 +66,8 @@ export const actions: Actions = {
         }
     },
 
-    import: async ({ request, locals }) => {
-        if (!locals.user) return fail(401, { error: 'Não autenticado.' });
+    import: async ({ request, locals, route }) => {
+        guardAction(route.id, locals.user, 'manage');
 
         const data    = await request.formData();
         const rowsRaw = data.get('rows') as string;

@@ -1,6 +1,6 @@
 import { fail, error } from "@sveltejs/kit";
 import { pool } from "$lib/server/db";
-import { checkSystemAdmin } from "$lib/server/auth";
+import {  } from "$lib/server/auth";
 import type { PageServerLoad, Actions } from "./$types";
 
 interface ModuleData {
@@ -10,7 +10,6 @@ interface ModuleData {
 }
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-    checkSystemAdmin(locals.user);
 
     const page = Number(url.searchParams.get('page')) || 1;
     const search = url.searchParams.get('search') || '';
@@ -58,7 +57,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 export const actions: Actions = {
     deleteModule: async ({ request, locals }) => {
-        checkSystemAdmin(locals.user);
 
         const data = await request.formData();
         const moduleName = data.get('module_name') as string;

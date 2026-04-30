@@ -1,8 +1,12 @@
 import { fail, redirect, error } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
 import type { PageServerLoad, Actions } from './$types';
+import { guardAction } from '$lib/server/auth';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, route, locals }) => {
+
+    guardAction(route.id, locals.user, 'edit');
+
     const id = Number(params.id);
     if (isNaN(id)) throw error(404, 'Material não encontrado.');
 
@@ -32,8 +36,8 @@ export const load: PageServerLoad = async ({ params }) => {
 
 export const actions: Actions = {
     // Atualiza dados básicos (nome, quantidade, detalhes)
-    update: async ({ request, locals, params }) => {
-        if (!locals.user) return fail(401, { error: 'Não autenticado.' });
+    update: async ({ request, locals, params, route }) => {
+        guardAction(route.id, locals.user, 'edit');
 
         const id = Number(params.id);
         const data = await request.formData();
@@ -52,8 +56,8 @@ export const actions: Actions = {
     },
 
     // Vincula novo fornecedor + preço
-    addPricing: async ({ request, locals, params }) => {
-        if (!locals.user) return fail(401, { error: 'Não autenticado.' });
+    addPricing: async ({ request, locals, params, route }) => {
+        guardAction(route.id, locals.user, 'edit');
 
         const id = Number(params.id);
         const data = await request.formData();
@@ -83,8 +87,8 @@ export const actions: Actions = {
     },
 
     // Remove vínculo fornecedor
-    removePricing: async ({ request, locals, params }) => {
-        if (!locals.user) return fail(401, { error: 'Não autenticado.' });
+    removePricing: async ({ request, locals, params, route }) => {
+        guardAction(route.id, locals.user, 'edit');
 
         const id = Number(params.id);
         const data = await request.formData();
@@ -98,8 +102,8 @@ export const actions: Actions = {
     },
 
     // Cria novo fornecedor e vincula ao material
-    createAndLink: async ({ request, locals, params }) => {
-        if (!locals.user) return fail(401, { error: 'Não autenticado.' });
+    createAndLink: async ({ request, locals, params, route }) => {
+        guardAction(route.id, locals.user, 'edit');
 
         const id   = Number(params.id);
         const data = await request.formData();
@@ -155,8 +159,8 @@ export const actions: Actions = {
     },
 
     // Define fornecedor padrão
-    setDefault: async ({ request, locals, params }) => {
-        if (!locals.user) return fail(401, { error: 'Não autenticado.' });
+    setDefault: async ({ request, locals, params, route }) => {
+        guardAction(route.id, locals.user, 'edit');
 
         const id = Number(params.id);
         const data = await request.formData();

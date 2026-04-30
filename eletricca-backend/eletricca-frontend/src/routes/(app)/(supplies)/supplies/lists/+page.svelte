@@ -15,22 +15,27 @@
     import {
         Plus, Search, Pencil, Trash, FileText,
         ArrowUp, ArrowRight, ArrowDown, Lock,
-        Clock, CircleCheck, CircleX, ChevronLeft, ChevronRight
+        Clock, CircleCheck, CircleX, ChevronLeft, ChevronRight,
+        Tags, ClipboardCheck
     } from '@lucide/svelte';
 
     let { data }: { data: PageData } = $props();
 
-    const STATUS = {
+    const STATUS: Record<string, { label: string; cls: string }> = {
         pending:  { label: 'Pendente', cls: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100' },
+        quoting:  { label: 'Cotando',  cls: 'bg-blue-100   text-blue-800   hover:bg-blue-100'   },
+        quoted:   { label: 'Cotado',   cls: 'bg-violet-100 text-violet-800 hover:bg-violet-100' },
         approved: { label: 'Aprovado', cls: 'bg-green-100  text-green-800  hover:bg-green-100'  },
         denied:   { label: 'Recusado', cls: 'bg-red-100    text-red-800    hover:bg-red-100'    },
-    } as const;
+    };
 
     const tabs = [
-        { key: 'pending',  label: 'Pendentes',  count: data.stats.pending,  icon: Clock        },
-        { key: 'approved', label: 'Aprovados',  count: data.stats.approved, icon: CircleCheck  },
-        { key: 'denied',   label: 'Recusados',  count: data.stats.denied,   icon: CircleX      },
-    ] as const;
+        { key: 'pending',  label: 'Pendentes',  count: data.stats.pending,  icon: Clock          },
+        { key: 'quoting',  label: 'Cotando',    count: data.stats.quoting,  icon: Tags           },
+        { key: 'quoted',   label: 'Cotados',    count: data.stats.quoted,   icon: ClipboardCheck },
+        { key: 'approved', label: 'Aprovados',  count: data.stats.approved, icon: CircleCheck    },
+        { key: 'denied',   label: 'Recusados',  count: data.stats.denied,   icon: CircleX        },
+    ];
 
     function setFilter(s: string) {
         const u = new URL(page.url);
@@ -73,11 +78,14 @@
     });
 
     function fmtDate(s: string) { return new Date(s).toLocaleDateString('pt-BR'); }
-    function fmt(v: number)     { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 
     function canEdit(status: string, createdBy: number) {
         if (status !== 'pending') return false;
         return data.currentUserId === createdBy || data.canManageAll;
+    }
+
+    function canQuoteList(status: string) {
+        return data.canQuote && ['pending', 'quoting', 'quoted'].includes(status);
     }
 </script>
 
@@ -133,7 +141,7 @@
                             <Table.Head>Nome</Table.Head>
                             <Table.Head class="hidden md:table-cell">Cliente</Table.Head>
                             <Table.Head class="hidden sm:table-cell">Prioridade</Table.Head>
-                            <Table.Head class="hidden lg:table-cell text-right">Total</Table.Head>
+                            <Table.Head class="hidden lg:table-cell text-right">Valor Total</Table.Head>
                             <Table.Head>Status</Table.Head>
                             <Table.Head class="hidden lg:table-cell">Criado por</Table.Head>
                             <Table.Head class="hidden md:table-cell">Data</Table.Head>
@@ -149,7 +157,7 @@
                             </Table.Row>
                         {:else}
                             {#each data.lists as list (list.id)}
-                                {@const st = STATUS[list.list_status as keyof typeof STATUS] ?? STATUS.pending}
+                                {@const st = STATUS[list.list_status] ?? STATUS.pending}
                                 <Table.Row>
                                     <Table.Cell class="text-xs text-muted-foreground font-mono">#{list.id}</Table.Cell>
 
@@ -184,7 +192,9 @@
                                     </Table.Cell>
 
                                     <Table.Cell class="hidden lg:table-cell text-right text-sm font-medium">
-                                        {fmt(list.total_value)}
+                                        {list.total_value > 0
+                                            ? list.total_value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                                            : list.quote_count > 0 ? `${list.quote_count} cot.` : '—'}
                                     </Table.Cell>
 
                                     <Table.Cell>
@@ -202,13 +212,11 @@
                                     <Table.Cell>
                                         <div class="flex items-center justify-end gap-1">
                                             {#if canEdit(list.list_status, list.created_by)}
-                                                <!-- Editar -->
-                                                <Button variant="ghost" size="icon" class="size-8"
+                                                <Button variant="ghost" size="icon" class="size-8" title="Editar"
                                                     onclick={() => goto(`/supplies/lists/edit/${list.id}`)}>
                                                     <Pencil class="size-4" />
                                                 </Button>
 
-                                                <!-- Excluir -->
                                                 <form method="POST" action="?/delete" use:enhance={() => async ({ result, update }) => {
                                                     if (result.type === 'success') {
                                                         toast.success('Lista excluída.');
@@ -220,13 +228,21 @@
                                                 }}>
                                                     <input type="hidden" name="id" value={list.id} />
                                                     <Button type="submit" variant="ghost" size="icon"
-                                                        class="size-8 text-muted-foreground hover:text-destructive">
+                                                        class="size-8 text-muted-foreground hover:text-destructive" title="Excluir">
                                                         <Trash class="size-4" />
                                                     </Button>
                                                 </form>
-                                            {:else}
-                                                <!-- Lista finalizada — somente leitura -->
-                                                <Button variant="ghost" size="icon" class="size-8 text-muted-foreground cursor-default opacity-50" disabled title="Lista finalizada, não pode ser editada">
+                                            {/if}
+
+                                            {#if canQuoteList(list.list_status)}
+                                                <Button variant="ghost" size="icon" class="size-8 text-blue-600 hover:text-blue-700" title="Gerenciar cotações"
+                                                    onclick={() => goto(`/supplies/lists/${list.id}/quotes`)}>
+                                                    <Tags class="size-4" />
+                                                </Button>
+                                            {/if}
+
+                                            {#if !canEdit(list.list_status, list.created_by) && !canQuoteList(list.list_status)}
+                                                <Button variant="ghost" size="icon" class="size-8 text-muted-foreground cursor-default opacity-50" disabled title="Lista finalizada">
                                                     <Lock class="size-4" />
                                                 </Button>
                                             {/if}

@@ -67,12 +67,17 @@ CREATE TABLE IF NOT EXISTS client ( --show
 CREATE TABLE IF NOT EXISTS supplies_lists( --show
     id                  SERIAL PRIMARY KEY,
     list_name           VARCHAR(255) NOT NULL,
-    client_id           INT REFERENCES client(id), -- cada lista é relacionado a um cliente especifico
-    created_by          INT REFERENCES users(user_id), --criado por id_usuario
+    client_id           INT REFERENCES client(id),
+    created_by          INT REFERENCES users(user_id),
     priority            VARCHAR(30) DEFAULT 'medium' CHECK (priority IN ('medium', 'low', 'high')),
-    list_status         VARCHAR(50) DEFAULT 'pending' CHECK (list_status IN ('pending', 'approved', 'denied')), --pending approved denied
-    creation_date       TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(), -- criado
-    updated_at          TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),  -- atualizado
+    -- pending: created, waiting for quotes
+    -- quoting: User2 is gathering supplier quotes
+    -- quoted:  quotes entered, ready for User3 approval
+    -- approved/denied: User3 decision
+    list_status         VARCHAR(50) DEFAULT 'pending' CHECK (list_status IN ('pending', 'quoting', 'quoted', 'approved', 'denied')),
+    selected_quote_id   INT, -- FK set after supply_list_quotes is created
+    creation_date       TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    updated_at          TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
     description         TEXT
 );
 
@@ -80,9 +85,9 @@ CREATE TABLE IF NOT EXISTS supplies_list_items(
     id                  SERIAL PRIMARY KEY,
     list_id             INT REFERENCES supplies_lists(id) ON DELETE CASCADE,
     supply_id           INT REFERENCES supplies(id),
-    supplier_id         INT REFERENCES supplier(id),
+    supplier_id         INT REFERENCES supplier(id),   -- nullable: assigned after quoting
     quantity            INT NOT NULL CHECK (quantity > 0),
-    price               NUMERIC(12,2) NOT NULL -- preço do fornecedor
+    price               NUMERIC(12,2)                  -- nullable: filled in via quote
 )
 
 CREATE TABLE IF NOT EXISTS supplier(
@@ -94,7 +99,8 @@ CREATE TABLE IF NOT EXISTS supplier(
     supplier_telephone          VARCHAR(50),
     supplier_address            TEXT,
     description                 TEXT,
-    creation_date               TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+    creation_date               TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    pdf_parser                  VARCHAR(100)
 )
 
 CREATE TABLE IF NOT EXISTS supply_princing( --relacao materiais e fornecedores
@@ -105,25 +111,43 @@ CREATE TABLE IF NOT EXISTS supply_princing( --relacao materiais e fornecedores
     is_default          BOOLEAN,
     UNIQUE              (supply_id, supplier_id)
 )
--- traduzir para SQL:
-   Column    |            Type             | Collation | Nullable |                  Default                   
--------------+-----------------------------+-----------+----------+--------------------------------------------
- id          | integer                     |           | not null | nextval('supply_pricing_id_seq'::regclass)
- supply_id   | integer                     |           | not null | 
- supplier_id | integer                     |           | not null | 
- price       | numeric(10,2)               |           |          | 
- is_default  | boolean                     |           |          | false
- updated_at  | timestamp without time zone |           |          | now()
-Indexes:
-    "supply_pricing_pkey" PRIMARY KEY, btree (id)
-    "supply_pricing_supply_id_supplier_id_key" UNIQUE CONSTRAINT, btree (supply_id, supplier_id)
-    "unique_supply_supplier" UNIQUE CONSTRAINT, btree (supply_id, supplier_id)
-Foreign-key constraints:
-    "supply_pricing_supplier_id_fkey" FOREIGN KEY (supplier_id) REFERENCES supplier(id) ON DELETE CASCADE
-    "supply_pricing_supply_id_fkey" FOREIGN KEY (supply_id) REFERENCES supplies(id) ON DELETE CASCADE
---
 
 
+-- =============================
+-- SUPPLY LIST QUOTES
+-- =============================
+CREATE TABLE IF NOT EXISTS supply_list_quotes (
+    id          SERIAL PRIMARY KEY,
+    list_id     INT NOT NULL REFERENCES supplies_lists(id) ON DELETE CASCADE,
+    supplier_id INT NOT NULL REFERENCES supplier(id) ON DELETE RESTRICT,
+    status      VARCHAR(20) NOT NULL DEFAULT 'pending'
+                CHECK (status IN ('pending', 'selected', 'rejected')),
+    notes       TEXT,
+    created_by  INT NOT NULL REFERENCES users(user_id),
+    created_at  TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    updated_at  TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    UNIQUE (list_id, supplier_id)
+);
+
+-- Backfill the FK now that supply_list_quotes exists
+ALTER TABLE supplies_lists
+    ADD CONSTRAINT fk_selected_quote
+    FOREIGN KEY (selected_quote_id) REFERENCES supply_list_quotes(id) ON DELETE SET NULL;
+
+CREATE TABLE IF NOT EXISTS supply_list_quote_items (
+    id           SERIAL PRIMARY KEY,
+    quote_id     INT NOT NULL REFERENCES supply_list_quotes(id) ON DELETE CASCADE,
+    list_item_id INT NOT NULL REFERENCES supplies_list_items(id) ON DELETE CASCADE,
+    price        NUMERIC(12,2) NOT NULL CHECK (price >= 0),
+    UNIQUE (quote_id, list_item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_supply_list_quotes_list ON supply_list_quotes(list_id);
+CREATE INDEX IF NOT EXISTS idx_supply_list_quote_items  ON supply_list_quote_items(quote_id);
+
+-- =============================
+-- VIEWS
+-- =============================
 CREATE OR REPLACE VIEW v_supplies_list_totals AS -- não sei se esta funcionando no banco de dados
     SELECT
         list.id AS list_id,
@@ -464,12 +488,13 @@ INSERT INTO roles(name, description) VALUES
 ('Gerente','Gestão'),
 ('Usuario', 'Usuario Blank Padrão');
 
-INSERT INTO permissions (slug, description, module) VALUES 
+INSERT INTO permissions (slug, description, module) VALUES
 ('users.view', 'Visualizar lista de usuários', 'Usuários'),
 ('users.create', 'Criar novos usuários', 'Usuários'),
 ('users.edit', 'Editar usuários existentes', 'Usuários'),
 ('users.delete', 'Excluir usuários', 'Usuários'),
-('favorites.manage', 'Gerenciar favoritos globais', 'Sistema');
+('favorites.manage', 'Gerenciar favoritos globais', 'Sistema'),
+('supplies.quote', 'Gerenciar cotações de listas', 'Materiais');
 
 INSERT INTO role_permissions (role_id, permissions_id) SELECT 1, id FROM permissions;
 

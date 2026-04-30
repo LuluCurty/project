@@ -1,10 +1,11 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { pool } from '$lib/server/db';
 import type { Actions } from './$types';
+import { guardAction } from '$lib/server/auth';
 
 export const actions: Actions = {
-    default: async ({ request, locals }) => {
-        if (!locals.user) return fail(401, { error: 'Não autenticado.' });
+    default: async ({ request, locals, route }) => {
+        guardAction(route.id, locals.user, 'manage');
 
         const data = await request.formData();
 

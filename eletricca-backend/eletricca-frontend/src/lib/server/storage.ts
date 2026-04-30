@@ -15,9 +15,10 @@ export const s3 = new S3Client({
 });
 
 export const BUCKETS = {
-    forms: 'forms',
-    tasks: 'tasks',
-    users: 'users'
+    forms:   'forms',
+    tasks:   'tasks',
+    users:   'users',
+    reports: 'reports',
 } as const;
 
 export type BucketName = keyof typeof BUCKETS;
